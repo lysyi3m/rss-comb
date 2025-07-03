@@ -20,7 +20,6 @@ type FeedSettings struct {
 	Enabled         bool          `yaml:"enabled"`
 	Deduplication   bool          `yaml:"deduplication"`
 	RefreshInterval int           `yaml:"refresh_interval"` // seconds
-	CacheDuration   int           `yaml:"cache_duration"`   // seconds
 	MaxItems        int           `yaml:"max_items"`
 	Timeout         int           `yaml:"timeout"`          // seconds
 	UserAgent       string        `yaml:"user_agent"`
@@ -41,13 +40,6 @@ func (s *FeedSettings) GetRefreshInterval() time.Duration {
 	return time.Duration(s.RefreshInterval) * time.Second
 }
 
-// GetCacheDuration returns the cache duration as time.Duration
-func (s *FeedSettings) GetCacheDuration() time.Duration {
-	if s.CacheDuration <= 0 {
-		return 300 * time.Second // default 5 minutes
-	}
-	return time.Duration(s.CacheDuration) * time.Second
-}
 
 // GetTimeout returns the timeout as time.Duration
 func (s *FeedSettings) GetTimeout() time.Duration {

@@ -130,7 +130,6 @@ settings:
   enabled: true
   deduplication: true
   refresh_interval: 3600  # seconds
-  cache_duration: 300     # seconds
   max_items: 50
   timeout: 30            # seconds
   user_agent: "RSS Comb/1.0"
@@ -146,6 +145,7 @@ filters:
 - `REDIS_ADDR`
 - `FEEDS_DIR` (default: ./feeds)
 - `PORT` (default: 8080)
+- `CACHE_DURATION` (default: 300 seconds - global cache duration for all feeds)
 
 ## Testing
 

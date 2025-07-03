@@ -21,7 +21,6 @@ settings:
   enabled: true
   deduplication: true
   refresh_interval: 1800
-  cache_duration: 600
   max_items: 25
   timeout: 15
   user_agent: "Test Agent"
@@ -111,9 +110,6 @@ settings:
 	// Validate default values
 	if config.Settings.GetRefreshInterval() != 3600*time.Second {
 		t.Errorf("Expected default refresh interval 3600s, got %v", config.Settings.GetRefreshInterval())
-	}
-	if config.Settings.GetCacheDuration() != 300*time.Second {
-		t.Errorf("Expected default cache duration 300s, got %v", config.Settings.GetCacheDuration())
 	}
 	if config.Settings.MaxItems != 100 {
 		t.Errorf("Expected default max items 100, got %d", config.Settings.MaxItems)

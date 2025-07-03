@@ -80,9 +80,6 @@ func (l *Loader) setDefaults(config *FeedConfig) {
 	if config.Settings.RefreshInterval == 0 {
 		config.Settings.RefreshInterval = 3600 // seconds
 	}
-	if config.Settings.CacheDuration == 0 {
-		config.Settings.CacheDuration = 300 // seconds
-	}
 	if config.Settings.MaxItems == 0 {
 		config.Settings.MaxItems = 100
 	}
@@ -107,9 +104,6 @@ func (l *Loader) validate(config *FeedConfig) error {
 	// Validate settings
 	if config.Settings.RefreshInterval < 0 {
 		return fmt.Errorf("refresh interval must be non-negative")
-	}
-	if config.Settings.CacheDuration < 0 {
-		return fmt.Errorf("cache duration must be non-negative")
 	}
 	if config.Settings.MaxItems < 0 {
 		return fmt.Errorf("max items must be non-negative")

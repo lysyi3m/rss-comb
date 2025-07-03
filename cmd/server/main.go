@@ -87,7 +87,8 @@ func main() {
 
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
-	apiHandler := api.NewHandler(feedRepo, itemRepo, redisCache, configs)
+	cacheDuration := time.Duration(envConfig.CacheDuration) * time.Second
+	apiHandler := api.NewHandler(feedRepo, itemRepo, redisCache, configs, cacheDuration)
 	server := api.NewServer(apiHandler)
 
 	// Create HTTP server with timeouts
@@ -161,6 +162,7 @@ type EnvironmentConfig struct {
 	Port              string
 	WorkerCount       int
 	SchedulerInterval int // seconds
+	CacheDuration     int // seconds
 }
 
 // loadEnvironmentConfig loads configuration from environment variables
@@ -176,6 +178,7 @@ func loadEnvironmentConfig() *EnvironmentConfig {
 		Port:              getEnv("PORT", "8080"),
 		WorkerCount:       getEnvInt("WORKER_COUNT", 5),
 		SchedulerInterval: getEnvInt("SCHEDULER_INTERVAL", 30),
+		CacheDuration:     getEnvInt("CACHE_DURATION", 300),
 	}
 
 	// Validate critical configuration
