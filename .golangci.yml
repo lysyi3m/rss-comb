@@ -1,0 +1,153 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters-settings:
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/lysyi3m/rss-comb)
+  
+  gofmt:
+    simplify: true
+  
+  goimports:
+    local-prefixes: github.com/lysyi3m/rss-comb
+  
+  govet:
+    check-shadowing: true
+    enable-all: true
+  
+  misspell:
+    locale: US
+  
+  revive:
+    rules:
+      - name: exported
+        disabled: true
+  
+  staticcheck:
+    checks: ["all"]
+  
+  unused:
+    check-exported: false
+  
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+      - opinionated
+    disabled-checks:
+      - ifElseChain
+      - unnamedResult
+
+linters:
+  enable:
+    # Enabled by default
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    
+    # Additional valuable linters
+    - bodyclose
+    - contextcheck
+    - cyclop
+    - dupl
+    - durationcheck
+    - errname
+    - errorlint
+    - exportloopref
+    - forcetypeassert
+    - gci
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - gomnd
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - grouper
+    - importas
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - prealloc
+    - predeclared
+    - promlinter
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - tenv
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+
+  disable:
+    - exhaustruct # Too noisy for this project
+    - gochecknoglobals # We have some necessary globals
+    - godox # We want to allow TODO comments
+    - lll # Line length is handled by gofumpt
+    - nlreturn # Too opinionated
+    - paralleltest # Not needed for all tests
+    - varnamelen # Too restrictive
+    - wrapcheck # Too noisy
+    - exhaustive # Too restrictive for enums
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - goconst
+        - gomnd
+    
+    # Exclude known false positives
+    - text: "Use of weak random number generator"
+      linters:
+        - gosec
+    
+    # Exclude shadow warning for err variables
+    - text: "shadow: declaration of \"err\""
+      linters:
+        - govet
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
