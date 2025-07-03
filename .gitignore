@@ -1,0 +1,37 @@
+# Build artifacts
+bin/
+dist/
+*.exe
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage.out
+
+# Temporary files
+tmp/
+temp/
+
+# Docker volumes
+data/
+
+# Make sure CLAUDE.md is never ignored
+!CLAUDE.md
