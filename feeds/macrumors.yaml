@@ -12,22 +12,9 @@ settings:
   user_agent: "RSS-Bridge/1.0"
 
 filters:
-  - field: "title"
-    includes:
-      - "Apple"
-      - "iPhone"
-      - "iPad"
-      - "Mac"
-      - "iOS"
-      - "macOS"
-      - "Safari"
-      - "technology"
-      - "programming"
-      - "watchOS"
-      - "tvOS"
+  - field: "categories"
     excludes:
-      - "advertisement"
-      - "spam"
-  - field: "description"
-    excludes:
-      - "click here"
+      - "Nintendo"
+      - "Deals"
+      - "TikTok"
+      - "Threads"
