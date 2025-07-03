@@ -1,0 +1,166 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+func TestLoadValidConfig(t *testing.T) {
+	// Create temp directory
+	tempDir := t.TempDir()
+
+	// Create test YAML file
+	content := `
+feed:
+  url: "https://example.com/feed.xml"
+  name: "Test Feed"
+
+settings:
+  enabled: true
+  deduplication: true
+  refresh_interval: 1800
+  cache_duration: 600
+  max_items: 25
+  timeout: 15
+  user_agent: "Test Agent"
+
+filters:
+  - field: "title"
+    includes:
+      - "technology"
+    excludes:
+      - "spam"
+`
+
+	err := os.WriteFile(filepath.Join(tempDir, "test.yaml"), []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Load configuration
+	loader := NewLoader(tempDir)
+	configs, err := loader.LoadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(configs) != 1 {
+		t.Errorf("Expected 1 config, got %d", len(configs))
+	}
+
+	// Get the config
+	var config *FeedConfig
+	for _, cfg := range configs {
+		config = cfg
+		break
+	}
+
+	// Validate loaded values
+	if config.Feed.URL != "https://example.com/feed.xml" {
+		t.Errorf("Expected URL 'https://example.com/feed.xml', got '%s'", config.Feed.URL)
+	}
+	if config.Feed.Name != "Test Feed" {
+		t.Errorf("Expected name 'Test Feed', got '%s'", config.Feed.Name)
+	}
+	if config.Settings.GetRefreshInterval() != 1800*time.Second {
+		t.Errorf("Expected refresh interval 1800s, got %v", config.Settings.GetRefreshInterval())
+	}
+	if config.Settings.MaxItems != 25 {
+		t.Errorf("Expected max items 25, got %d", config.Settings.MaxItems)
+	}
+	if len(config.Filters) != 1 {
+		t.Errorf("Expected 1 filter, got %d", len(config.Filters))
+	}
+}
+
+func TestLoadConfigWithDefaults(t *testing.T) {
+	// Create temp directory
+	tempDir := t.TempDir()
+
+	// Create minimal test YAML file
+	content := `
+feed:
+  url: "https://example.com/feed.xml"
+  name: "Test Feed"
+
+settings:
+  enabled: true
+`
+
+	err := os.WriteFile(filepath.Join(tempDir, "test.yaml"), []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Load configuration
+	loader := NewLoader(tempDir)
+	configs, err := loader.LoadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get the config
+	var config *FeedConfig
+	for _, cfg := range configs {
+		config = cfg
+		break
+	}
+
+	// Validate default values
+	if config.Settings.GetRefreshInterval() != 3600*time.Second {
+		t.Errorf("Expected default refresh interval 3600s, got %v", config.Settings.GetRefreshInterval())
+	}
+	if config.Settings.GetCacheDuration() != 300*time.Second {
+		t.Errorf("Expected default cache duration 300s, got %v", config.Settings.GetCacheDuration())
+	}
+	if config.Settings.MaxItems != 100 {
+		t.Errorf("Expected default max items 100, got %d", config.Settings.MaxItems)
+	}
+	if config.Settings.UserAgent != "RSS-Bridge/1.0" {
+		t.Errorf("Expected default user agent 'RSS-Bridge/1.0', got '%s'", config.Settings.UserAgent)
+	}
+}
+
+func TestInvalidConfig(t *testing.T) {
+	// Create temp directory
+	tempDir := t.TempDir()
+
+	// Create invalid YAML file (missing feed URL)
+	content := `
+feed:
+  name: "Test Feed"
+
+settings:
+  enabled: true
+`
+
+	err := os.WriteFile(filepath.Join(tempDir, "invalid.yaml"), []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Load configuration
+	loader := NewLoader(tempDir)
+	_, err = loader.LoadAll()
+	if err == nil {
+		t.Error("Expected error for invalid configuration")
+	}
+}
+
+func TestEmptyDirectory(t *testing.T) {
+	// Create temp directory
+	tempDir := t.TempDir()
+
+	// Load from empty directory
+	loader := NewLoader(tempDir)
+	configs, err := loader.LoadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(configs) != 0 {
+		t.Errorf("Expected 0 configs from empty directory, got %d", len(configs))
+	}
+}
