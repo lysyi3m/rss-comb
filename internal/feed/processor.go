@@ -84,7 +84,7 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 			break
 		}
 
-		// Check for duplicates
+		// Check for duplicates BEFORE storing
 		if feedConfig.Settings.Deduplication {
 			isDup, dupID, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID, false)
 			if err != nil {
@@ -94,6 +94,8 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 				item.DuplicateOf = dupID
 				duplicateCount++
 				log.Printf("Item %d is duplicate of %s", i, *dupID)
+				// Skip storing duplicates
+				continue
 			}
 		}
 
@@ -108,7 +110,7 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 			}
 		}
 
-		// Store item
+		// Store item (only if not duplicate)
 		if err := p.itemRepo.StoreItem(feedID, item); err != nil {
 			log.Printf("Warning: failed to store item %d: %v", i, err)
 			continue
