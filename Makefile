@@ -17,7 +17,7 @@ run: dev-up
 	go run cmd/server/main.go
 
 migrate:
-	$(shell go env GOPATH)/bin/migrate -path migrations -database "postgres://rss_user:rss_password@localhost:5432/rss_bridge?sslmode=disable" up
+	$(shell go env GOPATH)/bin/migrate -path migrations -database "postgres://rss_user:rss_password@localhost:5432/rss_comb?sslmode=disable" up
 
 # Docker commands
 docker-build:

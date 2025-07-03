@@ -13,7 +13,7 @@ services:
       - DB_PORT=5432
       - DB_USER=rss_user
       - DB_PASSWORD=${DB_PASSWORD:-rss_password}
-      - DB_NAME=rss_bridge
+      - DB_NAME=rss_comb
       - REDIS_ADDR=redis:6379
       - FEEDS_DIR=/app/feeds
       - WORKER_COUNT=${WORKER_COUNT:-5}
@@ -38,7 +38,7 @@ services:
     image: postgres:15-alpine
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=rss_bridge
+      - POSTGRES_DB=rss_comb
       - POSTGRES_USER=rss_user
       - POSTGRES_PASSWORD=${DB_PASSWORD:-rss_password}
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
@@ -46,7 +46,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - postgres_logs:/var/log/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rss_user -d rss_bridge"]
+      test: ["CMD-SHELL", "pg_isready -U rss_user -d rss_comb"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -93,7 +93,7 @@ services:
       - DB_PORT=5432
       - DB_USER=rss_user
       - DB_PASSWORD=${DB_PASSWORD:-rss_password}
-      - DB_NAME=rss_bridge
+      - DB_NAME=rss_comb
     command: >
       sh -c "
         echo 'Waiting for database to be ready...' &&
@@ -102,7 +102,7 @@ services:
           sleep 2
         done &&
         echo 'Database is ready, running migrations...' &&
-        /go/bin/migrate -path ./migrations -database 'postgres://rss_user:${DB_PASSWORD:-rss_password}@db:5432/rss_bridge?sslmode=disable' up &&
+        /go/bin/migrate -path ./migrations -database 'postgres://rss_user:${DB_PASSWORD:-rss_password}@db:5432/rss_comb?sslmode=disable' up &&
         echo 'Migrations completed successfully'
       "
     networks:

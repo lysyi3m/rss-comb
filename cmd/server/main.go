@@ -170,7 +170,7 @@ func loadEnvironmentConfig() *EnvironmentConfig {
 		DBPort:            getEnv("DB_PORT", "5432"),
 		DBUser:            getEnv("DB_USER", "rss_user"),
 		DBPassword:        getEnv("DB_PASSWORD", "rss_password"),
-		DBName:            getEnv("DB_NAME", "rss_bridge"),
+		DBName:            getEnv("DB_NAME", "rss_comb"),
 		RedisAddr:         getEnv("REDIS_ADDR", "localhost:6379"),
 		FeedsDir:          getEnv("FEEDS_DIR", "./feeds"),
 		Port:              getEnv("PORT", "8080"),
