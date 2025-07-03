@@ -164,10 +164,8 @@ CREATE TABLE feed_items (
     author_name TEXT,
     author_email TEXT,
     categories TEXT[],
-    is_duplicate BOOLEAN DEFAULT false,
     is_filtered BOOLEAN DEFAULT false,
     filter_reason TEXT,
-    duplicate_of UUID,
     content_hash TEXT NOT NULL,
     raw_data JSONB,
     created_at TIMESTAMP DEFAULT NOW(),
@@ -176,7 +174,7 @@ CREATE TABLE feed_items (
 
 CREATE INDEX idx_content_hash ON feed_items(content_hash);
 CREATE INDEX idx_feed_items_visible ON feed_items(feed_id, published_date DESC)
-    WHERE is_duplicate = false AND is_filtered = false;
+    WHERE is_filtered = false;
 CREATE INDEX idx_feeds_next_fetch ON feeds(next_fetch) WHERE is_active = true;
 
 -- DOWN Migration
@@ -184,7 +182,20 @@ DROP TABLE IF EXISTS feed_items;
 DROP TABLE IF EXISTS feeds;
 ```
 
-2. **Database Connection Package** (`internal/database/connection.go`)
+2. **Remove Duplicate Fields Migration** (`migrations/002_remove_duplicate_fields.up.sql`)
+```sql
+-- Remove duplicate-related columns since we no longer store duplicates
+ALTER TABLE feed_items DROP COLUMN IF EXISTS is_duplicate;
+ALTER TABLE feed_items DROP COLUMN IF EXISTS duplicate_of;
+
+-- Remove the index that used is_duplicate
+DROP INDEX IF EXISTS idx_feed_items_visible;
+
+-- Create new index for visible items (non-filtered only)
+CREATE INDEX idx_feed_items_visible ON feed_items(feed_id, published_date DESC) WHERE is_filtered = false;
+```
+
+3. **Database Connection Package** (`internal/database/connection.go`)
 ```go
 package database
 
@@ -455,10 +466,8 @@ type NormalizedItem struct {
     Categories    []string
 
     ContentHash   string
-    IsDuplicate   bool
     IsFiltered    bool
     FilterReason  string
-    DuplicateOf   *string
 
     RawData       map[string]interface{}
 }
@@ -626,10 +635,8 @@ type Item struct {
     AuthorName    string
     AuthorEmail   string
     Categories    []string
-    IsDuplicate   bool
     IsFiltered    bool
     FilterReason  string
-    DuplicateOf   *string
     ContentHash   string
     RawData       map[string]interface{}
     CreatedAt     time.Time
@@ -787,14 +794,21 @@ func (r *ItemRepository) StoreItem(feedID string, item NormalizedItem) error {
         INSERT INTO feed_items (
             feed_id, guid, link, title, description, content,
             published_date, updated_date, author_name, author_email,
-            categories, is_duplicate, is_filtered, filter_reason,
-            duplicate_of, content_hash, raw_data
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-        ON CONFLICT (feed_id, guid) DO NOTHING
+            categories, is_filtered, filter_reason, content_hash, raw_data
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ON CONFLICT (feed_id, guid) DO UPDATE SET
+            title = EXCLUDED.title,
+            description = EXCLUDED.description,
+            content = EXCLUDED.content,
+            updated_date = EXCLUDED.updated_date,
+            is_filtered = EXCLUDED.is_filtered,
+            filter_reason = EXCLUDED.filter_reason,
+            content_hash = EXCLUDED.content_hash,
+            raw_data = EXCLUDED.raw_data
     `, feedID, item.GUID, item.Link, item.Title, item.Description, item.Content,
         item.PublishedDate, item.UpdatedDate, item.AuthorName, item.AuthorEmail,
-        pq.Array(item.Categories), item.IsDuplicate, item.IsFiltered, item.FilterReason,
-        item.DuplicateOf, item.ContentHash, rawDataJSON)
+        pq.Array(item.Categories), item.IsFiltered, item.FilterReason,
+        item.ContentHash, rawDataJSON)
 
     return err
 }
@@ -805,7 +819,6 @@ func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, erro
                published_date, author_name, categories
         FROM feed_items
         WHERE feed_id = $1
-          AND is_duplicate = false
           AND is_filtered = false
         ORDER BY published_date DESC
         LIMIT $2
@@ -897,32 +910,31 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
     }
 
     // Process items
-    processedCount := 0
+    processedCount, skippedCount, filteredCount := 0, 0, 0
     for _, item := range items {
-        // Check duplicates
+        // Check for duplicates BEFORE storing (skip duplicates entirely)
         if config.Settings.Deduplication {
-            isDup, dupID, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID, false)
+            isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID, false)
             if err != nil {
                 return fmt.Errorf("failed to check duplicate: %w", err)
             }
             if isDup {
-                item.IsDuplicate = true
-                item.DuplicateOf = dupID
+                skippedCount++
+                continue // Skip storing duplicates
             }
         }
 
         // Apply filters
-        if !item.IsDuplicate {
-            for _, filter := range config.Filters {
-                if !p.matchFilter(item, filter) {
-                    item.IsFiltered = true
-                    item.FilterReason = fmt.Sprintf("Excluded by %s filter", filter.Field)
-                    break
-                }
+        for _, filter := range config.Filters {
+            if !p.matchFilter(item, filter) {
+                item.IsFiltered = true
+                item.FilterReason = fmt.Sprintf("Excluded by %s filter", filter.Field)
+                filteredCount++
+                break
             }
         }
 
-        // Store item
+        // Store item (duplicates already skipped)
         if err := p.itemRepo.StoreItem(feedID, item); err != nil {
             return fmt.Errorf("failed to store item: %w", err)
         }
@@ -1939,7 +1951,7 @@ Application logs should include:
    - Feed processing duration
    - Items processed per feed
    - Filter effectiveness
-   - Deduplication rate
+   - Duplicate detection rate (items skipped before storage)
 
 2. **System Metrics**
    - Database connection pool
@@ -1981,9 +1993,10 @@ Application logs should include:
    - Check scheduler logs for errors
 
 2. **Items missing**
-   - Check filter configuration
-   - Verify deduplication settings
-   - Look for filtered/duplicate flags in database
+   - Check filter configuration for overly restrictive rules
+   - Verify deduplication settings (duplicates are skipped, not stored)
+   - Look for filtered flags in database
+   - Check application logs for "skipped duplicates" messages
 
 3. **Cache not working**
    - Verify Redis connection
@@ -2000,7 +2013,7 @@ SELECT * FROM feeds WHERE feed_url = 'URL';
 SELECT
     COUNT(*) as total,
     SUM(CASE WHEN is_filtered THEN 1 ELSE 0 END) as filtered,
-    SUM(CASE WHEN is_duplicate THEN 1 ELSE 0 END) as duplicates
+    COUNT(*) - SUM(CASE WHEN is_filtered THEN 1 ELSE 0 END) as visible
 FROM feed_items WHERE feed_id = 'FEED_ID';
 
 -- Recent processing activity
