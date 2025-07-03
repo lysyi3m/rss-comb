@@ -139,8 +139,8 @@ func (r *ItemRepository) GetItemStats(feedID string) (total, visible, duplicates
 	err = r.db.QueryRow(`
 		SELECT 
 			COUNT(*) as total,
-			SUM(CASE WHEN is_duplicate = false AND is_filtered = false THEN 1 ELSE 0 END) as visible,
-			SUM(CASE WHEN is_duplicate = true THEN 1 ELSE 0 END) as duplicates,
+			SUM(CASE WHEN is_filtered = false THEN 1 ELSE 0 END) as visible,
+			0 as duplicates,
 			SUM(CASE WHEN is_filtered = true THEN 1 ELSE 0 END) as filtered
 		FROM feed_items 
 		WHERE feed_id = $1
