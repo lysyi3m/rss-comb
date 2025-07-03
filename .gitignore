@@ -33,5 +33,8 @@ temp/
 # Docker volumes
 data/
 
+# Product specifications (keep private)
+product-specification.md
+
 # Make sure CLAUDE.md is never ignored
 !CLAUDE.md
