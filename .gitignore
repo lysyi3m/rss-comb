@@ -36,5 +36,9 @@ data/
 # Product specifications (keep private)
 product-specification.md
 
+# User-specific feed configurations (keep only example)
+feeds/*
+!feeds/example.yaml
+
 # Make sure CLAUDE.md is never ignored
 !CLAUDE.md
