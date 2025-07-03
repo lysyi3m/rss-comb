@@ -90,7 +90,7 @@ func (l *Loader) setDefaults(config *FeedConfig) {
 		config.Settings.Timeout = 30 // seconds
 	}
 	if config.Settings.UserAgent == "" {
-		config.Settings.UserAgent = "RSS-Bridge/1.0"
+		config.Settings.UserAgent = "RSS Comb/1.0"
 	}
 }
 

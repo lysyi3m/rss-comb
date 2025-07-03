@@ -52,7 +52,7 @@ docker build -f docker/Dockerfile -t rss-comb:latest .
 #### Database Operations
 ```bash
 # Run migrations
-migrate -path migrations -database "postgres://rss_user:rss_password@localhost:5432/rss_bridge?sslmode=disable" up
+migrate -path migrations -database "postgres://rss_user:rss_password@localhost:5432/rss_comb?sslmode=disable" up
 
 # Create new migration
 migrate create -ext sql -dir migrations -seq migration_name
@@ -133,7 +133,7 @@ settings:
   cache_duration: 300     # seconds
   max_items: 50
   timeout: 30            # seconds
-  user_agent: "RSS-Bridge/1.0"
+  user_agent: "RSS Comb/1.0"
 
 filters:
   - field: "title"

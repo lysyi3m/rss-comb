@@ -43,7 +43,7 @@ settings:
   cache_duration: 300     # seconds
   max_items: 50
   timeout: 30            # seconds
-  user_agent: "RSS-Bridge/1.0"
+  user_agent: "RSS Comb/1.0"
 
 filters:
   - field: "title"

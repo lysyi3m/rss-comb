@@ -118,8 +118,8 @@ settings:
 	if config.Settings.MaxItems != 100 {
 		t.Errorf("Expected default max items 100, got %d", config.Settings.MaxItems)
 	}
-	if config.Settings.UserAgent != "RSS-Bridge/1.0" {
-		t.Errorf("Expected default user agent 'RSS-Bridge/1.0', got '%s'", config.Settings.UserAgent)
+	if config.Settings.UserAgent != "RSS Comb/1.0" {
+		t.Errorf("Expected default user agent 'RSS Comb/1.0', got '%s'", config.Settings.UserAgent)
 	}
 }
 
