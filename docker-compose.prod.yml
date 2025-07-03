@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=rss_user
+      - DB_PASSWORD=${DB_PASSWORD:-rss_password}
+      - DB_NAME=rss_bridge
+      - REDIS_ADDR=redis:6379
+      - FEEDS_DIR=/app/feeds
+      - WORKER_COUNT=${WORKER_COUNT:-5}
+      - SCHEDULER_INTERVAL=${SCHEDULER_INTERVAL:-30}
+      - GIN_MODE=release
+    volumes:
+      - ./feeds:/app/feeds:ro
+      - app_logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - rss-comb-network
+
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=rss_bridge
+      - POSTGRES_USER=rss_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-rss_password}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_logs:/var/log/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rss_user -d rss_bridge"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - rss-comb-network
+    ports:
+      - "127.0.0.1:5432:5432" # Only bind to localhost for security
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server 
+      --appendonly yes 
+      --maxmemory 256mb 
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+      - redis_logs:/var/log/redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - rss-comb-network
+    ports:
+      - "127.0.0.1:6379:6379" # Only bind to localhost for security
+
+  # Optional: Database migration runner
+  migrations:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=rss_user
+      - DB_PASSWORD=${DB_PASSWORD:-rss_password}
+      - DB_NAME=rss_bridge
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        until nc -z db 5432; do
+          echo 'Database not ready, waiting...'
+          sleep 2
+        done &&
+        echo 'Database is ready, running migrations...' &&
+        /go/bin/migrate -path ./migrations -database 'postgres://rss_user:${DB_PASSWORD:-rss_password}@db:5432/rss_bridge?sslmode=disable' up &&
+        echo 'Migrations completed successfully'
+      "
+    networks:
+      - rss-comb-network
+    restart: "no"
+
+networks:
+  rss-comb-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_logs:
+    driver: local
+  postgres_logs:
+    driver: local
+  redis_logs:
+    driver: local
