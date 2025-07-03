@@ -101,7 +101,9 @@ services:
           echo 'Database not ready, waiting...'
           sleep 2
         done &&
-        echo 'Database is ready, running migrations...' &&
+        echo 'Database port is open, waiting for PostgreSQL to be ready...' &&
+        sleep 10 &&
+        echo 'Running migrations...' &&
         /usr/local/bin/migrate -path ./migrations -database 'postgres://rss_user:${DB_PASSWORD:-rss_password}@db:5432/rss_comb?sslmode=disable' up &&
         echo 'Migrations completed successfully'
       "
