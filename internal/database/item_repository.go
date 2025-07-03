@@ -58,24 +58,21 @@ func (r *ItemRepository) StoreItem(feedID string, item parser.NormalizedItem) er
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,
 			published_date, updated_date, author_name, author_email,
-			categories, is_duplicate, is_filtered, filter_reason,
-			duplicate_of, content_hash, raw_data
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+			categories, is_filtered, filter_reason, content_hash, raw_data
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
 			content = EXCLUDED.content,
 			updated_date = EXCLUDED.updated_date,
-			is_duplicate = EXCLUDED.is_duplicate,
 			is_filtered = EXCLUDED.is_filtered,
 			filter_reason = EXCLUDED.filter_reason,
-			duplicate_of = EXCLUDED.duplicate_of,
 			content_hash = EXCLUDED.content_hash,
 			raw_data = EXCLUDED.raw_data
 	`, feedID, item.GUID, item.Link, item.Title, item.Description, item.Content,
 		item.PublishedDate, item.UpdatedDate, item.AuthorName, item.AuthorEmail,
-		pq.Array(item.Categories), item.IsDuplicate, item.IsFiltered, item.FilterReason,
-		item.DuplicateOf, item.ContentHash, rawDataJSON)
+		pq.Array(item.Categories), item.IsFiltered, item.FilterReason,
+		item.ContentHash, rawDataJSON)
 
 	if err != nil {
 		return fmt.Errorf("failed to store item: %w", err)
@@ -84,18 +81,17 @@ func (r *ItemRepository) StoreItem(feedID string, item parser.NormalizedItem) er
 	return nil
 }
 
-// GetVisibleItems returns non-duplicate, non-filtered items for a feed
+// GetVisibleItems returns non-filtered items for a feed
 func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
 		       COALESCE(description, ''), COALESCE(content, ''),
 		       published_date, updated_date, COALESCE(author_name, ''), 
 		       COALESCE(author_email, ''), COALESCE(categories, '{}'),
-		       is_duplicate, is_filtered, COALESCE(filter_reason, ''),
-		       duplicate_of, content_hash, created_at
+		       is_filtered, COALESCE(filter_reason, ''),
+		       content_hash, created_at
 		FROM feed_items
 		WHERE feed_id = $1
-		  AND is_duplicate = false
 		  AND is_filtered = false
 		ORDER BY COALESCE(published_date, created_at) DESC
 		LIMIT $2
@@ -112,8 +108,8 @@ func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, erro
 			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
 			&item.Description, &item.Content, &item.PublishedDate, &item.UpdatedDate,
 			&item.AuthorName, &item.AuthorEmail, pq.Array(&item.Categories),
-			&item.IsDuplicate, &item.IsFiltered, &item.FilterReason,
-			&item.DuplicateOf, &item.ContentHash, &item.CreatedAt,
+			&item.IsFiltered, &item.FilterReason,
+			&item.ContentHash, &item.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan item row: %w", err)

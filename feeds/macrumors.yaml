@@ -1,0 +1,33 @@
+feed:
+  url: "http://feeds.macrumors.com/MacRumors-All"
+  name: "MacRumors: Mac News and Rumors - All Stories"
+
+settings:
+  enabled: true
+  deduplication: true
+  refresh_interval: 3600  # 1 hour
+  cache_duration: 10     # seconds
+  max_items: 50
+  timeout: 30             # seconds
+  user_agent: "RSS-Bridge/1.0"
+
+filters:
+  - field: "title"
+    includes:
+      - "Apple"
+      - "iPhone"
+      - "iPad"
+      - "Mac"
+      - "iOS"
+      - "macOS"
+      - "Safari"
+      - "technology"
+      - "programming"
+      - "watchOS"
+      - "tvOS"
+    excludes:
+      - "advertisement"
+      - "spam"
+  - field: "description"
+    excludes:
+      - "click here"

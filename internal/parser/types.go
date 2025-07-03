@@ -26,10 +26,8 @@ type NormalizedItem struct {
 	Categories    []string
 
 	ContentHash   string
-	IsDuplicate   bool
 	IsFiltered    bool
 	FilterReason  string
-	DuplicateOf   *string
 
 	RawData       map[string]interface{}
 }

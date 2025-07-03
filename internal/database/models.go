@@ -33,10 +33,8 @@ type Item struct {
 	AuthorName    string
 	AuthorEmail   string
 	Categories    []string
-	IsDuplicate   bool
 	IsFiltered    bool
 	FilterReason  string
-	DuplicateOf   *string
 	ContentHash   string
 	RawData       map[string]interface{}
 	CreatedAt     time.Time

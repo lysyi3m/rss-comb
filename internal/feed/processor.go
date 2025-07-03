@@ -76,7 +76,7 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 	}
 
 	// Process items
-	processedCount, duplicateCount, filteredCount := 0, 0, 0
+	processedCount, skippedCount, filteredCount := 0, 0, 0
 	for i, item := range items {
 		// Stop if we've reached the max items limit
 		if processedCount >= feedConfig.Settings.MaxItems {
@@ -84,33 +84,29 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 			break
 		}
 
-		// Check for duplicates BEFORE storing
+		// Check for duplicates BEFORE storing (skip duplicates entirely)
 		if feedConfig.Settings.Deduplication {
-			isDup, dupID, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID, false)
+			isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID, false)
 			if err != nil {
 				log.Printf("Warning: failed to check duplicate for item %d: %v", i, err)
 			} else if isDup {
-				item.IsDuplicate = true
-				item.DuplicateOf = dupID
-				duplicateCount++
-				log.Printf("Item %d is duplicate of %s", i, *dupID)
+				skippedCount++
+				log.Printf("Item %d is duplicate, skipping", i)
 				// Skip storing duplicates
 				continue
 			}
 		}
 
-		// Apply filters (only to non-duplicates)
-		if !item.IsDuplicate {
-			filtered, reason := p.applyFilters(item, feedConfig.Filters)
-			if filtered {
-				item.IsFiltered = true
-				item.FilterReason = reason
-				filteredCount++
-				log.Printf("Item %d filtered: %s", i, reason)
-			}
+		// Apply filters
+		filtered, reason := p.applyFilters(item, feedConfig.Filters)
+		if filtered {
+			item.IsFiltered = true
+			item.FilterReason = reason
+			filteredCount++
+			log.Printf("Item %d filtered: %s", i, reason)
 		}
 
-		// Store item (only if not duplicate)
+		// Store item (duplicates already skipped)
 		if err := p.itemRepo.StoreItem(feedID, item); err != nil {
 			log.Printf("Warning: failed to store item %d: %v", i, err)
 			continue
@@ -126,9 +122,9 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 	}
 
 	duration := time.Since(startTime)
-	log.Printf("Processed feed %s: %d items (%d new, %d duplicates, %d filtered) in %v",
-		feedConfig.Feed.Name, len(items), processedCount-duplicateCount-filteredCount,
-		duplicateCount, filteredCount, duration)
+	newItems := processedCount - filteredCount
+	log.Printf("Processed feed %s: %d items (%d new, %d skipped duplicates, %d filtered) in %v",
+		feedConfig.Feed.Name, len(items), newItems, skippedCount, filteredCount, duration)
 
 	return nil
 }
