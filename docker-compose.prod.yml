@@ -102,7 +102,7 @@ services:
           sleep 2
         done &&
         echo 'Database is ready, running migrations...' &&
-        /go/bin/migrate -path ./migrations -database 'postgres://rss_user:${DB_PASSWORD:-rss_password}@db:5432/rss_comb?sslmode=disable' up &&
+        /usr/local/bin/migrate -path ./migrations -database 'postgres://rss_user:${DB_PASSWORD:-rss_password}@db:5432/rss_comb?sslmode=disable' up &&
         echo 'Migrations completed successfully'
       "
     networks:

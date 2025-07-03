@@ -29,8 +29,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS requests, tzdata for timezone support, and wget for health checks
-RUN apk --no-cache add ca-certificates tzdata wget
+# Install ca-certificates for HTTPS requests, tzdata for timezone support, wget for health checks, and netcat for database checks
+RUN apk --no-cache add ca-certificates tzdata wget netcat-openbsd
 
 # Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
