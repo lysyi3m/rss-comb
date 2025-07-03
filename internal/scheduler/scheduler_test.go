@@ -25,7 +25,7 @@ func (m *MockFeedRepository) UpsertFeed(configFile, feedURL, feedName string) (s
 	return "test-id", nil
 }
 
-func (m *MockFeedRepository) UpdateFeedMetadata(feedID string, iconURL string) error {
+func (m *MockFeedRepository) UpdateFeedMetadata(feedID string, iconURL string, language string) error {
 	return nil
 }
 

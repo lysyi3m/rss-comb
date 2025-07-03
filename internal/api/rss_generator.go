@@ -42,7 +42,10 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 	
 	g.writeElement(&buf, "lastBuildDate", time.Now().Format(time.RFC1123Z), 4)
 	g.writeElement(&buf, "generator", "RSS-Comb/1.0", 4)
-	g.writeElement(&buf, "language", "en-us", 4)
+	// Language (only include if available)
+	if feed.Language != "" {
+		g.writeElement(&buf, "language", feed.Language, 4)
+	}
 
 	// Feed icon if available
 	if feed.IconURL != "" {
@@ -166,7 +169,6 @@ func (g *RSSGenerator) GenerateEmpty(feedName, feedURL string) string {
     <description>Feed is being processed. Please check back later.</description>
     <lastBuildDate>%s</lastBuildDate>
     <generator>RSS-Comb/1.0</generator>
-    <language>en-us</language>
   </channel>
 </rss>`, 
 		html.EscapeString(feedName), 
@@ -191,7 +193,6 @@ func (g *RSSGenerator) GenerateError(feedName, feedURL, errorMsg string) string 
     <description>Error processing feed: %s</description>
     <lastBuildDate>%s</lastBuildDate>
     <generator>RSS-Comb/1.0</generator>
-    <language>en-us</language>
     <item>
       <title>Feed Processing Error</title>
       <description>%s</description>

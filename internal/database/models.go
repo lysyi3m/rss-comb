@@ -11,6 +11,7 @@ type Feed struct {
 	URL         string
 	Name        string
 	IconURL     string
+	Language    string
 	LastFetched *time.Time
 	LastSuccess *time.Time
 	NextFetch   *time.Time
