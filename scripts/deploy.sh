@@ -58,7 +58,7 @@ docker-compose -f docker-compose.prod.yml down --remove-orphans
 
 # Pull latest base images
 print_status "Pulling latest base images..."
-docker-compose -f docker-compose.prod.yml pull db redis
+docker-compose -f docker-compose.prod.yml pull db
 
 # Start new containers
 print_status "Starting containers..."

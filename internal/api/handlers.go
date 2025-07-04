@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lysyi3m/rss-comb/internal/config"
 	"github.com/lysyi3m/rss-comb/internal/database"
+	"github.com/lysyi3m/rss-comb/internal/feed"
 )
 
 // Handler handles HTTP requests for the RSS API
@@ -17,16 +18,18 @@ type Handler struct {
 	itemRepo  *database.ItemRepository
 	generator *RSSGenerator
 	configs   map[string]*config.FeedConfig
+	processor feed.FeedProcessor
 }
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository,
-	configs map[string]*config.FeedConfig) *Handler {
+	configs map[string]*config.FeedConfig, processor feed.FeedProcessor) *Handler {
 	return &Handler{
 		feedRepo:  fr,
 		itemRepo:  ir,
 		generator: NewRSSGenerator(),
 		configs:   configs,
+		processor: processor,
 	}
 }
 
@@ -245,4 +248,87 @@ func (h *Handler) GetFeedDetails(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, details)
+}
+
+// ReapplyFilters handles the filter re-application endpoint
+func (h *Handler) ReapplyFilters(c *gin.Context) {
+	feedURL := c.Query("url")
+	if feedURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing 'url' parameter"})
+		return
+	}
+
+	// Find configuration
+	var configFile string
+	var feedConfig *config.FeedConfig
+	for file, cfg := range h.configs {
+		if cfg.Feed.URL == feedURL {
+			configFile = file
+			feedConfig = cfg
+			break
+		}
+	}
+
+	if feedConfig == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not configured"})
+		return
+	}
+
+	// Get feed from database
+	feed, err := h.feedRepo.GetFeedByURL(feedURL)
+	if err != nil {
+		log.Printf("Database error getting feed %s: %v", feedURL, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	if feed == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not found in database"})
+		return
+	}
+
+	// Re-apply filters
+	updatedCount, errorCount, err := h.processor.ReapplyFilters(feed.ID, configFile)
+	if err != nil {
+		log.Printf("Error re-applying filters for feed %s: %v", feedURL, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to re-apply filters",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Get updated statistics
+	total, visible, duplicates, filtered, err := h.itemRepo.GetItemStats(feed.ID)
+	if err != nil {
+		log.Printf("Warning: failed to get updated stats for feed %s: %v", feedURL, err)
+	}
+
+	response := gin.H{
+		"success": true,
+		"message": "Filters re-applied successfully",
+		"feed": gin.H{
+			"name": feedConfig.Feed.Name,
+			"url":  feedConfig.Feed.URL,
+		},
+		"results": gin.H{
+			"updated_items": updatedCount,
+			"errors":        errorCount,
+		},
+	}
+
+	// Add updated stats if available
+	if err == nil {
+		response["updated_stats"] = gin.H{
+			"total_items":    total,
+			"visible_items":  visible,
+			"filtered_items": filtered,
+			"duplicates":     duplicates,
+		}
+	}
+
+	log.Printf("Successfully re-applied filters for feed %s: %d items updated, %d errors", 
+		feedURL, updatedCount, errorCount)
+
+	c.JSON(http.StatusOK, response)
 }

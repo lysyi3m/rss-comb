@@ -245,3 +245,67 @@ func (p *Processor) GetStats() map[string]interface{} {
 		"client_timeout": p.client.Timeout.String(),
 	}
 }
+
+// ReapplyFilters re-applies filters to all items of a specific feed
+func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) {
+	feedConfig, ok := p.configs[configFile]
+	if !ok {
+		return 0, 0, fmt.Errorf("configuration not found: %s", configFile)
+	}
+
+	log.Printf("Re-applying filters for feed: %s", feedConfig.Feed.Name)
+
+	// Get all items for the feed
+	items, err := p.itemRepo.GetAllItems(feedID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get feed items: %w", err)
+	}
+
+	if len(items) == 0 {
+		log.Printf("No items found for feed %s", feedConfig.Feed.Name)
+		return 0, 0, nil
+	}
+
+	log.Printf("Found %d items to re-filter for feed %s", len(items), feedConfig.Feed.Name)
+
+	updatedCount := 0
+	errorCount := 0
+
+	for _, item := range items {
+		// Convert database item to normalized item for filtering
+		normalizedItem := parser.NormalizedItem{
+			GUID:         item.GUID,
+			Link:         item.Link,
+			Title:        item.Title,
+			Description:  item.Description,
+			Content:      item.Content,
+			AuthorName:   item.AuthorName,
+			Categories:   item.Categories,
+		}
+
+		// Apply filters
+		shouldFilter, reason := p.applyFilters(normalizedItem, feedConfig.Filters)
+		
+		// Check if filter status changed
+		if shouldFilter != item.IsFiltered || reason != item.FilterReason {
+			err := p.itemRepo.UpdateItemFilterStatus(item.ID, shouldFilter, reason)
+			if err != nil {
+				log.Printf("Failed to update filter status for item %s: %v", item.ID, err)
+				errorCount++
+				continue
+			}
+			updatedCount++
+			
+			if shouldFilter && !item.IsFiltered {
+				log.Printf("Item '%s' newly filtered: %s", item.Title, reason)
+			} else if !shouldFilter && item.IsFiltered {
+				log.Printf("Item '%s' unfiltered (now visible)", item.Title)
+			}
+		}
+	}
+
+	log.Printf("Re-applied filters for feed %s: %d items updated, %d errors", 
+		feedConfig.Feed.Name, updatedCount, errorCount)
+
+	return updatedCount, errorCount, nil
+}

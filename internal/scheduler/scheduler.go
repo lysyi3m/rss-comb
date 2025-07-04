@@ -77,11 +77,11 @@ func (s *Scheduler) Stop() {
 	log.Println("Stopping scheduler...")
 	s.cancel()
 	
-	// Close the job queue to signal workers to stop
-	close(s.jobQueue)
-	
-	// Wait for all workers to finish
+	// Wait for all goroutines to finish first
 	s.wg.Wait()
+	
+	// Close the job queue after all goroutines have stopped
+	close(s.jobQueue)
 	
 	log.Println("Scheduler stopped")
 }

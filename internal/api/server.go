@@ -36,7 +36,7 @@ func NewServer(handler *Handler) *gin.Engine {
 	// CORS middleware for API endpoints
 	r.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept")
 		
 		if c.Request.Method == "OPTIONS" {
@@ -67,6 +67,7 @@ func setupRoutes(r *gin.Engine, handler *Handler) {
 	{
 		api.GET("/feeds", handler.ListFeeds)
 		api.GET("/feeds/details", handler.GetFeedDetails)
+		api.POST("/feeds/reapply-filters", handler.ReapplyFilters)
 	}
 
 	// Root endpoint with basic information
@@ -76,11 +77,12 @@ func setupRoutes(r *gin.Engine, handler *Handler) {
 			"version":     "1.0.0",
 			"description": "RSS/Atom feed proxy with normalization, deduplication, and filtering",
 			"endpoints": map[string]string{
-				"feed":    "/feed?url=<feed-url>",
-				"health":  "/health",
-				"stats":   "/stats",
-				"feeds":   "/api/v1/feeds",
-				"details": "/api/v1/feeds/details?url=<feed-url>",
+				"feed":           "/feed?url=<feed-url>",
+				"health":         "/health",
+				"stats":          "/stats",
+				"feeds":          "/api/v1/feeds",
+				"details":        "/api/v1/feeds/details?url=<feed-url>",
+				"reapply-filters": "/api/v1/feeds/reapply-filters?url=<feed-url> (POST)",
 			},
 			"documentation": "https://github.com/lysyi3m/rss-comb",
 		})

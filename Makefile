@@ -2,7 +2,7 @@
 
 # Development commands
 dev-up:
-	docker-compose up -d db redis
+	docker-compose up -d db
 
 dev-down:
 	docker-compose down

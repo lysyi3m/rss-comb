@@ -71,6 +71,14 @@ func (m *MockProcessor) IsFeedEnabled(configFile string) bool {
 	return true
 }
 
+func (m *MockProcessor) ReapplyFilters(feedID, configFile string) (int, int, error) {
+	// Mock implementation - return 0 updated items, 0 errors
+	if m.shouldError {
+		return 0, 1, &testError{"mock reapply error"}
+	}
+	return 0, 0, nil
+}
+
 type testError struct {
 	msg string
 }

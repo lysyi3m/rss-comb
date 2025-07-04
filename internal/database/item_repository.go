@@ -171,3 +171,59 @@ func (r *ItemRepository) DeleteOldItems(feedID string, daysOld int) (int, error)
 
 	return int(rowsAffected), nil
 }
+
+// GetAllItems returns all items for a feed (including filtered ones)
+func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
+	rows, err := r.db.Query(`
+		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
+		       COALESCE(description, ''), COALESCE(content, ''),
+		       published_date, updated_date, COALESCE(author_name, ''), 
+		       COALESCE(author_email, ''), COALESCE(categories, '{}'),
+		       is_filtered, COALESCE(filter_reason, ''),
+		       content_hash, created_at
+		FROM feed_items
+		WHERE feed_id = $1
+		ORDER BY COALESCE(published_date, created_at) DESC
+	`, feedID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []Item
+	for rows.Next() {
+		var item Item
+		err := rows.Scan(
+			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
+			&item.Description, &item.Content, &item.PublishedDate, &item.UpdatedDate,
+			&item.AuthorName, &item.AuthorEmail, pq.Array(&item.Categories),
+			&item.IsFiltered, &item.FilterReason,
+			&item.ContentHash, &item.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan item row: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating item rows: %w", err)
+	}
+
+	return items, nil
+}
+
+// UpdateItemFilterStatus updates the filter status of an item
+func (r *ItemRepository) UpdateItemFilterStatus(itemID string, isFiltered bool, filterReason string) error {
+	_, err := r.db.Exec(`
+		UPDATE feed_items 
+		SET is_filtered = $2, filter_reason = $3
+		WHERE id = $1
+	`, itemID, isFiltered, filterReason)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update item filter status: %w", err)
+	}
+	
+	return nil
+}

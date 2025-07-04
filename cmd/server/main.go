@@ -78,7 +78,7 @@ func main() {
 
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
-	apiHandler := api.NewHandler(feedRepo, itemRepo, configs)
+	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor)
 	server := api.NewServer(apiHandler)
 
 	// Create HTTP server with timeouts
@@ -100,6 +100,7 @@ func main() {
 		log.Printf("  Statistics:    http://localhost:%s/stats", envConfig.Port)
 		log.Printf("  List feeds:    http://localhost:%s/api/v1/feeds", envConfig.Port)
 		log.Printf("  Feed details:  http://localhost:%s/api/v1/feeds/details?url=<feed-url>", envConfig.Port)
+		log.Printf("  Reapply filters: http://localhost:%s/api/v1/feeds/reapply-filters?url=<feed-url> (POST)", envConfig.Port)
 		
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverErrChan <- fmt.Errorf("HTTP server error: %w", err)
