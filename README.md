@@ -7,7 +7,6 @@ RSS Comb is a server application that acts as a proxy between existing RSS/Atom 
 - **Feed Normalization**: Converts RSS 1.0, RSS 2.0, and Atom feeds to a standardized format
 - **Deduplication**: Eliminates duplicate items based on content hashing
 - **Content Filtering**: Flexible filtering system using configurable rules
-- **Caching**: Redis-based caching for improved performance
 - **Background Processing**: Automated feed updates with configurable intervals
 
 ## Quick Start
@@ -42,7 +41,6 @@ settings:
   refresh_interval: 3600  # seconds
   max_items: 50
   timeout: 30            # seconds
-  user_agent: "RSS Comb/1.0"
 
 filters:
   - field: "title"
@@ -63,7 +61,6 @@ filters:
 
 - Go 1.24+
 - PostgreSQL 17+
-- Redis 7+
 - Docker & Docker Compose
 
 ### Commands

@@ -174,7 +174,6 @@ go tool cover -html=coverage.out
 - Health check endpoint: `/health`
 - Database connection monitoring
 - Feed processing metrics in logs
-- Redis cache hit/miss ratios
 
 ## Development Guidelines
 
@@ -194,7 +193,6 @@ go tool cover -html=coverage.out
 - Implement connection pooling for HTTP clients
 - Use worker pools for concurrent processing
 - Monitor memory usage in feed parsing
-- Implement proper cache invalidation strategies
 
 ## Common Issues
 
@@ -210,17 +208,10 @@ go tool cover -html=coverage.out
 - Examine `is_filtered` and `is_duplicate` flags in database
 - Verify `max_items` setting
 
-### Cache Issues
-- Verify Redis connection and memory usage
-- Check cache duration configuration
-- Monitor cache hit/miss ratios
-- Clear cache if needed: `redis-cli FLUSHDB`
-
 ## API Endpoints
 
 ### `GET /feed?url=<feed-url>`
 - Returns processed RSS feed
-- Supports caching with `X-Cache` header
 - Redirects to original for unregistered feeds
 - Returns empty feed template for not-yet-processed feeds
 
