@@ -229,6 +229,15 @@ func (p *Processor) ReloadConfigs(configs map[string]*config.FeedConfig) {
 	log.Printf("Reloaded %d feed configurations", len(configs))
 }
 
+// IsFeedEnabled checks if a feed is enabled in its configuration
+func (p *Processor) IsFeedEnabled(configFile string) bool {
+	feedConfig, ok := p.configs[configFile]
+	if !ok {
+		return false // Configuration not found, treat as disabled
+	}
+	return feedConfig.Settings.Enabled
+}
+
 // GetStats returns processing statistics
 func (p *Processor) GetStats() map[string]interface{} {
 	return map[string]interface{}{

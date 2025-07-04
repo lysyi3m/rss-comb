@@ -66,6 +66,11 @@ func (m *MockProcessor) ProcessFeed(feedID, configFile string) error {
 	return nil
 }
 
+func (m *MockProcessor) IsFeedEnabled(configFile string) bool {
+	// Mock implementation - return true for all feeds except those with "disabled" in the name
+	return true
+}
+
 type testError struct {
 	msg string
 }

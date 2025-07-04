@@ -125,15 +125,27 @@ func (s *Scheduler) enqueueDueFeeds() {
 
 	log.Printf("Found %d feeds due for processing", len(feeds))
 
+	enabledCount := 0
 	for _, feed := range feeds {
+		// Check if feed is enabled in configuration before adding to queue
+		if !s.processor.IsFeedEnabled(feed.ConfigFile) {
+			log.Printf("Feed %s is disabled in configuration, skipping", feed.Name)
+			continue
+		}
+
 		select {
 		case s.jobQueue <- feed:
 			log.Printf("Enqueued feed for processing: %s", feed.Name)
+			enabledCount++
 		case <-s.ctx.Done():
 			return
 		default:
 			log.Printf("Warning: job queue full, skipping feed: %s", feed.Name)
 		}
+	}
+
+	if enabledCount == 0 && len(feeds) > 0 {
+		log.Printf("No enabled feeds to process (all %d feeds are disabled)", len(feeds))
 	}
 
 	// Update queue size stat
