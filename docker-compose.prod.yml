@@ -14,7 +14,6 @@ services:
       - DB_USER=rss_user
       - DB_PASSWORD=${DB_PASSWORD:-rss_password}
       - DB_NAME=rss_comb
-      - REDIS_ADDR=redis:6379
       - FEEDS_DIR=/app/feeds
       - WORKER_COUNT=${WORKER_COUNT:-5}
       - SCHEDULER_INTERVAL=${SCHEDULER_INTERVAL:-30}
@@ -24,7 +23,6 @@ services:
       - app_logs:/app/logs
     depends_on:
       - db
-      - redis
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
@@ -55,31 +53,6 @@ services:
       - rss-comb-network
     ports:
       - "127.0.0.1:5432:5432" # Only bind to localhost for security
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: >
-      redis-server 
-      --appendonly yes 
-      --maxmemory 256mb 
-      --maxmemory-policy allkeys-lru
-      --save 900 1
-      --save 300 10
-      --save 60 10000
-    volumes:
-      - redis_data:/data
-      - redis_logs:/var/log/redis
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    networks:
-      - rss-comb-network
-    ports:
-      - "127.0.0.1:6379:6379" # Only bind to localhost for security
 
   # Optional: Database migration runner
   migrations:
@@ -118,11 +91,7 @@ networks:
 volumes:
   postgres_data:
     driver: local
-  redis_data:
-    driver: local
   app_logs:
     driver: local
   postgres_logs:
-    driver: local
-  redis_logs:
     driver: local

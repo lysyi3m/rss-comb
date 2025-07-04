@@ -11,7 +11,6 @@ RSS Comb is a Go server application that acts as a proxy between existing RSS/At
 ### Prerequisites
 - Go 1.24+
 - PostgreSQL 17+
-- Redis 7+
 - Docker & Docker Compose
 
 ### Common Commands
@@ -82,20 +81,15 @@ migrate create -ext sql -dir migrations -seq migration_name
    - Separate repositories for feeds and items
    - Optimized queries with proper indexing
 
-5. **Caching Layer** (`internal/cache/`)
-   - Redis-based caching for processed feeds
-   - Configurable TTL per feed
-   - Cache invalidation on feed updates
-
-6. **Background Scheduler** (`internal/scheduler/`)
+5. **Background Scheduler** (`internal/scheduler/`)
    - Worker pool for concurrent feed processing
    - Database-driven scheduling with next_fetch timestamps
    - Graceful shutdown handling
 
-7. **HTTP API** (`internal/api/`)
+6. **HTTP API** (`internal/api/`)
    - RESTful endpoints for feed access
    - RSS 2.0 output generation
-   - Cache headers and redirect handling
+   - Direct database queries for real-time data
 
 ### Data Flow
 
@@ -103,7 +97,7 @@ migrate create -ext sql -dir migrations -seq migration_name
 2. Feeds registered in database with metadata
 3. Background scheduler processes feeds based on refresh intervals
 4. Items parsed, filtered, and deduplicated before storage
-5. HTTP API serves processed feeds with caching
+5. HTTP API serves processed feeds directly from database
 
 ### Database Schema
 
@@ -141,10 +135,8 @@ filters:
 
 ### Environment Variables
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- `REDIS_ADDR`
 - `FEEDS_DIR` (default: ./feeds)
 - `PORT` (default: 8080)
-- `CACHE_DURATION` (default: 300 seconds - global cache duration for all feeds)
 - `USER_AGENT` (default: "RSS Comb/1.0" - global user agent for all feeds)
 
 ## Testing

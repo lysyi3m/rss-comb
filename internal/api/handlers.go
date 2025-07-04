@@ -1,38 +1,32 @@
 package api
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lysyi3m/rss-comb/internal/cache"
 	"github.com/lysyi3m/rss-comb/internal/config"
 	"github.com/lysyi3m/rss-comb/internal/database"
 )
 
 // Handler handles HTTP requests for the RSS API
 type Handler struct {
-	feedRepo      database.FeedRepositoryInterface
-	itemRepo      *database.ItemRepository
-	cache         cache.CacheInterface
-	generator     *RSSGenerator
-	configs       map[string]*config.FeedConfig
-	cacheDuration time.Duration
+	feedRepo  database.FeedRepositoryInterface
+	itemRepo  *database.ItemRepository
+	generator *RSSGenerator
+	configs   map[string]*config.FeedConfig
 }
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository,
-	c cache.CacheInterface, configs map[string]*config.FeedConfig, cacheDuration time.Duration) *Handler {
+	configs map[string]*config.FeedConfig) *Handler {
 	return &Handler{
-		feedRepo:      fr,
-		itemRepo:      ir,
-		cache:         c,
-		generator:     NewRSSGenerator(),
-		configs:       configs,
-		cacheDuration: cacheDuration,
+		feedRepo:  fr,
+		itemRepo:  ir,
+		generator: NewRSSGenerator(),
+		configs:   configs,
 	}
 }
 
@@ -62,20 +56,6 @@ func (h *Handler) GetFeed(c *gin.Context) {
 		return
 	}
 
-	// Check cache first
-	if h.cacheDuration > 0 {
-		cached, hit, err := h.cache.GetFeedData(feedURL)
-		if err != nil {
-			log.Printf("Cache error for %s: %v", feedURL, err)
-		} else if hit {
-			log.Printf("Cache hit for feed: %s", feedURL)
-			c.Header("Content-Type", "application/rss+xml; charset=utf-8")
-			c.Header("X-Cache", "HIT")
-			c.Header("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.cacheDuration.Seconds())))
-			c.String(http.StatusOK, cached)
-			return
-		}
-	}
 
 	// Get feed from database
 	feed, err := h.feedRepo.GetFeedByURL(feedURL)
@@ -90,7 +70,6 @@ func (h *Handler) GetFeed(c *gin.Context) {
 	if feed == nil {
 		log.Printf("Feed not yet processed: %s", feedURL)
 		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
-		c.Header("Cache-Control", "no-cache, max-age=60") // Short cache for empty feeds
 		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Name, feedURL))
 		return
 	}
@@ -113,17 +92,8 @@ func (h *Handler) GetFeed(c *gin.Context) {
 		return
 	}
 
-	// Cache the result
-	if h.cacheDuration > 0 {
-		if err := h.cache.SetFeedData(feedURL, rss, h.cacheDuration); err != nil {
-			log.Printf("Failed to cache feed %s: %v", feedURL, err)
-		}
-	}
-
 	// Set response headers
 	c.Header("Content-Type", "application/rss+xml; charset=utf-8")
-	c.Header("X-Cache", "MISS")
-	c.Header("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.cacheDuration.Seconds())))
 	c.Header("X-Feed-Items", strconv.Itoa(len(items)))
 	
 	if feed.LastSuccess != nil {
@@ -147,11 +117,6 @@ func (h *Handler) HealthCheck(c *gin.Context) {
 		health["feeds"] = feedCount
 	}
 
-	// Get cache health
-	if h.cache != nil {
-		cacheHealth := h.cache.Health()
-		health["cache"] = cacheHealth
-	}
 
 	// Check configuration count
 	health["configurations"] = len(h.configs)
@@ -173,12 +138,6 @@ func (h *Handler) GetStats(c *gin.Context) {
 
 	stats["loaded_configurations"] = len(h.configs)
 
-	// Get cache stats
-	if h.cache != nil {
-		if cacheStats, err := h.cache.GetStats(); err == nil {
-			stats["cache"] = cacheStats
-		}
-	}
 
 	c.JSON(http.StatusOK, stats)
 }
@@ -195,7 +154,6 @@ func (h *Handler) ListFeeds(c *gin.Context) {
 			"enabled":         config.Settings.Enabled,
 			"max_items":       config.Settings.MaxItems,
 			"refresh_interval": config.Settings.GetRefreshInterval().String(),
-			"cache_duration":  h.cacheDuration.String(),
 			"filters":         len(config.Filters),
 		}
 
@@ -257,7 +215,6 @@ func (h *Handler) GetFeedDetails(c *gin.Context) {
 		"enabled":         feedConfig.Settings.Enabled,
 		"max_items":       feedConfig.Settings.MaxItems,
 		"refresh_interval": feedConfig.Settings.GetRefreshInterval().String(),
-		"cache_duration":  h.cacheDuration.String(),
 		"timeout":         feedConfig.Settings.GetTimeout().String(),
 		"user_agent":      config.GetUserAgent(),
 		"deduplication":   feedConfig.Settings.Deduplication,

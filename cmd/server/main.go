@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/internal/api"
-	"github.com/lysyi3m/rss-comb/internal/cache"
 	"github.com/lysyi3m/rss-comb/internal/config"
 	"github.com/lysyi3m/rss-comb/internal/database"
 	"github.com/lysyi3m/rss-comb/internal/feed"
@@ -38,14 +37,6 @@ func main() {
 	defer db.Close()
 	log.Printf("Connected to database successfully")
 
-	// Redis connection
-	log.Println("Connecting to Redis...")
-	redisCache, err := cache.NewCache(envConfig.RedisAddr)
-	if err != nil {
-		log.Fatal("Failed to connect to Redis:", err)
-	}
-	defer redisCache.Close()
-	log.Printf("Connected to Redis successfully")
 
 	// Load feed configurations
 	log.Printf("Loading feed configurations from %s...", envConfig.FeedsDir)
@@ -87,8 +78,7 @@ func main() {
 
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
-	cacheDuration := time.Duration(envConfig.CacheDuration) * time.Second
-	apiHandler := api.NewHandler(feedRepo, itemRepo, redisCache, configs, cacheDuration)
+	apiHandler := api.NewHandler(feedRepo, itemRepo, configs)
 	server := api.NewServer(apiHandler)
 
 	// Create HTTP server with timeouts
@@ -157,12 +147,10 @@ type EnvironmentConfig struct {
 	DBUser            string
 	DBPassword        string
 	DBName            string
-	RedisAddr         string
 	FeedsDir          string
 	Port              string
 	WorkerCount       int
 	SchedulerInterval int // seconds
-	CacheDuration     int // seconds
 }
 
 // loadEnvironmentConfig loads configuration from environment variables
@@ -173,12 +161,10 @@ func loadEnvironmentConfig() *EnvironmentConfig {
 		DBUser:            getEnv("DB_USER", "rss_user"),
 		DBPassword:        getEnv("DB_PASSWORD", "rss_password"),
 		DBName:            getEnv("DB_NAME", "rss_comb"),
-		RedisAddr:         getEnv("REDIS_ADDR", "localhost:6379"),
 		FeedsDir:          getEnv("FEEDS_DIR", "./feeds"),
 		Port:              getEnv("PORT", "8080"),
 		WorkerCount:       getEnvInt("WORKER_COUNT", 5),
 		SchedulerInterval: getEnvInt("SCHEDULER_INTERVAL", 30),
-		CacheDuration:     getEnvInt("CACHE_DURATION", 300),
 	}
 
 	// Validate critical configuration
