@@ -1,6 +1,9 @@
 package config
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
 // FeedConfig represents a complete feed configuration
 type FeedConfig struct {
@@ -22,7 +25,6 @@ type FeedSettings struct {
 	RefreshInterval int           `yaml:"refresh_interval"` // seconds
 	MaxItems        int           `yaml:"max_items"`
 	Timeout         int           `yaml:"timeout"`          // seconds
-	UserAgent       string        `yaml:"user_agent"`
 }
 
 // Filter represents a content filter rule
@@ -47,4 +49,12 @@ func (s *FeedSettings) GetTimeout() time.Duration {
 		return 30 * time.Second // default 30 seconds
 	}
 	return time.Duration(s.Timeout) * time.Second
+}
+
+// GetUserAgent returns the global user agent from environment or default
+func GetUserAgent() string {
+	if userAgent := os.Getenv("USER_AGENT"); userAgent != "" {
+		return userAgent
+	}
+	return "RSS Comb/1.0"
 }

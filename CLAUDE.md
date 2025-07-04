@@ -132,7 +132,6 @@ settings:
   refresh_interval: 3600  # seconds
   max_items: 50
   timeout: 30            # seconds
-  user_agent: "RSS Comb/1.0"
 
 filters:
   - field: "title"
@@ -146,6 +145,7 @@ filters:
 - `FEEDS_DIR` (default: ./feeds)
 - `PORT` (default: 8080)
 - `CACHE_DURATION` (default: 300 seconds - global cache duration for all feeds)
+- `USER_AGENT` (default: "RSS Comb/1.0" - global user agent for all feeds)
 
 ## Testing
 

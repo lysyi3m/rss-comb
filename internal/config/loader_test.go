@@ -23,7 +23,6 @@ settings:
   refresh_interval: 1800
   max_items: 25
   timeout: 15
-  user_agent: "Test Agent"
 
 filters:
   - field: "title"
@@ -114,9 +113,6 @@ settings:
 	if config.Settings.MaxItems != 100 {
 		t.Errorf("Expected default max items 100, got %d", config.Settings.MaxItems)
 	}
-	if config.Settings.UserAgent != "RSS Comb/1.0" {
-		t.Errorf("Expected default user agent 'RSS Comb/1.0', got '%s'", config.Settings.UserAgent)
-	}
 }
 
 func TestInvalidConfig(t *testing.T) {
@@ -158,5 +154,22 @@ func TestEmptyDirectory(t *testing.T) {
 
 	if len(configs) != 0 {
 		t.Errorf("Expected 0 configs from empty directory, got %d", len(configs))
+	}
+}
+
+func TestGetUserAgent(t *testing.T) {
+	// Test default user agent
+	defaultUserAgent := GetUserAgent()
+	if defaultUserAgent != "RSS Comb/1.0" {
+		t.Errorf("Expected default user agent 'RSS Comb/1.0', got '%s'", defaultUserAgent)
+	}
+
+	// Test custom user agent from environment
+	os.Setenv("USER_AGENT", "Custom User Agent/2.0")
+	defer os.Unsetenv("USER_AGENT")
+	
+	customUserAgent := GetUserAgent()
+	if customUserAgent != "Custom User Agent/2.0" {
+		t.Errorf("Expected custom user agent 'Custom User Agent/2.0', got '%s'", customUserAgent)
 	}
 }

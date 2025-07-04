@@ -259,7 +259,7 @@ func (h *Handler) GetFeedDetails(c *gin.Context) {
 		"refresh_interval": feedConfig.Settings.GetRefreshInterval().String(),
 		"cache_duration":  h.cacheDuration.String(),
 		"timeout":         feedConfig.Settings.GetTimeout().String(),
-		"user_agent":      feedConfig.Settings.UserAgent,
+		"user_agent":      config.GetUserAgent(),
 		"deduplication":   feedConfig.Settings.Deduplication,
 		"filters":         feedConfig.Filters,
 	}

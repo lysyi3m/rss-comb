@@ -86,9 +86,6 @@ func (l *Loader) setDefaults(config *FeedConfig) {
 	if config.Settings.Timeout == 0 {
 		config.Settings.Timeout = 30 // seconds
 	}
-	if config.Settings.UserAgent == "" {
-		config.Settings.UserAgent = "RSS Comb/1.0"
-	}
 }
 
 // validate validates the configuration

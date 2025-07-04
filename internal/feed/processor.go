@@ -137,7 +137,7 @@ func (p *Processor) fetchFeed(url string, settings config.FeedSettings) ([]byte,
 	}
 
 	// Set headers
-	req.Header.Set("User-Agent", settings.UserAgent)
+	req.Header.Set("User-Agent", config.GetUserAgent())
 	req.Header.Set("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml")
 
 	// Update client timeout if specified
