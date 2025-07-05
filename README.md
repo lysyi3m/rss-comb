@@ -28,6 +28,31 @@ RSS Comb is a server application that acts as a proxy between existing RSS/Atom 
 
 ## Configuration
 
+### Environment Variables
+
+Configure the application using environment variables or command-line flags:
+
+```bash
+# Database configuration
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_USER=rss_user
+export DB_PASSWORD=your_password
+export DB_NAME=rss_comb
+
+# Application configuration
+export FEEDS_DIR=./feeds
+export PORT=8080
+export WORKER_COUNT=5
+export SCHEDULER_INTERVAL=30
+export API_ACCESS_KEY=your_api_key
+export USER_AGENT="RSS Comb/1.0"
+```
+
+See all available options with: `go run app/main.go --help`
+
+### Feed Configuration
+
 Create YAML configuration files in the `feeds/` directory:
 
 ```yaml

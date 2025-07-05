@@ -57,36 +57,63 @@ migrate -path migrations -database "postgres://rss_user:rss_password@localhost:5
 migrate create -ext sql -dir migrations -seq migration_name
 ```
 
+## Project Structure
+
+```
+rss-comb/
+├── Dockerfile                 # Production container build
+├── Makefile                  # Development commands
+├── app/                      # Main application code
+│   ├── main.go              # Application entry point
+│   ├── api/                 # HTTP handlers and server
+│   ├── config/              # Configuration loading
+│   ├── database/            # Database connections and repositories
+│   ├── feed/                # Feed processing logic
+│   ├── parser/              # RSS/Atom parsing
+│   └── scheduler/           # Background job scheduling
+├── feeds/                    # Feed configuration files (*.yaml)
+├── migrations/              # Database migration scripts
+├── scripts/                 # Build and deployment scripts
+├── docker-compose.yml       # Development services
+├── docker-compose.prod.yml  # Production deployment
+└── go.mod                   # Go module definition
+```
+
 ## Architecture
 
 ### Core Components
 
-1. **Configuration System** (`internal/config/`)
+1. **Main Application** (`app/main.go`)
+   - Application entry point and configuration loading
+   - go-flags based environment variable and command-line flag parsing
+   - Server initialization and graceful shutdown handling
+
+2. **Configuration System** (`app/config/`)
    - YAML-based feed configuration loading
    - Validation and default value handling
    - Hot-reload capability for configuration changes
 
-2. **Feed Processing Engine** (`internal/feed/`)
+3. **Feed Processing Engine** (`app/feed/`)
    - HTTP feed fetching with timeout and retry logic
    - Content filtering based on configurable rules
    - Deduplication using content hashing
 
-3. **Parser** (`internal/parser/`)
+4. **Parser** (`app/parser/`)
    - Universal RSS/Atom feed parsing using gofeed
    - Normalization of different feed formats
    - Content hash generation for deduplication
 
-4. **Database Layer** (`internal/database/`)
+5. **Database Layer** (`app/database/`)
    - PostgreSQL with UUID primary keys
    - Separate repositories for feeds and items
    - Optimized queries with proper indexing
 
-5. **Background Scheduler** (`internal/scheduler/`)
+6. **Background Scheduler** (`app/scheduler/`)
    - Worker pool for concurrent feed processing
    - Database-driven scheduling with next_fetch timestamps
    - Graceful shutdown handling
 
-6. **HTTP API** (`internal/api/`)
+7. **HTTP API** (`app/api/`)
    - RESTful endpoints for feed access
    - RSS 2.0 output generation
    - Direct database queries for real-time data
@@ -134,21 +161,40 @@ filters:
 ```
 
 ### Environment Variables
-- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- `FEEDS_DIR` (default: ./feeds)
-- `PORT` (default: 8080)
-- `USER_AGENT` (default: "RSS Comb/1.0" - global user agent for all feeds)
+All configuration options support both environment variables and command-line flags:
+
+**Database Configuration:**
+- `DB_HOST` (default: localhost) - Database host
+- `DB_PORT` (default: 5432) - Database port  
+- `DB_USER` (default: rss_user) - Database user
+- `DB_PASSWORD` (required) - Database password
+- `DB_NAME` (default: rss_comb) - Database name
+
+**Application Configuration:**
+- `FEEDS_DIR` (default: ./feeds) - Directory containing feed configuration files
+- `PORT` (default: 8080) - HTTP server port
+- `WORKER_COUNT` (default: 5) - Number of background workers for feed processing
+- `SCHEDULER_INTERVAL` (default: 30) - Scheduler interval in seconds
+- `API_ACCESS_KEY` (optional) - API access key for authentication
+- `USER_AGENT` (default: "RSS Comb/1.0") - User agent string for HTTP requests
+
+Use `./app/main.go --help` or `go run app/main.go --help` to see all available command-line flags.
 
 ## Testing
 
 ### Unit Tests
 ```bash
 # Run all tests
-go test -v ./...
+go test -v ./app/...
 
 # Run tests with coverage
-go test -v -coverprofile=coverage.out ./...
+go test -v -coverprofile=coverage.out ./app/...
 go tool cover -html=coverage.out
+
+# Run tests for specific package
+go test -v ./app/api
+go test -v ./app/config
+go test -v ./app/database
 ```
 
 ### Integration Testing
@@ -161,7 +207,7 @@ go tool cover -html=coverage.out
 1. Create test feed configuration in `feeds/test.yaml`
 2. Start services with `make run`
 3. Monitor logs for feed processing
-4. Test API endpoint: `curl "http://localhost:8080/feed?url=<feed-url>"`
+4. Test API endpoint: `curl "http://localhost:${PORT:-8080}/feed?url=<feed-url>"`
 
 ## Deployment
 
