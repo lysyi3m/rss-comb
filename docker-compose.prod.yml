@@ -17,7 +17,7 @@ services:
       - FEEDS_DIR=/app/feeds
       - WORKER_COUNT=${WORKER_COUNT:-5}
       - SCHEDULER_INTERVAL=${SCHEDULER_INTERVAL:-30}
-      - API_ACCESS_KEY=${API_ACCESS_KEY}
+      - API_ACCESS_KEY=${API_ACCESS_KEY:-}
       - GIN_MODE=release
     volumes:
       - ./feeds:/app/feeds:ro
