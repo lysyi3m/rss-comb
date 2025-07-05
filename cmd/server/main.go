@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jessevdk/go-flags"
 	"github.com/lysyi3m/rss-comb/internal/api"
 	"github.com/lysyi3m/rss-comb/internal/config"
 	"github.com/lysyi3m/rss-comb/internal/database"
@@ -20,17 +21,21 @@ import (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("Starting RSS Comb server...")
 
-	// Load environment configuration
-	envConfig := loadEnvironmentConfig()
-	log.Printf("Environment configuration loaded")
+	// Load configuration from environment variables and command-line flags
+	appConfig := loadConfig()
+	if appConfig == nil {
+		// Help was shown or parsing failed, exit gracefully
+		return
+	}
+
+	log.Println("Starting RSS Comb server...")
 
 	// Database connection
 	log.Println("Connecting to database...")
 	db, err := database.NewConnection(
-		envConfig.DBHost, envConfig.DBPort, envConfig.DBUser, 
-		envConfig.DBPassword, envConfig.DBName)
+		appConfig.DBHost, appConfig.DBPort, appConfig.DBUser, 
+		appConfig.DBPassword, appConfig.DBName)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -39,8 +44,8 @@ func main() {
 
 
 	// Load feed configurations
-	log.Printf("Loading feed configurations from %s...", envConfig.FeedsDir)
-	loader := config.NewLoader(envConfig.FeedsDir)
+	log.Printf("Loading feed configurations from %s...", appConfig.FeedsDir)
+	loader := config.NewLoader(appConfig.FeedsDir)
 	configs, err := loader.LoadAll()
 	if err != nil {
 		log.Fatal("Failed to load configurations:", err)
@@ -70,20 +75,20 @@ func main() {
 	feedProcessor := feed.NewProcessor(feedParser, feedRepo, itemRepo, configs)
 
 	// Initialize and start scheduler
-	log.Printf("Starting background scheduler with %d workers...", envConfig.WorkerCount)
+	log.Printf("Starting background scheduler with %d workers...", appConfig.WorkerCount)
 	feedScheduler := scheduler.NewScheduler(feedProcessor, feedRepo, 
-		time.Duration(envConfig.SchedulerInterval)*time.Second, envConfig.WorkerCount)
+		time.Duration(appConfig.SchedulerInterval)*time.Second, appConfig.WorkerCount)
 	feedScheduler.Start()
 	defer feedScheduler.Stop()
 
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
-	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, envConfig.Port)
-	server := api.NewServer(apiHandler, envConfig.APIAccessKey)
+	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, appConfig.Port)
+	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 
 	// Create HTTP server with timeouts
 	httpServer := &http.Server{
-		Addr:         ":" + envConfig.Port,
+		Addr:         ":" + appConfig.Port,
 		Handler:      server,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -93,16 +98,16 @@ func main() {
 	// Start HTTP server in a goroutine
 	serverErrChan := make(chan error, 1)
 	go func() {
-		log.Printf("Starting HTTP server on port %s", envConfig.Port)
+		log.Printf("Starting HTTP server on port %s", appConfig.Port)
 		log.Printf("API endpoints available:")
-		log.Printf("  Main feed:     http://localhost:%s/feed?url=<feed-url>", envConfig.Port)
-		log.Printf("  Health check:  http://localhost:%s/health", envConfig.Port)
-		log.Printf("  Statistics:    http://localhost:%s/stats", envConfig.Port)
+		log.Printf("  Main feed:     http://localhost:%s/feed?url=<feed-url>", appConfig.Port)
+		log.Printf("  Health check:  http://localhost:%s/health", appConfig.Port)
+		log.Printf("  Statistics:    http://localhost:%s/stats", appConfig.Port)
 		
-		if envConfig.APIAccessKey != "" {
-			log.Printf("  List feeds:    http://localhost:%s/api/v1/feeds (requires API key)", envConfig.Port)
-			log.Printf("  Feed details:  http://localhost:%s/api/v1/feeds/details?url=<feed-url> (requires API key)", envConfig.Port)
-			log.Printf("  Reapply filters: http://localhost:%s/api/v1/feeds/reapply-filters?url=<feed-url> (POST, requires API key)", envConfig.Port)
+		if appConfig.APIAccessKey != "" {
+			log.Printf("  List feeds:    http://localhost:%s/api/v1/feeds (requires API key)", appConfig.Port)
+			log.Printf("  Feed details:  http://localhost:%s/api/v1/feeds/details?url=<feed-url> (requires API key)", appConfig.Port)
+			log.Printf("  Reapply filters: http://localhost:%s/api/v1/feeds/reapply-filters?url=<feed-url> (POST, requires API key)", appConfig.Port)
 		} else {
 			log.Printf("  API endpoints: DISABLED (API_ACCESS_KEY not set)")
 		}
@@ -146,70 +151,47 @@ func main() {
 	log.Println("RSS Comb server shutdown complete")
 }
 
-// EnvironmentConfig holds all environment configuration
-type EnvironmentConfig struct {
-	DBHost            string
-	DBPort            string
-	DBUser            string
-	DBPassword        string
-	DBName            string
-	FeedsDir          string
-	Port              string
-	WorkerCount       int
-	SchedulerInterval int // seconds
-	APIAccessKey      string // API access key for authentication
+// AppConfig holds all application configuration with support for environment variables and command-line flags
+type AppConfig struct {
+	// Database configuration
+	DBHost     string `long:"db-host" env:"DB_HOST" default:"localhost" description:"Database host"`
+	DBPort     string `long:"db-port" env:"DB_PORT" default:"5432" description:"Database port"`
+	DBUser     string `long:"db-user" env:"DB_USER" default:"rss_user" description:"Database user"`
+	DBPassword string `long:"db-password" env:"DB_PASSWORD" default:"rss_password" description:"Database password (required)" required:"true"`
+	DBName     string `long:"db-name" env:"DB_NAME" default:"rss_comb" description:"Database name"`
+
+	// Application configuration
+	FeedsDir          string `long:"feeds-dir" env:"FEEDS_DIR" default:"./feeds" description:"Directory containing feed configuration files"`
+	Port              string `long:"port" env:"PORT" default:"8080" description:"HTTP server port"`
+	WorkerCount       int    `long:"worker-count" env:"WORKER_COUNT" default:"5" description:"Number of background workers for feed processing"`
+	SchedulerInterval int    `long:"scheduler-interval" env:"SCHEDULER_INTERVAL" default:"30" description:"Scheduler interval in seconds"`
+	APIAccessKey      string `long:"api-key" env:"API_ACCESS_KEY" description:"API access key for authentication (optional)"`
+
+	// Application metadata
+	UserAgent string `long:"user-agent" env:"USER_AGENT" default:"RSS Comb/1.0" description:"User agent string for HTTP requests"`
 }
 
-// loadEnvironmentConfig loads configuration from environment variables
-func loadEnvironmentConfig() *EnvironmentConfig {
-	config := &EnvironmentConfig{
-		DBHost:            getEnv("DB_HOST", "localhost"),
-		DBPort:            getEnv("DB_PORT", "5432"),
-		DBUser:            getEnv("DB_USER", "rss_user"),
-		DBPassword:        getEnv("DB_PASSWORD", "rss_password"),
-		DBName:            getEnv("DB_NAME", "rss_comb"),
-		FeedsDir:          getEnv("FEEDS_DIR", "./feeds"),
-		Port:              getEnv("PORT", "8080"),
-		WorkerCount:       getEnvInt("WORKER_COUNT", 5),
-		SchedulerInterval: getEnvInt("SCHEDULER_INTERVAL", 30),
-		APIAccessKey:      getEnv("API_ACCESS_KEY", ""),
-	}
-
-	// Validate critical configuration
-	if config.DBPassword == "" {
-		log.Fatal("DB_PASSWORD environment variable is required")
-	}
-
-	return config
-}
-
-// getEnv gets environment variable with default value
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// getEnvInt gets environment variable as integer with default value
-func getEnvInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := parseInt(value); err == nil {
-			return intValue
+// loadConfig loads configuration from environment variables and command-line flags
+func loadConfig() *AppConfig {
+	var appConfig AppConfig
+	
+	// Parse command-line arguments and environment variables
+	parser := flags.NewParser(&appConfig, flags.Default)
+	
+	// Parse arguments (this will also process environment variables)
+	if _, err := parser.Parse(); err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok {
+			if flagsErr.Type == flags.ErrHelp {
+				// Help was requested, exit gracefully
+				return nil
+			}
 		}
-		log.Printf("Warning: Invalid integer value for %s: %s, using default: %d", key, value, defaultValue)
+		log.Fatalf("Failed to parse configuration: %v", err)
 	}
-	return defaultValue
+
+	// Additional validation can be added here if needed
+	log.Printf("Configuration loaded successfully")
+	
+	return &appConfig
 }
 
-// parseInt parses string to int (simple implementation)
-func parseInt(s string) (int, error) {
-	result := 0
-	for _, char := range s {
-		if char < '0' || char > '9' {
-			return 0, fmt.Errorf("invalid integer: %s", s)
-		}
-		result = result*10 + int(char-'0')
-	}
-	return result, nil
-}
