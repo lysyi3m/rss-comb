@@ -2,13 +2,16 @@ package api
 
 import (
 	"fmt"
+	"log"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 // NewServer creates a new HTTP server with all routes configured
-func NewServer(handler *Handler) *gin.Engine {
+func NewServer(handler *Handler, apiAccessKey string) *gin.Engine {
 	// Set Gin mode (can be controlled via GIN_MODE environment variable)
 	gin.SetMode(gin.ReleaseMode)
 
@@ -48,13 +51,13 @@ func NewServer(handler *Handler) *gin.Engine {
 	})
 
 	// Routes
-	setupRoutes(r, handler)
+	setupRoutes(r, handler, apiAccessKey)
 
 	return r
 }
 
 // setupRoutes configures all the application routes
-func setupRoutes(r *gin.Engine, handler *Handler) {
+func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 	// Main feed endpoint
 	r.GET("/feed", handler.GetFeed)
 
@@ -62,27 +65,44 @@ func setupRoutes(r *gin.Engine, handler *Handler) {
 	r.GET("/health", handler.HealthCheck)
 	r.GET("/stats", handler.GetStats)
 
-	// API endpoints
-	api := r.Group("/api/v1")
-	{
-		api.GET("/feeds", handler.ListFeeds)
-		api.GET("/feeds/details", handler.GetFeedDetails)
-		api.POST("/feeds/reapply-filters", handler.ReapplyFilters)
+	// API endpoints (conditionally enabled with authentication)
+	if apiAccessKey != "" {
+		api := r.Group("/api/v1")
+		api.Use(authMiddleware(apiAccessKey))
+		{
+			api.GET("/feeds", handler.ListFeeds)
+			api.GET("/feeds/details", handler.GetFeedDetails)
+			api.POST("/feeds/reapply-filters", handler.ReapplyFilters)
+		}
+		log.Printf("API endpoints enabled with authentication")
+	} else {
+		log.Printf("API endpoints disabled (API_ACCESS_KEY not set)")
 	}
 
 	// Root endpoint with basic information
 	r.GET("/", func(c *gin.Context) {
+		endpoints := map[string]string{
+			"feed":   "/feed?url=<feed-url>",
+			"health": "/health",
+			"stats":  "/stats",
+		}
+		
+		// Add API endpoints if authentication is enabled
+		if apiAccessKey != "" {
+			endpoints["feeds"] = "/api/v1/feeds (requires X-API-Key header)"
+			endpoints["details"] = "/api/v1/feeds/details?url=<feed-url> (requires X-API-Key header)"
+			endpoints["reapply-filters"] = "/api/v1/feeds/reapply-filters?url=<feed-url> (POST, requires X-API-Key header)"
+		}
+		
 		c.JSON(200, gin.H{
 			"service":     "RSS Comb",
 			"version":     "1.0.0",
 			"description": "RSS/Atom feed proxy with normalization, deduplication, and filtering",
-			"endpoints": map[string]string{
-				"feed":           "/feed?url=<feed-url>",
-				"health":         "/health",
-				"stats":          "/stats",
-				"feeds":          "/api/v1/feeds",
-				"details":        "/api/v1/feeds/details?url=<feed-url>",
-				"reapply-filters": "/api/v1/feeds/reapply-filters?url=<feed-url> (POST)",
+			"endpoints":   endpoints,
+			"api_status":  map[string]interface{}{
+				"enabled": apiAccessKey != "",
+				"auth_required": apiAccessKey != "",
+				"header": "X-API-Key",
 			},
 			"documentation": "https://github.com/lysyi3m/rss-comb",
 		})
@@ -92,6 +112,44 @@ func setupRoutes(r *gin.Engine, handler *Handler) {
 	r.GET("/favicon.ico", func(c *gin.Context) {
 		c.Status(204)
 	})
+}
+
+// authMiddleware creates authentication middleware for API endpoints
+func authMiddleware(apiAccessKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get API key from X-API-Key header
+		providedKey := c.GetHeader("X-API-Key")
+		
+		// Also check Authorization header with Bearer prefix
+		if providedKey == "" {
+			authHeader := c.GetHeader("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				providedKey = strings.TrimPrefix(authHeader, "Bearer ")
+			}
+		}
+		
+		// Check if API key is provided and matches
+		if providedKey == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "API key required",
+				"message": "Provide API key in X-API-Key header or Authorization: Bearer <key>",
+			})
+			c.Abort()
+			return
+		}
+		
+		if providedKey != apiAccessKey {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Invalid API key",
+				"message": "The provided API key is not valid",
+			})
+			c.Abort()
+			return
+		}
+		
+		// Continue to next middleware/handler
+		c.Next()
+	}
 }
 
 // ServerConfig holds server configuration options

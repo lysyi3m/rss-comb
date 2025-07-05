@@ -79,7 +79,7 @@ func main() {
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
 	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor)
-	server := api.NewServer(apiHandler)
+	server := api.NewServer(apiHandler, envConfig.APIAccessKey)
 
 	// Create HTTP server with timeouts
 	httpServer := &http.Server{
@@ -98,9 +98,14 @@ func main() {
 		log.Printf("  Main feed:     http://localhost:%s/feed?url=<feed-url>", envConfig.Port)
 		log.Printf("  Health check:  http://localhost:%s/health", envConfig.Port)
 		log.Printf("  Statistics:    http://localhost:%s/stats", envConfig.Port)
-		log.Printf("  List feeds:    http://localhost:%s/api/v1/feeds", envConfig.Port)
-		log.Printf("  Feed details:  http://localhost:%s/api/v1/feeds/details?url=<feed-url>", envConfig.Port)
-		log.Printf("  Reapply filters: http://localhost:%s/api/v1/feeds/reapply-filters?url=<feed-url> (POST)", envConfig.Port)
+		
+		if envConfig.APIAccessKey != "" {
+			log.Printf("  List feeds:    http://localhost:%s/api/v1/feeds (requires API key)", envConfig.Port)
+			log.Printf("  Feed details:  http://localhost:%s/api/v1/feeds/details?url=<feed-url> (requires API key)", envConfig.Port)
+			log.Printf("  Reapply filters: http://localhost:%s/api/v1/feeds/reapply-filters?url=<feed-url> (POST, requires API key)", envConfig.Port)
+		} else {
+			log.Printf("  API endpoints: DISABLED (API_ACCESS_KEY not set)")
+		}
 		
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverErrChan <- fmt.Errorf("HTTP server error: %w", err)
@@ -152,6 +157,7 @@ type EnvironmentConfig struct {
 	Port              string
 	WorkerCount       int
 	SchedulerInterval int // seconds
+	APIAccessKey      string // API access key for authentication
 }
 
 // loadEnvironmentConfig loads configuration from environment variables
@@ -166,6 +172,7 @@ func loadEnvironmentConfig() *EnvironmentConfig {
 		Port:              getEnv("PORT", "8080"),
 		WorkerCount:       getEnvInt("WORKER_COUNT", 5),
 		SchedulerInterval: getEnvInt("SCHEDULER_INTERVAL", 30),
+		APIAccessKey:      getEnv("API_ACCESS_KEY", ""),
 	}
 
 	// Validate critical configuration
