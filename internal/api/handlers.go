@@ -23,11 +23,11 @@ type Handler struct {
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository,
-	configs map[string]*config.FeedConfig, processor feed.FeedProcessor) *Handler {
+	configs map[string]*config.FeedConfig, processor feed.FeedProcessor, port string) *Handler {
 	return &Handler{
 		feedRepo:  fr,
 		itemRepo:  ir,
-		generator: NewRSSGenerator(),
+		generator: NewRSSGenerator(port),
 		configs:   configs,
 		processor: processor,
 	}

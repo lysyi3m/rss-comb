@@ -78,7 +78,7 @@ func main() {
 
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
-	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor)
+	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, envConfig.Port)
 	server := api.NewServer(apiHandler, envConfig.APIAccessKey)
 
 	// Create HTTP server with timeouts

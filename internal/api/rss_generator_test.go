@@ -9,7 +9,7 @@ import (
 )
 
 func TestRSSGeneratorGenerate(t *testing.T) {
-	generator := NewRSSGenerator()
+	generator := NewRSSGenerator("8080")
 
 	// Create test feed
 	feed := database.Feed{
@@ -119,7 +119,7 @@ func TestRSSGeneratorGenerate(t *testing.T) {
 }
 
 func TestRSSGeneratorGenerateEmpty(t *testing.T) {
-	generator := NewRSSGenerator()
+	generator := NewRSSGenerator("8080")
 
 	rss := generator.GenerateEmpty("Test Feed", "https://example.com/feed.xml")
 
@@ -143,7 +143,7 @@ func TestRSSGeneratorGenerateEmpty(t *testing.T) {
 }
 
 func TestRSSGeneratorGenerateError(t *testing.T) {
-	generator := NewRSSGenerator()
+	generator := NewRSSGenerator("8080")
 
 	rss := generator.GenerateError("Test Feed", "https://example.com/feed.xml", "Connection timeout")
 
@@ -172,7 +172,7 @@ func TestRSSGeneratorGenerateError(t *testing.T) {
 }
 
 func TestIsURL(t *testing.T) {
-	generator := NewRSSGenerator()
+	generator := NewRSSGenerator("8080")
 
 	tests := []struct {
 		input    string
@@ -198,7 +198,7 @@ func TestIsURL(t *testing.T) {
 }
 
 func TestGenerateWithEscaping(t *testing.T) {
-	generator := NewRSSGenerator()
+	generator := NewRSSGenerator("8080")
 
 	// Test with content that needs escaping
 	feed := database.Feed{

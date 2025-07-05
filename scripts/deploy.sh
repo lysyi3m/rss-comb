@@ -96,22 +96,22 @@ print_status "Verifying deployment..."
 sleep 5
 
 # Check if the application is responding
-if curl -f -s http://localhost:8080/health > /dev/null; then
+if curl -f -s http://localhost:${PORT:-8080}/health > /dev/null; then
     print_success "Application is responding to health checks"
     
     # Show application info
     print_status "Application information:"
-    curl -s http://localhost:8080/health | python3 -m json.tool 2>/dev/null || curl -s http://localhost:8080/health
+    curl -s http://localhost:${PORT:-8080}/health | python3 -m json.tool 2>/dev/null || curl -s http://localhost:${PORT:-8080}/health
     
     print_success "Deployment completed successfully! 🎉"
-    print_status "RSS Comb is running at http://localhost:8080"
+    print_status "RSS Comb is running at http://localhost:${PORT:-8080}"
     print_status ""
     print_status "Available endpoints:"
-    print_status "  Main feed:     http://localhost:8080/feed?url=<feed-url>"
-    print_status "  Health check:  http://localhost:8080/health"
-    print_status "  Statistics:    http://localhost:8080/stats"
-    print_status "  List feeds:    http://localhost:8080/api/v1/feeds"
-    print_status "  Feed details:  http://localhost:8080/api/v1/feeds/details?url=<feed-url>"
+    print_status "  Main feed:     http://localhost:${PORT:-8080}/feed?url=<feed-url>"
+    print_status "  Health check:  http://localhost:${PORT:-8080}/health"
+    print_status "  Statistics:    http://localhost:${PORT:-8080}/stats"
+    print_status "  List feeds:    http://localhost:${PORT:-8080}/api/v1/feeds"
+    print_status "  Feed details:  http://localhost:${PORT:-8080}/api/v1/feeds/details?url=<feed-url>"
     print_status ""
     print_status "To view logs: docker-compose -f docker-compose.prod.yml logs -f"
     print_status "To stop: docker-compose -f docker-compose.prod.yml down"

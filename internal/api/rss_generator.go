@@ -11,11 +11,16 @@ import (
 )
 
 // RSSGenerator handles generating RSS 2.0 XML from feed data
-type RSSGenerator struct{}
+type RSSGenerator struct {
+	Port string // Server port for self-referencing links
+}
 
 // NewRSSGenerator creates a new RSS generator
-func NewRSSGenerator() *RSSGenerator {
-	return &RSSGenerator{}
+func NewRSSGenerator(port string) *RSSGenerator {
+	if port == "" {
+		port = "8080"
+	}
+	return &RSSGenerator{Port: port}
 }
 
 // Generate creates RSS 2.0 XML from feed and items data
@@ -36,7 +41,7 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 	g.writeElement(&buf, "description", fmt.Sprintf("Processed feed from %s", feed.URL), 4)
 	
 	// Self-referencing link (Atom namespace)
-	selfLink := fmt.Sprintf("http://localhost:8080/feed?url=%s", feed.URL)
+	selfLink := fmt.Sprintf("http://localhost:%s/feed?url=%s", g.Port, feed.URL)
 	buf.WriteString(fmt.Sprintf("    <atom:link href=\"%s\" rel=\"self\" type=\"application/rss+xml\" />\n", 
 		html.EscapeString(selfLink)))
 	
@@ -158,7 +163,7 @@ func (g *RSSGenerator) GenerateEmpty(feedName, feedURL string) string {
 		feedName = "Empty Feed"
 	}
 	if feedURL == "" {
-		feedURL = "http://localhost:8080/feed"
+		feedURL = fmt.Sprintf("http://localhost:%s/feed", g.Port)
 	}
 
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
@@ -182,7 +187,7 @@ func (g *RSSGenerator) GenerateError(feedName, feedURL, errorMsg string) string 
 		feedName = "Error Feed"
 	}
 	if feedURL == "" {
-		feedURL = "http://localhost:8080/feed"
+		feedURL = fmt.Sprintf("http://localhost:%s/feed", g.Port)
 	}
 
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
