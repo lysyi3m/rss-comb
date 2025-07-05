@@ -44,8 +44,14 @@ docker-compose up -d
 # Production deployment
 docker-compose -f docker-compose.prod.yml up -d
 
-# Build production image
+# Build production image (optimized with caching)
 docker build -f Dockerfile -t rss-comb:latest .
+
+# Force rebuild without cache (only when needed)
+docker build -f Dockerfile -t rss-comb:latest . --no-cache
+
+# Build with custom PORT
+docker build -f Dockerfile -t rss-comb:latest . --build-arg PORT=9000
 ```
 
 #### Database Operations
@@ -239,6 +245,14 @@ go test -v ./app/database
 - Implement connection pooling for HTTP clients
 - Use worker pools for concurrent processing
 - Monitor memory usage in feed parsing
+
+### Docker Optimization
+- **Pinned Dependencies**: All base images and packages use specific versions for reproducible builds
+- **Layer Caching**: Dockerfile structured to maximize cache hits (dependencies before source code)
+- **Multi-stage Build**: Separate build and runtime environments for smaller final images
+- **Version Pinning**: All Alpine packages and Go tools use exact versions
+- **Build Context**: .dockerignore excludes unnecessary files for faster context transfer
+- **Cache Strategy**: Default builds use cache; use `--no-cache` only when explicitly needed
 
 ## Common Issues
 

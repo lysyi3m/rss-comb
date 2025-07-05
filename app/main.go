@@ -194,4 +194,3 @@ func loadConfig() *AppConfig {
 	
 	return &appConfig
 }
-
