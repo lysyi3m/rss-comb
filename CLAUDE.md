@@ -156,7 +156,7 @@ feed:
 settings:
   enabled: true
   deduplication: true
-  refresh_interval: 3600  # seconds
+  refresh_interval: 1800  # 30 minutes (recommended)
   max_items: 50
   timeout: 30            # seconds
 
