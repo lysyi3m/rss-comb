@@ -160,14 +160,3 @@ type ServerConfig struct {
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
 }
-
-// DefaultServerConfig returns default server configuration
-func DefaultServerConfig() *ServerConfig {
-	return &ServerConfig{
-		Host:         "",
-		Port:         "8080",
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
-	}
-}
