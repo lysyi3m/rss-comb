@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/internal/database"
-	"github.com/lysyi3m/rss-comb/internal/feed"
+	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
 // Scheduler manages the background processing of feeds

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/internal/config"
-	"github.com/lysyi3m/rss-comb/internal/database"
-	"github.com/lysyi3m/rss-comb/internal/parser"
+	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/parser"
 )
 
 // Processor handles feed processing including fetching, parsing, filtering, and storage

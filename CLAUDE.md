@@ -45,7 +45,7 @@ docker-compose up -d
 docker-compose -f docker-compose.prod.yml up -d
 
 # Build production image
-docker build -f docker/Dockerfile -t rss-comb:latest .
+docker build -f Dockerfile -t rss-comb:latest .
 ```
 
 #### Database Operations

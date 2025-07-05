@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lysyi3m/rss-comb/internal/config"
-	"github.com/lysyi3m/rss-comb/internal/database"
-	"github.com/lysyi3m/rss-comb/internal/feed"
+	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
 // Handler handles HTTP requests for the RSS API

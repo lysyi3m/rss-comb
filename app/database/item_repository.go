@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/lib/pq"
-	"github.com/lysyi3m/rss-comb/internal/parser"
+	"github.com/lysyi3m/rss-comb/app/parser"
 )
 
 // ItemRepository handles database operations for feed items

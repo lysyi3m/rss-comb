@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/internal/config"
-	"github.com/lysyi3m/rss-comb/internal/parser"
+	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/parser"
 )
 
 func TestApplyFilters(t *testing.T) {

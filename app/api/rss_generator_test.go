@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/internal/database"
+	"github.com/lysyi3m/rss-comb/app/database"
 )
 
 func TestRSSGeneratorGenerate(t *testing.T) {

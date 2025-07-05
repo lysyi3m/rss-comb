@@ -54,7 +54,7 @@ fi
 
 # Build binary
 print_status "Building binary..."
-if go build -o bin/rss-comb cmd/server/main.go; then
+if go build -o bin/rss-comb app/main.go; then
     print_success "Binary built successfully: bin/rss-comb"
 else
     print_error "Failed to build binary"
@@ -63,7 +63,7 @@ fi
 
 # Build Docker image
 print_status "Building Docker image..."
-if docker build -f docker/Dockerfile -t rss-comb:latest .; then
+if docker build -f Dockerfile -t rss-comb:latest .; then
     print_success "Docker image built successfully: rss-comb:latest"
 else
     print_error "Failed to build Docker image"

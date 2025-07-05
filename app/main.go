@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/lysyi3m/rss-comb/internal/api"
-	"github.com/lysyi3m/rss-comb/internal/config"
-	"github.com/lysyi3m/rss-comb/internal/database"
-	"github.com/lysyi3m/rss-comb/internal/feed"
-	"github.com/lysyi3m/rss-comb/internal/parser"
-	"github.com/lysyi3m/rss-comb/internal/scheduler"
+	"github.com/lysyi3m/rss-comb/app/api"
+	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/feed"
+	"github.com/lysyi3m/rss-comb/app/parser"
+	"github.com/lysyi3m/rss-comb/app/scheduler"
 )
 
 func main() {

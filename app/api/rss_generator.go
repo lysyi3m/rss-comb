@@ -7,7 +7,7 @@ import (
 	"html"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/internal/database"
+	"github.com/lysyi3m/rss-comb/app/database"
 )
 
 // RSSGenerator handles generating RSS 2.0 XML from feed data

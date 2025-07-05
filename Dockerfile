@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
     -o rss-comb \
-    cmd/server/main.go
+    app/main.go
 
 # Final stage
 FROM alpine:latest
