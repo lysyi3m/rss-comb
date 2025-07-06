@@ -25,6 +25,10 @@ func (m *MockFeedRepository) UpsertFeed(configFile, feedID, feedURL, feedName st
 	return "test-id", nil
 }
 
+func (m *MockFeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedName string) (string, bool, error) {
+	return "test-id", false, nil
+}
+
 func (m *MockFeedRepository) UpdateFeedMetadata(feedID string, iconURL string, language string) error {
 	return nil
 }

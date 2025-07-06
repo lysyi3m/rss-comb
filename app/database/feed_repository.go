@@ -49,6 +49,45 @@ func (r *FeedRepository) UpsertFeed(configFile, feedID, feedURL, feedName string
 	return dbID, nil
 }
 
+// UpsertFeedWithChangeDetection inserts or updates a feed configuration with change detection
+func (r *FeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedName string) (string, bool, error) {
+	// First try to get existing feed by feed_id
+	existingFeed, err := r.GetFeedByID(feedID)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to check existing feed: %w", err)
+	}
+
+	var dbID string
+	var urlChanged bool
+	if existingFeed != nil {
+		// Check if URL has changed
+		if existingFeed.URL != feedURL {
+			urlChanged = true
+		}
+		
+		// Update existing feed
+		err = r.db.QueryRow(`
+			UPDATE feeds 
+			SET config_file = $2, feed_url = $3, feed_name = $4, updated_at = NOW()
+			WHERE feed_id = $1
+			RETURNING id
+		`, feedID, configFile, feedURL, feedName).Scan(&dbID)
+	} else {
+		// Insert new feed
+		err = r.db.QueryRow(`
+			INSERT INTO feeds (config_file, feed_id, feed_url, feed_name)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id
+		`, configFile, feedID, feedURL, feedName).Scan(&dbID)
+	}
+
+	if err != nil {
+		return "", false, fmt.Errorf("failed to upsert feed: %w", err)
+	}
+
+	return dbID, urlChanged, nil
+}
+
 // UpdateFeedMetadata updates feed metadata after successful parsing
 func (r *FeedRepository) UpdateFeedMetadata(feedID string, iconURL string, language string) error {
 	_, err := r.db.Exec(`

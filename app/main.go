@@ -59,16 +59,26 @@ func main() {
 	// Register feeds in database
 	log.Println("Registering feeds in database...")
 	registeredCount := 0
+	urlChangedCount := 0
 	for configFile, cfg := range configs {
-		dbID, err := feedRepo.UpsertFeed(configFile, cfg.Feed.ID, cfg.Feed.URL, cfg.Feed.Name)
+		dbID, urlChanged, err := feedRepo.UpsertFeedWithChangeDetection(configFile, cfg.Feed.ID, cfg.Feed.URL, cfg.Feed.Name)
 		if err != nil {
 			log.Printf("Warning: Failed to register feed %s: %v", configFile, err)
 			continue
 		}
-		log.Printf("Registered feed: %s (ID: %s, DB ID: %s, URL: %s)", cfg.Feed.Name, cfg.Feed.ID, dbID, cfg.Feed.URL)
+		
+		if urlChanged {
+			log.Printf("Feed URL updated: %s (ID: %s, DB ID: %s, New URL: %s)", cfg.Feed.Name, cfg.Feed.ID, dbID, cfg.Feed.URL)
+			urlChangedCount++
+		} else {
+			log.Printf("Registered feed: %s (ID: %s, DB ID: %s, URL: %s)", cfg.Feed.Name, cfg.Feed.ID, dbID, cfg.Feed.URL)
+		}
 		registeredCount++
 	}
 	log.Printf("Successfully registered %d/%d feeds", registeredCount, len(configs))
+	if urlChangedCount > 0 {
+		log.Printf("Updated URLs for %d feeds", urlChangedCount)
+	}
 
 	// Initialize core components
 	feedParser := parser.NewParser()
