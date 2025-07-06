@@ -145,6 +145,76 @@ rss-comb/
 - JSONB storage for raw feed data
 - Optimized indexes for common queries
 
+## Detailed Architecture
+
+### Database Schema Details
+- **feeds table**: metadata, processing status, timestamps
+- **feed_items table**: normalized items with content hashing
+- Key relationships: feeds.id → feed_items.feed_id
+- Indexes: feed_id, published_at, content_hash
+
+### Repository Layer (`app/database/`)
+- `connection.go`: PostgreSQL connection management
+- `feed_repository.go`: CRUD operations for feeds
+- `item_repository.go`: CRUD operations for feed items
+- `interfaces.go`: Database interface definitions
+- `models.go`: Database model structs
+
+### Configuration Loading (`app/config/`)
+- `loader.go`: Configuration loading logic
+- `loader_test.go`: Tests for configuration loading
+- `types.go`: Configuration structs and types
+- Watches `feeds/*.yml` files for changes
+
+## Environment Guide
+
+### Development Environment
+- **Application**: Running locally via `make run`
+- **Database**: PostgreSQL in Docker container (localhost:5432)
+- **Database URL**: `postgres://rss_user:rss_password@localhost:5432/rss_comb?sslmode=disable`
+- **Feed configs**: Local `feeds/*.yml` files
+- **Logs**: Console output
+
+### Production Environment  
+- **Application**: Running in Docker container via `make docker-up`
+- **Database**: PostgreSQL in Docker container (internal network)
+- **Database URL**: `postgres://rss_user:rss_password@db:5432/rss_comb?sslmode=disable`
+- **Feed configs**: Mounted `feeds/*.yml` files
+- **Logs**: `make docker-logs`
+
+### How to verify "app is running"
+- **Dev**: `curl localhost:8080/health` returns 200
+- **Prod**: `curl localhost:8080/health` returns 200
+- **Database**: `make test` passes, or manual query works
+
+## Work Verification Process
+
+### After making changes:
+1. **Build & Test**: `make build && make test`
+2. **Local verification**: `make run` then test endpoints
+3. **Docker verification**: `make docker-build && make docker-up` then test
+4. **Commit changes**: Only when explicitly requested
+5. **Cleanup**: `make clean`
+
+### All operations should use Makefile:
+- **Development**: `make dev-up`, `make run`, `make dev-down`
+- **Testing**: `make test`
+- **Production**: `make deploy`, `make docker-up`, `make docker-down`
+- **Cleanup**: `make clean`
+- **Never use direct docker/go commands** - always use Makefile targets
+
+### Cleanup Commands
+```bash
+# Clean everything
+make clean
+
+# Stop development services
+make dev-down
+
+# Stop production services
+make docker-down
+```
+
 ## Configuration
 
 ### Feed Configuration Format (`feeds/*.yml`)
