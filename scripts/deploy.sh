@@ -64,8 +64,8 @@ docker-compose -f docker-compose.prod.yml pull db
 print_status "Starting containers..."
 docker-compose -f docker-compose.prod.yml up -d
 
-# Wait for services to be healthy
-print_status "Waiting for services to be healthy..."
+# Wait for services to be ready
+print_status "Waiting for services to be ready..."
 max_attempts=30
 attempt=0
 
@@ -96,20 +96,19 @@ print_status "Verifying deployment..."
 sleep 5
 
 # Check if the application is responding
-if curl -f -s http://localhost:${PORT:-8080}/health > /dev/null; then
-    print_success "Application is responding to health checks"
+if curl -f -s http://localhost:${PORT:-8080}/ > /dev/null; then
+    print_success "Application is responding"
     
     # Show application info
     print_status "Application information:"
-    curl -s http://localhost:${PORT:-8080}/health
+    curl -s http://localhost:${PORT:-8080}/stats
     
     print_success "Deployment completed successfully! 🎉"
     print_status "RSS Comb is running at http://localhost:${PORT:-8080}"
     print_status ""
     print_status "Available endpoints:"
-    print_status "  Feed:          http://localhost:${PORT:-8080}/feeds/<id>"
-    print_status "  Health check:  http://localhost:${PORT:-8080}/health"
-    print_status "  Statistics:    http://localhost:${PORT:-8080}/stats"
+    print_status "  Feed:       http://localhost:${PORT:-8080}/feeds/<id>"
+    print_status "  Statistics: http://localhost:${PORT:-8080}/stats"
     print_status "  List feeds:    http://localhost:${PORT:-8080}/api/feeds"
     print_status "  Feed details:  http://localhost:${PORT:-8080}/api/feeds/<id>/details"
     print_status "  Refilter:      http://localhost:${PORT:-8080}/api/feeds/<id>/refilter"

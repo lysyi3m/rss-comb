@@ -75,7 +75,7 @@ EXPOSE $PORT
 
 # Health check with environment variable support
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl --fail --silent http://localhost:$PORT/health || exit 1
+    CMD curl --fail --silent http://localhost:$PORT/ || exit 1
 
 # Run the application
 CMD ["./rss-comb"]
