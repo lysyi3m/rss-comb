@@ -171,6 +171,8 @@ filters:
 - The `id` field is required and must be unique across all feed configurations
 - Feed IDs are used in the URL schema: `/feeds/<id>`
 - IDs should be URL-safe (alphanumeric, hyphens, underscores)
+- Feed URLs can be updated in configuration files at any time - the system automatically detects and applies URL changes
+- Feeds with query parameters are fully supported since routing is based on feed IDs, not URLs
 
 ### Environment Variables
 All configuration options support both environment variables and command-line flags:
@@ -273,6 +275,13 @@ go test -v ./app/database
 - Check deduplication settings
 - Examine `is_filtered` and `is_duplicate` flags in database
 - Verify `max_items` setting
+
+### Feed URL Changes
+- Feed URLs can be updated directly in configuration files (`.yml`)
+- System automatically detects URL changes on startup and logs them
+- Look for "Feed URL updated" messages in logs
+- No manual database updates required - changes are applied automatically
+- Supports feeds with query parameters since routing uses feed IDs
 
 ## API Endpoints
 
