@@ -251,3 +251,13 @@ func (r *FeedRepository) GetFeedCount() (int, error) {
 	}
 	return count, nil
 }
+
+// GetActiveFeedCount returns the count of enabled feeds
+func (r *FeedRepository) GetActiveFeedCount() (int, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds WHERE is_active = true").Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get active feed count: %w", err)
+	}
+	return count, nil
+}

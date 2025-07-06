@@ -112,16 +112,14 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 func (h *Handler) GetStats(c *gin.Context) {
 	stats := map[string]interface{}{
 		"timestamp": time.Now().Format(time.RFC3339),
-		"feeds":     map[string]interface{}{},
 	}
 
-	// Get overall feed count
-	if feedCount, err := h.feedRepo.GetFeedCount(); err == nil {
-		stats["total_feeds"] = feedCount
+	// Get active feed count
+	if activeFeedCount, err := h.feedRepo.GetActiveFeedCount(); err == nil {
+		stats["active_feeds"] = activeFeedCount
 	}
 
 	stats["loaded_configurations"] = len(h.configs)
-
 
 	c.JSON(http.StatusOK, stats)
 }

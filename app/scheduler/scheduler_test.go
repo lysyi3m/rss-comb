@@ -57,6 +57,16 @@ func (m *MockFeedRepository) GetFeedCount() (int, error) {
 	return len(m.feeds), nil
 }
 
+func (m *MockFeedRepository) GetActiveFeedCount() (int, error) {
+	count := 0
+	for _, feed := range m.feeds {
+		if feed.IsActive {
+			count++
+		}
+	}
+	return count, nil
+}
+
 // MockProcessor implements a simple mock for testing
 type MockProcessor struct {
 	processedFeeds []string

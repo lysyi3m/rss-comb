@@ -14,4 +14,5 @@ type FeedRepositoryInterface interface {
 	GetFeedByID(feedID string) (*Feed, error)
 	SetFeedActive(feedID string, active bool) error
 	GetFeedCount() (int, error)
+	GetActiveFeedCount() (int, error)
 }
