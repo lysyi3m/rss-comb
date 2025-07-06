@@ -67,12 +67,12 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 
 	// API endpoints (conditionally enabled with authentication)
 	if apiAccessKey != "" {
-		api := r.Group("/api/v1")
+		api := r.Group("/api")
 		api.Use(authMiddleware(apiAccessKey))
 		{
 			api.GET("/feeds", handler.ListFeeds)
-			api.GET("/feeds/details", handler.GetFeedDetails)
-			api.POST("/feeds/reapply-filters", handler.ReapplyFilters)
+			api.GET("/feeds/:id/details", handler.GetFeedDetailsByID)
+			api.POST("/feeds/:id/refilter", handler.ReapplyFiltersByID)
 		}
 		log.Printf("API endpoints enabled with authentication")
 	} else {
@@ -89,9 +89,9 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 		
 		// Add API endpoints if authentication is enabled
 		if apiAccessKey != "" {
-			endpoints["feeds"] = "/api/v1/feeds (requires X-API-Key header)"
-			endpoints["details"] = "/api/v1/feeds/details?url=<feed-url> (requires X-API-Key header)"
-			endpoints["reapply-filters"] = "/api/v1/feeds/reapply-filters?url=<feed-url> (POST, requires X-API-Key header)"
+			endpoints["feeds"] = "/api/feeds (requires X-API-Key header)"
+			endpoints["details"] = "/api/feeds/<id>/details (requires X-API-Key header)"
+			endpoints["refilter"] = "/api/feeds/<id>/refilter (POST, requires X-API-Key header)"
 		}
 		
 		c.JSON(200, gin.H{

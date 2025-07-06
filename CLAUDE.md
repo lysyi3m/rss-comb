@@ -276,12 +276,35 @@ go test -v ./app/database
 
 ## API Endpoints
 
-### `GET /feeds/<id>`
+### Public Endpoints
+
+#### `GET /feeds/<id>`
 - Returns processed RSS feed by feed ID
 - Returns 404 for unknown feed IDs
 - Returns empty feed template for not-yet-processed feeds
 
-### `GET /health`
+#### `GET /health`
 - Returns system health status
 - Includes count of configured feeds
 - Used for monitoring and load balancer health checks
+
+#### `GET /stats`
+- Returns application statistics
+- Includes feed counts and processing metrics
+
+### API Endpoints (require API key)
+
+#### `GET /api/feeds`
+- Lists all configured feeds
+- Returns feed configuration and status information
+- Requires X-API-Key header or Authorization: Bearer token
+
+#### `GET /api/feeds/<id>/details`
+- Returns detailed information about a specific feed by ID
+- Includes configuration, database status, and item statistics
+- Requires X-API-Key header or Authorization: Bearer token
+
+#### `POST /api/feeds/<id>/refilter`
+- Re-applies filters to all items for a specific feed by ID
+- Returns updated item counts and statistics
+- Requires X-API-Key header or Authorization: Bearer token

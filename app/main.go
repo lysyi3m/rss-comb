@@ -105,9 +105,9 @@ func main() {
 		log.Printf("  Statistics:    http://localhost:%s/stats", appConfig.Port)
 		
 		if appConfig.APIAccessKey != "" {
-			log.Printf("  List feeds:    http://localhost:%s/api/v1/feeds (requires API key)", appConfig.Port)
-			log.Printf("  Feed details:  http://localhost:%s/api/v1/feeds/details?url=<feed-url> (requires API key)", appConfig.Port)
-			log.Printf("  Reapply filters: http://localhost:%s/api/v1/feeds/reapply-filters?url=<feed-url> (POST, requires API key)", appConfig.Port)
+			log.Printf("  List feeds:    http://localhost:%s/api/feeds (requires API key)", appConfig.Port)
+			log.Printf("  Feed details:  http://localhost:%s/api/feeds/<id>/details (requires API key)", appConfig.Port)
+			log.Printf("  Refilter:      http://localhost:%s/api/feeds/<id>/refilter (POST, requires API key)", appConfig.Port)
 		} else {
 			log.Printf("  API endpoints: DISABLED (API_ACCESS_KEY not set)")
 		}

@@ -78,9 +78,15 @@ filters:
 
 ## API Endpoints
 
+### Public Endpoints
 - `GET /feeds/<id>` - Get processed RSS feed by feed ID
 - `GET /health` - Health check endpoint
 - `GET /stats` - Application statistics
+
+### API Endpoints (require API key)
+- `GET /api/feeds` - List all configured feeds
+- `GET /api/feeds/<id>/details` - Get detailed information about a specific feed
+- `POST /api/feeds/<id>/refilter` - Re-apply filters to a specific feed
 
 ## Development
 

@@ -332,3 +332,152 @@ func (h *Handler) ReapplyFilters(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+// GetFeedDetailsByID handles detailed information about a specific feed by ID
+func (h *Handler) GetFeedDetailsByID(c *gin.Context) {
+	feedID := c.Param("id")
+	if feedID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing feed ID parameter"})
+		return
+	}
+
+	// Find configuration by feed ID
+	var configFile string
+	var feedConfig *config.FeedConfig
+	for file, cfg := range h.configs {
+		if cfg.Feed.ID == feedID {
+			configFile = file
+			feedConfig = cfg
+			break
+		}
+	}
+
+	if feedConfig == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not configured"})
+		return
+	}
+
+	details := map[string]interface{}{
+		"id":               feedConfig.Feed.ID,
+		"name":             feedConfig.Feed.Name,
+		"url":              feedConfig.Feed.URL,
+		"config_file":      configFile,
+		"enabled":          feedConfig.Settings.Enabled,
+		"max_items":        feedConfig.Settings.MaxItems,
+		"refresh_interval": feedConfig.Settings.GetRefreshInterval().String(),
+		"timeout":          feedConfig.Settings.GetTimeout().String(),
+		"user_agent":       config.GetUserAgent(),
+		"deduplication":    feedConfig.Settings.Deduplication,
+		"filters":          feedConfig.Filters,
+	}
+
+	// Get feed from database
+	if feed, err := h.feedRepo.GetFeedByID(feedID); err == nil && feed != nil {
+		details["database"] = map[string]interface{}{
+			"id":           feed.ID,
+			"feed_id":      feed.FeedID,
+			"last_fetched": feed.LastFetched,
+			"last_success": feed.LastSuccess,
+			"next_fetch":   feed.NextFetch,
+			"is_active":    feed.IsActive,
+			"created_at":   feed.CreatedAt,
+			"updated_at":   feed.UpdatedAt,
+		}
+
+		// Get item statistics
+		if total, visible, duplicates, filtered, err := h.itemRepo.GetItemStats(feed.ID); err == nil {
+			details["items"] = map[string]interface{}{
+				"total":      total,
+				"visible":    visible,
+				"duplicates": duplicates,
+				"filtered":   filtered,
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, details)
+}
+
+// ReapplyFiltersByID handles the filter re-application endpoint by feed ID
+func (h *Handler) ReapplyFiltersByID(c *gin.Context) {
+	feedID := c.Param("id")
+	if feedID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing feed ID parameter"})
+		return
+	}
+
+	// Find configuration by feed ID
+	var configFile string
+	var feedConfig *config.FeedConfig
+	for file, cfg := range h.configs {
+		if cfg.Feed.ID == feedID {
+			configFile = file
+			feedConfig = cfg
+			break
+		}
+	}
+
+	if feedConfig == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not configured"})
+		return
+	}
+
+	// Get feed from database
+	feed, err := h.feedRepo.GetFeedByID(feedID)
+	if err != nil {
+		log.Printf("Database error getting feed %s: %v", feedID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	if feed == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not found in database"})
+		return
+	}
+
+	// Re-apply filters
+	updatedCount, errorCount, err := h.processor.ReapplyFilters(feed.ID, configFile)
+	if err != nil {
+		log.Printf("Error re-applying filters for feed %s: %v", feedID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to re-apply filters",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Get updated statistics
+	total, visible, duplicates, filtered, err := h.itemRepo.GetItemStats(feed.ID)
+	if err != nil {
+		log.Printf("Warning: failed to get updated stats for feed %s: %v", feedID, err)
+	}
+
+	response := gin.H{
+		"success": true,
+		"message": "Filters re-applied successfully",
+		"feed": gin.H{
+			"id":   feedConfig.Feed.ID,
+			"name": feedConfig.Feed.Name,
+			"url":  feedConfig.Feed.URL,
+		},
+		"results": gin.H{
+			"updated_items": updatedCount,
+			"errors":        errorCount,
+		},
+	}
+
+	// Add updated stats if available
+	if err == nil {
+		response["updated_stats"] = gin.H{
+			"total_items":    total,
+			"visible_items":  visible,
+			"filtered_items": filtered,
+			"duplicates":     duplicates,
+		}
+	}
+
+	log.Printf("Successfully re-applied filters for feed %s: %d items updated, %d errors", 
+		feedID, updatedCount, errorCount)
+
+	c.JSON(http.StatusOK, response)
+}
