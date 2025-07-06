@@ -38,7 +38,7 @@ FROM alpine:3.22.0
 RUN apk add --no-cache \
     ca-certificates=20241121-r2 \
     tzdata=2025b-r0 \
-    wget=1.25.0-r1 \
+    curl=8.14.1-r1 \
     netcat-openbsd=1.229.1-r0
 
 # Create non-root user (combine RUN commands for fewer layers)
@@ -75,7 +75,7 @@ EXPOSE $PORT
 
 # Health check with environment variable support
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:$PORT/health || exit 1
+    CMD curl --fail --silent http://localhost:$PORT/health || exit 1
 
 # Run the application
 CMD ["./rss-comb"]
