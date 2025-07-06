@@ -107,25 +107,6 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	c.String(http.StatusOK, rss)
 }
 
-// HealthCheck handles the health check endpoint
-func (h *Handler) HealthCheck(c *gin.Context) {
-	health := map[string]interface{}{
-		"status":    "healthy",
-		"timestamp": time.Now().Format(time.RFC3339),
-		"version":   "1.0.0",
-	}
-
-	// Get feed count
-	if feedCount, err := h.feedRepo.GetFeedCount(); err == nil {
-		health["feeds"] = feedCount
-	}
-
-
-	// Check configuration count
-	health["configurations"] = len(h.configs)
-
-	c.JSON(http.StatusOK, health)
-}
 
 // GetStats handles the statistics endpoint
 func (h *Handler) GetStats(c *gin.Context) {
