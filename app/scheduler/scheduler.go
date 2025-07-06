@@ -133,7 +133,7 @@ func (s *Scheduler) enqueueDueFeeds() {
 
 	if len(enabledFeeds) == 0 {
 		if len(feeds) > 0 {
-			log.Printf("No enabled feeds to process (all %d feeds are disabled)", len(feeds))
+			log.Printf("No enabled feeds to process (%d feeds are disabled in config)", len(feeds))
 		}
 		return
 	}
