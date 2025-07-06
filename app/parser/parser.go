@@ -98,12 +98,11 @@ func (p *Parser) normalizeItem(item *gofeed.Item) NormalizedItem {
 
 // generateContentHash generates a hash for content deduplication
 func (p *Parser) generateContentHash(item NormalizedItem) string {
-	// Use title, link, and description for hash generation
-	// This provides good deduplication while being resilient to minor changes
-	content := fmt.Sprintf("%s|%s|%s",
+	// Use only title and link for hash generation
+	// This prevents duplicate detection when only description changes (e.g., article updates)
+	content := fmt.Sprintf("%s|%s",
 		item.Title,
-		item.Link,
-		item.Description)
+		item.Link)
 
 	hash := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(hash[:])

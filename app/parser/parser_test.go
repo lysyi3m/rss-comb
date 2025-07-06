@@ -190,18 +190,31 @@ func TestContentHashGeneration(t *testing.T) {
 		Description: "Test Description",
 	}
 
+	// Test updated deduplication logic: same title+link with different description should have same hash
+	item4 := NormalizedItem{
+		Title:       "Test Title",
+		Link:        "https://example.com/1",
+		Description: "Updated Description - Article was modified",
+	}
+
 	hash1 := parser.generateContentHash(item1)
 	hash2 := parser.generateContentHash(item2)
 	hash3 := parser.generateContentHash(item3)
+	hash4 := parser.generateContentHash(item4)
 
 	// Same content should produce same hash
 	if hash1 != hash2 {
 		t.Error("Expected same hash for identical content")
 	}
 
-	// Different content should produce different hash
+	// Different title should produce different hash
 	if hash1 == hash3 {
-		t.Error("Expected different hash for different content")
+		t.Error("Expected different hash for different title")
+	}
+
+	// Same title+link with different description should produce same hash (updated deduplication logic)
+	if hash1 != hash4 {
+		t.Error("Expected same hash for same title+link with different description")
 	}
 
 	// Hash should be non-empty
