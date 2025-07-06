@@ -140,7 +140,7 @@ func (r *ItemRepository) GetItemStats(feedID string) (total, visible, duplicates
 		SELECT 
 			COUNT(*) as total,
 			SUM(CASE WHEN is_filtered = false THEN 1 ELSE 0 END) as visible,
-			0 as duplicates,
+			SUM(CASE WHEN is_duplicate = true THEN 1 ELSE 0 END) as duplicates,
 			SUM(CASE WHEN is_filtered = true THEN 1 ELSE 0 END) as filtered
 		FROM feed_items 
 		WHERE feed_id = $1
@@ -153,24 +153,6 @@ func (r *ItemRepository) GetItemStats(feedID string) (total, visible, duplicates
 	return total, visible, duplicates, filtered, nil
 }
 
-// DeleteOldItems deletes items older than the specified number of days for a feed
-func (r *ItemRepository) DeleteOldItems(feedID string, daysOld int) (int, error) {
-	result, err := r.db.Exec(`
-		DELETE FROM feed_items 
-		WHERE feed_id = $1 
-		  AND created_at < NOW() - INTERVAL '%d days'
-	`, feedID, daysOld)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete old items: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	return int(rowsAffected), nil
-}
 
 // GetAllItems returns all items for a feed (including filtered ones)
 func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {

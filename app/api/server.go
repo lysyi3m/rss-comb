@@ -152,11 +152,3 @@ func authMiddleware(apiAccessKey string) gin.HandlerFunc {
 	}
 }
 
-// ServerConfig holds server configuration options
-type ServerConfig struct {
-	Host         string
-	Port         string
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	IdleTimeout  time.Duration
-}
