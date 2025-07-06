@@ -101,7 +101,7 @@ if curl -f -s http://localhost:${PORT:-8080}/health > /dev/null; then
     
     # Show application info
     print_status "Application information:"
-    curl -s http://localhost:${PORT:-8080}/health | python3 -m json.tool 2>/dev/null || curl -s http://localhost:${PORT:-8080}/health
+    curl -s http://localhost:${PORT:-8080}/health
     
     print_success "Deployment completed successfully! 🎉"
     print_status "RSS Comb is running at http://localhost:${PORT:-8080}"
