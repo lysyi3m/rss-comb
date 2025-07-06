@@ -91,7 +91,6 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 				log.Printf("Warning: failed to check duplicate for item %d: %v", i, err)
 			} else if isDup {
 				skippedCount++
-				log.Printf("Item %d is duplicate, skipping", i)
 				// Skip storing duplicates
 				continue
 			}
