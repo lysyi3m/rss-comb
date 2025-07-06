@@ -33,77 +33,77 @@ func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository
 	}
 }
 
-// GetFeed handles the main feed endpoint
-func (h *Handler) GetFeed(c *gin.Context) {
-	feedURL := c.Query("url")
-	if feedURL == "" {
+// GetFeedByID handles the new ID-based feed endpoint
+func (h *Handler) GetFeedByID(c *gin.Context) {
+	feedID := c.Param("id")
+	if feedID == "" {
 		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
-		c.String(http.StatusBadRequest, h.generator.GenerateError("", "", "Missing 'url' parameter"))
+		c.String(http.StatusBadRequest, h.generator.GenerateError("", "", "Missing feed ID"))
 		return
 	}
 
-	// Find matching configuration
+	// Find matching configuration by feed ID
 	var feedConfig *config.FeedConfig
-
 	for _, cfg := range h.configs {
-		if cfg.Feed.URL == feedURL {
+		if cfg.Feed.ID == feedID {
 			feedConfig = cfg
 			break
 		}
 	}
 
-	// If not registered, redirect to original feed
+	// If not registered, return 404
 	if feedConfig == nil {
-		log.Printf("Feed not registered: %s, redirecting to original", feedURL)
-		c.Redirect(http.StatusFound, feedURL)
+		log.Printf("Feed ID not found: %s", feedID)
+		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
+		c.String(http.StatusNotFound, h.generator.GenerateError("", "", "Feed not found"))
 		return
 	}
 
-
 	// Get feed from database
-	feed, err := h.feedRepo.GetFeedByURL(feedURL)
+	feed, err := h.feedRepo.GetFeedByID(feedID)
 	if err != nil {
-		log.Printf("Database error getting feed %s: %v", feedURL, err)
+		log.Printf("Database error getting feed %s: %v", feedID, err)
 		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feedConfig.Feed.Name, feedURL, "Database error"))
+		c.String(http.StatusInternalServerError, h.generator.GenerateError(feedConfig.Feed.Name, feedConfig.Feed.URL, "Database error"))
 		return
 	}
 
 	// If feed not found in database, return empty feed
 	if feed == nil {
-		log.Printf("Feed not yet processed: %s", feedURL)
+		log.Printf("Feed not yet processed: %s", feedID)
 		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
-		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Name, feedURL))
+		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Name, feedConfig.Feed.URL))
 		return
 	}
 
 	// Get feed items
 	items, err := h.itemRepo.GetVisibleItems(feed.ID, feedConfig.Settings.MaxItems)
 	if err != nil {
-		log.Printf("Database error getting items for feed %s: %v", feedURL, err)
+		log.Printf("Database error getting items for feed %s: %v", feedID, err)
 		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Name, feedURL, "Failed to retrieve items"))
+		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Name, feed.URL, "Failed to retrieve items"))
 		return
 	}
 
 	// Generate RSS
 	rss, err := h.generator.Generate(*feed, items)
 	if err != nil {
-		log.Printf("RSS generation error for feed %s: %v", feedURL, err)
+		log.Printf("RSS generation error for feed %s: %v", feedID, err)
 		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Name, feedURL, "RSS generation failed"))
+		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Name, feed.URL, "RSS generation failed"))
 		return
 	}
 
 	// Set response headers
 	c.Header("Content-Type", "application/rss+xml; charset=utf-8")
 	c.Header("X-Feed-Items", strconv.Itoa(len(items)))
+	c.Header("X-Feed-ID", feedID)
 	
 	if feed.LastSuccess != nil {
 		c.Header("X-Last-Updated", feed.LastSuccess.Format(time.RFC3339))
 	}
 
-	log.Printf("Served feed %s with %d items", feedURL, len(items))
+	log.Printf("Served feed %s with %d items", feedID, len(items))
 	c.String(http.StatusOK, rss)
 }
 

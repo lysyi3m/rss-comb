@@ -107,7 +107,7 @@ if curl -f -s http://localhost:${PORT:-8080}/health > /dev/null; then
     print_status "RSS Comb is running at http://localhost:${PORT:-8080}"
     print_status ""
     print_status "Available endpoints:"
-    print_status "  Main feed:     http://localhost:${PORT:-8080}/feed?url=<feed-url>"
+    print_status "  Feed:          http://localhost:${PORT:-8080}/feeds/<id>"
     print_status "  Health check:  http://localhost:${PORT:-8080}/health"
     print_status "  Statistics:    http://localhost:${PORT:-8080}/stats"
     print_status "  List feeds:    http://localhost:${PORT:-8080}/api/v1/feeds"

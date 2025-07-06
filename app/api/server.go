@@ -59,7 +59,7 @@ func NewServer(handler *Handler, apiAccessKey string) *gin.Engine {
 // setupRoutes configures all the application routes
 func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 	// Main feed endpoint
-	r.GET("/feed", handler.GetFeed)
+	r.GET("/feeds/:id", handler.GetFeedByID)
 
 	// Health and status endpoints
 	r.GET("/health", handler.HealthCheck)
@@ -82,7 +82,7 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 	// Root endpoint with basic information
 	r.GET("/", func(c *gin.Context) {
 		endpoints := map[string]string{
-			"feed":   "/feed?url=<feed-url>",
+			"feed":   "/feeds/<id>",
 			"health": "/health",
 			"stats":  "/stats",
 		}

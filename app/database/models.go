@@ -6,7 +6,8 @@ import (
 
 // Feed represents a feed record in the database
 type Feed struct {
-	ID          string
+	ID          string     // Database UUID
+	FeedID      string     // Configuration feed ID
 	ConfigFile  string
 	URL         string
 	Name        string

@@ -17,24 +17,36 @@ func NewFeedRepository(db *DB) *FeedRepository {
 }
 
 // UpsertFeed inserts or updates a feed configuration
-func (r *FeedRepository) UpsertFeed(configFile, feedURL, feedName string) (string, error) {
-	var feedID string
-	err := r.db.QueryRow(`
-		INSERT INTO feeds (config_file, feed_url, feed_name)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (config_file)
-		DO UPDATE SET
-			feed_url = EXCLUDED.feed_url,
-			feed_name = EXCLUDED.feed_name,
-			updated_at = NOW()
-		RETURNING id
-	`, configFile, feedURL, feedName).Scan(&feedID)
+func (r *FeedRepository) UpsertFeed(configFile, feedID, feedURL, feedName string) (string, error) {
+	// First try to get existing feed by feed_id
+	existingFeed, err := r.GetFeedByID(feedID)
+	if err != nil {
+		return "", fmt.Errorf("failed to check existing feed: %w", err)
+	}
+
+	var dbID string
+	if existingFeed != nil {
+		// Update existing feed
+		err = r.db.QueryRow(`
+			UPDATE feeds 
+			SET config_file = $2, feed_url = $3, feed_name = $4, updated_at = NOW()
+			WHERE feed_id = $1
+			RETURNING id
+		`, feedID, configFile, feedURL, feedName).Scan(&dbID)
+	} else {
+		// Insert new feed
+		err = r.db.QueryRow(`
+			INSERT INTO feeds (config_file, feed_id, feed_url, feed_name)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id
+		`, configFile, feedID, feedURL, feedName).Scan(&dbID)
+	}
 
 	if err != nil {
 		return "", fmt.Errorf("failed to upsert feed: %w", err)
 	}
 
-	return feedID, nil
+	return dbID, nil
 }
 
 // UpdateFeedMetadata updates feed metadata after successful parsing
@@ -70,7 +82,7 @@ func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) err
 // GetFeedsDueForRefresh returns feeds that need to be refreshed
 func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 	rows, err := r.db.Query(`
-		SELECT id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
+		SELECT id, feed_id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
 		       last_fetched, last_success, next_fetch, is_active, created_at, updated_at
 		FROM feeds
 		WHERE is_active = true
@@ -87,7 +99,7 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 	for rows.Next() {
 		var feed Feed
 		err := rows.Scan(
-			&feed.ID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
+			&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
 			&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.IsActive,
 			&feed.CreatedAt, &feed.UpdatedAt,
 		)
@@ -108,12 +120,12 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 func (r *FeedRepository) GetFeedByConfigFile(configFile string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
-		SELECT id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
+		SELECT id, feed_id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
 		       last_fetched, last_success, next_fetch, is_active, created_at, updated_at
 		FROM feeds
 		WHERE config_file = $1
 	`, configFile).Scan(
-		&feed.ID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
+		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
 		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.IsActive,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
@@ -132,12 +144,12 @@ func (r *FeedRepository) GetFeedByConfigFile(configFile string) (*Feed, error) {
 func (r *FeedRepository) GetFeedByURL(feedURL string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
-		SELECT id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
+		SELECT id, feed_id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
 		       last_fetched, last_success, next_fetch, is_active, created_at, updated_at
 		FROM feeds
 		WHERE feed_url = $1
 	`, feedURL).Scan(
-		&feed.ID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
+		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
 		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.IsActive,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
@@ -147,6 +159,30 @@ func (r *FeedRepository) GetFeedByURL(feedURL string) (*Feed, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get feed by URL: %w", err)
+	}
+
+	return &feed, nil
+}
+
+// GetFeedByID retrieves a feed by its configuration feed ID
+func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
+	var feed Feed
+	err := r.db.QueryRow(`
+		SELECT id, feed_id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
+		       last_fetched, last_success, next_fetch, is_active, created_at, updated_at
+		FROM feeds
+		WHERE feed_id = $1
+	`, feedID).Scan(
+		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
+		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.IsActive,
+		&feed.CreatedAt, &feed.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get feed by ID: %w", err)
 	}
 
 	return &feed, nil

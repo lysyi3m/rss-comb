@@ -60,12 +60,12 @@ func main() {
 	log.Println("Registering feeds in database...")
 	registeredCount := 0
 	for configFile, cfg := range configs {
-		feedID, err := feedRepo.UpsertFeed(configFile, cfg.Feed.URL, cfg.Feed.Name)
+		dbID, err := feedRepo.UpsertFeed(configFile, cfg.Feed.ID, cfg.Feed.URL, cfg.Feed.Name)
 		if err != nil {
 			log.Printf("Warning: Failed to register feed %s: %v", configFile, err)
 			continue
 		}
-		log.Printf("Registered feed: %s (ID: %s, URL: %s)", cfg.Feed.Name, feedID, cfg.Feed.URL)
+		log.Printf("Registered feed: %s (ID: %s, DB ID: %s, URL: %s)", cfg.Feed.Name, cfg.Feed.ID, dbID, cfg.Feed.URL)
 		registeredCount++
 	}
 	log.Printf("Successfully registered %d/%d feeds", registeredCount, len(configs))
@@ -100,7 +100,7 @@ func main() {
 	go func() {
 		log.Printf("Starting HTTP server on port %s", appConfig.Port)
 		log.Printf("API endpoints available:")
-		log.Printf("  Main feed:     http://localhost:%s/feed?url=<feed-url>", appConfig.Port)
+		log.Printf("  Feed:          http://localhost:%s/feeds/<id>", appConfig.Port)
 		log.Printf("  Health check:  http://localhost:%s/health", appConfig.Port)
 		log.Printf("  Statistics:    http://localhost:%s/stats", appConfig.Port)
 		

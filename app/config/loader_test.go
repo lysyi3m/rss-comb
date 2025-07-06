@@ -14,6 +14,7 @@ func TestLoadValidConfig(t *testing.T) {
 	// Create test YAML file
 	content := `
 feed:
+  id: "test"
   url: "https://example.com/feed.xml"
   name: "Test Feed"
 
@@ -32,7 +33,7 @@ filters:
       - "spam"
 `
 
-	err := os.WriteFile(filepath.Join(tempDir, "test.yaml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(tempDir, "test.yml"), []byte(content), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,6 +57,9 @@ filters:
 	}
 
 	// Validate loaded values
+	if config.Feed.ID != "test" {
+		t.Errorf("Expected ID 'test', got '%s'", config.Feed.ID)
+	}
 	if config.Feed.URL != "https://example.com/feed.xml" {
 		t.Errorf("Expected URL 'https://example.com/feed.xml', got '%s'", config.Feed.URL)
 	}
@@ -80,6 +84,7 @@ func TestLoadConfigWithDefaults(t *testing.T) {
 	// Create minimal test YAML file
 	content := `
 feed:
+  id: "test-defaults"
   url: "https://example.com/feed.xml"
   name: "Test Feed"
 
@@ -87,7 +92,7 @@ settings:
   enabled: true
 `
 
-	err := os.WriteFile(filepath.Join(tempDir, "test.yaml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(tempDir, "test.yml"), []byte(content), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +124,7 @@ func TestInvalidConfig(t *testing.T) {
 	// Create temp directory
 	tempDir := t.TempDir()
 
-	// Create invalid YAML file (missing feed URL)
+	// Create invalid YAML file (missing feed ID and URL)
 	content := `
 feed:
   name: "Test Feed"
@@ -128,7 +133,7 @@ settings:
   enabled: true
 `
 
-	err := os.WriteFile(filepath.Join(tempDir, "invalid.yaml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(tempDir, "invalid.yml"), []byte(content), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -77,7 +77,7 @@ rss-comb/
 │   ├── feed/                # Feed processing logic
 │   ├── parser/              # RSS/Atom parsing
 │   └── scheduler/           # Background job scheduling
-├── feeds/                    # Feed configuration files (*.yaml)
+├── feeds/                    # Feed configuration files (*.yml)
 ├── migrations/              # Database migration scripts
 ├── scripts/                 # Build and deployment scripts
 ├── docker-compose.yml       # Development services
@@ -147,9 +147,10 @@ rss-comb/
 
 ## Configuration
 
-### Feed Configuration Format (`feeds/*.yaml`)
+### Feed Configuration Format (`feeds/*.yml`)
 ```yaml
 feed:
+  id: "feed-identifier"     # Unique identifier for URL routing
   url: "https://example.com/feed.xml"
   name: "Feed Name"
 
@@ -165,6 +166,11 @@ filters:
     includes: ["keyword"]
     excludes: ["spam"]
 ```
+
+**Important Notes:**
+- The `id` field is required and must be unique across all feed configurations
+- Feed IDs are used in the URL schema: `/feeds/<id>`
+- IDs should be URL-safe (alphanumeric, hyphens, underscores)
 
 ### Environment Variables
 All configuration options support both environment variables and command-line flags:
@@ -210,10 +216,10 @@ go test -v ./app/database
 - API endpoint testing with real feeds
 
 ### Manual Testing
-1. Create test feed configuration in `feeds/test.yaml`
+1. Create test feed configuration in `feeds/test.yml`
 2. Start services with `make run`
 3. Monitor logs for feed processing
-4. Test API endpoint: `curl "http://localhost:${PORT:-8080}/feed?url=<feed-url>"`
+4. Test API endpoint: `curl "http://localhost:${PORT:-8080}/feeds/<id>"`
 
 ## Deployment
 
@@ -270,9 +276,9 @@ go test -v ./app/database
 
 ## API Endpoints
 
-### `GET /feed?url=<feed-url>`
-- Returns processed RSS feed
-- Redirects to original for unregistered feeds
+### `GET /feeds/<id>`
+- Returns processed RSS feed by feed ID
+- Returns 404 for unknown feed IDs
 - Returns empty feed template for not-yet-processed feeds
 
 ### `GET /health`

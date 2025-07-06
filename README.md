@@ -53,17 +53,18 @@ See all available options with: `go run app/main.go --help`
 
 ### Feed Configuration
 
-Create YAML configuration files in the `feeds/` directory:
+Create YML configuration files in the `feeds/` directory:
 
 ```yaml
 feed:
+  id: "example"           # Unique identifier for URL routing
   url: "https://example.com/feed.xml"
   name: "Example Feed"
 
 settings:
   enabled: true
   deduplication: true
-  refresh_interval: 3600  # seconds
+  refresh_interval: 1800  # 30 minutes (recommended)
   max_items: 50
   timeout: 30            # seconds
 
@@ -77,8 +78,9 @@ filters:
 
 ## API Endpoints
 
-- `GET /feed?url=<feed-url>` - Get processed RSS feed
+- `GET /feeds/<id>` - Get processed RSS feed by feed ID
 - `GET /health` - Health check endpoint
+- `GET /stats` - Application statistics
 
 ## Development
 

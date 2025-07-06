@@ -22,23 +22,17 @@ func NewLoader(feedsDir string) *Loader {
 // LoadAll loads all YAML configuration files from the feeds directory
 func (l *Loader) LoadAll() (map[string]*FeedConfig, error) {
 	configs := make(map[string]*FeedConfig)
+	feedIDs := make(map[string]string) // Track feed ID to file mapping for uniqueness validation
 
 	// Check if feeds directory exists
 	if _, err := os.Stat(l.feedsDir); os.IsNotExist(err) {
 		return configs, nil // Return empty map if directory doesn't exist
 	}
 
-	files, err := filepath.Glob(filepath.Join(l.feedsDir, "*.yaml"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to find YAML files: %w", err)
-	}
-
-	// Also check for .yml extension
-	ymlFiles, err := filepath.Glob(filepath.Join(l.feedsDir, "*.yml"))
+	files, err := filepath.Glob(filepath.Join(l.feedsDir, "*.yml"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find YML files: %w", err)
 	}
-	files = append(files, ymlFiles...)
 
 	for _, file := range files {
 		config, err := l.loadFile(file)
@@ -50,8 +44,15 @@ func (l *Loader) LoadAll() (map[string]*FeedConfig, error) {
 			return nil, fmt.Errorf("invalid config %s: %w", file, err)
 		}
 
+		// Check for duplicate feed IDs
+		if existingFile, exists := feedIDs[config.Feed.ID]; exists {
+			return nil, fmt.Errorf("duplicate feed ID '%s' found in %s (also in %s)", 
+				config.Feed.ID, file, existingFile)
+		}
+		feedIDs[config.Feed.ID] = file
+
 		configs[file] = config
-		log.Printf("Loaded configuration from %s", file)
+		log.Printf("Loaded configuration from %s (ID: %s)", file, config.Feed.ID)
 	}
 
 	return configs, nil
@@ -91,6 +92,9 @@ func (l *Loader) setDefaults(config *FeedConfig) {
 // validate validates the configuration
 func (l *Loader) validate(config *FeedConfig) error {
 	// Validate feed information
+	if config.Feed.ID == "" {
+		return fmt.Errorf("feed ID is required")
+	}
 	if config.Feed.URL == "" {
 		return fmt.Errorf("feed URL is required")
 	}

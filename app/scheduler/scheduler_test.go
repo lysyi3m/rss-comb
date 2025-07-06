@@ -21,7 +21,7 @@ func (m *MockFeedRepository) GetFeedsDueForRefresh() ([]database.Feed, error) {
 	return m.feeds, nil
 }
 
-func (m *MockFeedRepository) UpsertFeed(configFile, feedURL, feedName string) (string, error) {
+func (m *MockFeedRepository) UpsertFeed(configFile, feedID, feedURL, feedName string) (string, error) {
 	return "test-id", nil
 }
 
@@ -38,6 +38,10 @@ func (m *MockFeedRepository) GetFeedByConfigFile(configFile string) (*database.F
 }
 
 func (m *MockFeedRepository) GetFeedByURL(feedURL string) (*database.Feed, error) {
+	return nil, nil
+}
+
+func (m *MockFeedRepository) GetFeedByID(feedID string) (*database.Feed, error) {
 	return nil, nil
 }
 
