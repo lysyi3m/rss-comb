@@ -126,7 +126,7 @@ rss-comb/
 
 ### Data Flow
 
-1. Feed configurations loaded from `feeds/*.yaml`
+1. Feed configurations loaded from `feeds/*.yml`
 2. Feeds registered in database with metadata
 3. Background scheduler processes feeds based on refresh intervals
 4. Items parsed, filtered, and deduplicated before storage

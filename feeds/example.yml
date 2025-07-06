@@ -1,0 +1,24 @@
+feed:
+  id: "example"
+  name: "Example Feed"
+  url: "https://example.com/feed.xml"
+
+settings:
+  enabled: false
+  deduplication: true
+  refresh_interval: 1800  # 30 minutes
+  max_items: 50
+  timeout: 30             # seconds
+
+filters:
+  - field: "title"
+    includes:
+      - "technology"
+      - "programming"
+    excludes:
+      - "advertisement"
+      - "spam"
+
+  - field: "description"
+    excludes:
+      - "click here"

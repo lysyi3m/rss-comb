@@ -225,7 +225,7 @@ func TestReloadConfigs(t *testing.T) {
 	processor := &Processor{configs: make(map[string]*config.FeedConfig)}
 
 	newConfigs := map[string]*config.FeedConfig{
-		"test.yaml": {
+		"test.yml": {
 			Feed: config.FeedInfo{
 				URL:  "https://example.com/feed.xml",
 				Name: "Test Feed",
@@ -239,15 +239,15 @@ func TestReloadConfigs(t *testing.T) {
 		t.Errorf("Expected 1 config after reload, got %d", len(processor.configs))
 	}
 
-	if processor.configs["test.yaml"] == nil {
-		t.Error("Expected test.yaml config to be loaded")
+	if processor.configs["test.yml"] == nil {
+		t.Error("Expected test.yml config to be loaded")
 	}
 }
 
 func TestGetStats(t *testing.T) {
 	configs := map[string]*config.FeedConfig{
-		"feed1.yaml": {},
-		"feed2.yaml": {},
+		"feed1.yml": {},
+		"feed2.yml": {},
 	}
 	processor := NewProcessor(nil, nil, nil, configs)
 

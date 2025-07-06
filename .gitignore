@@ -38,7 +38,7 @@ product-specification.md
 
 # User-specific feed configurations (keep only example)
 feeds/*
-!feeds/example.yaml
+!feeds/example.yml
 
 # Make sure CLAUDE.md is never ignored
 !CLAUDE.md
