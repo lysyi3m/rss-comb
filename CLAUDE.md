@@ -183,8 +183,8 @@ rss-comb/
 - **Logs**: `make docker-logs`
 
 ### How to verify "app is running"
-- **Dev**: `curl localhost:8080/health` returns 200
-- **Prod**: `curl localhost:8080/health` returns 200
+- **Dev**: `curl localhost:8080/stats` returns 200
+- **Prod**: `curl localhost:8080/stats` returns 200
 - **Database**: `make test` passes, or manual query works
 
 ## Work Verification Process
@@ -300,8 +300,8 @@ go test -v ./app/database
 2. Run `./scripts/deploy.sh` for full deployment
 3. Monitor logs: `docker-compose logs -f app`
 
-### Health Monitoring
-- Health check endpoint: `/health`
+### Monitoring
+- Statistics endpoint: `/stats`
 - Database connection monitoring
 - Feed processing metrics in logs
 
@@ -361,11 +361,6 @@ go test -v ./app/database
 - Returns processed RSS feed by feed ID
 - Returns 404 for unknown feed IDs
 - Returns empty feed template for not-yet-processed feeds
-
-#### `GET /health`
-- Returns system health status
-- Includes count of configured feeds
-- Used for monitoring and load balancer health checks
 
 #### `GET /stats`
 - Returns application statistics

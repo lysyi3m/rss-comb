@@ -80,7 +80,6 @@ filters:
 
 ### Public Endpoints
 - `GET /feeds/<id>` - Get processed RSS feed by feed ID
-- `GET /health` - Health check endpoint
 - `GET /stats` - Application statistics
 
 ### API Endpoints (require API key)
