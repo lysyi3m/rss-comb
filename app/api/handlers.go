@@ -240,12 +240,11 @@ func (h *Handler) GetFeedDetailsByID(c *gin.Context) {
 		}
 
 		// Get item statistics
-		if total, visible, duplicates, filtered, err := h.itemRepo.GetItemStats(feed.ID); err == nil {
+		if total, visible, filtered, err := h.itemRepo.GetItemStats(feed.ID); err == nil {
 			details["items"] = map[string]interface{}{
-				"total":      total,
-				"visible":    visible,
-				"duplicates": duplicates,
-				"filtered":   filtered,
+				"total":    total,
+				"visible":  visible,
+				"filtered": filtered,
 			}
 		}
 	}
@@ -302,7 +301,7 @@ func (h *Handler) ReapplyFiltersByID(c *gin.Context) {
 	}
 
 	// Get updated statistics
-	total, visible, duplicates, filtered, err := h.itemRepo.GetItemStats(feed.ID)
+	total, visible, filtered, err := h.itemRepo.GetItemStats(feed.ID)
 	if err != nil {
 		log.Printf("Warning: failed to get updated stats for feed %s: %v", feedID, err)
 	}
@@ -327,7 +326,6 @@ func (h *Handler) ReapplyFiltersByID(c *gin.Context) {
 			"total_items":    total,
 			"visible_items":  visible,
 			"filtered_items": filtered,
-			"duplicates":     duplicates,
 		}
 	}
 

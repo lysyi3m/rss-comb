@@ -135,22 +135,21 @@ func (r *ItemRepository) GetItemCount(feedID string) (int, error) {
 }
 
 // GetItemStats returns statistics about items for a feed
-func (r *ItemRepository) GetItemStats(feedID string) (total, visible, duplicates, filtered int, err error) {
+func (r *ItemRepository) GetItemStats(feedID string) (total, visible, filtered int, err error) {
 	err = r.db.QueryRow(`
 		SELECT 
 			COUNT(*) as total,
 			SUM(CASE WHEN is_filtered = false THEN 1 ELSE 0 END) as visible,
-			SUM(CASE WHEN is_duplicate = true THEN 1 ELSE 0 END) as duplicates,
 			SUM(CASE WHEN is_filtered = true THEN 1 ELSE 0 END) as filtered
 		FROM feed_items 
 		WHERE feed_id = $1
-	`, feedID).Scan(&total, &visible, &duplicates, &filtered)
+	`, feedID).Scan(&total, &visible, &filtered)
 
 	if err != nil {
-		return 0, 0, 0, 0, fmt.Errorf("failed to get item stats: %w", err)
+		return 0, 0, 0, fmt.Errorf("failed to get item stats: %w", err)
 	}
 
-	return total, visible, duplicates, filtered, nil
+	return total, visible, filtered, nil
 }
 
 
