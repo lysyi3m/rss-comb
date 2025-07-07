@@ -28,6 +28,4 @@ type NormalizedItem struct {
 	ContentHash   string
 	IsFiltered    bool
 	FilterReason  string
-
-	RawData       map[string]interface{}
 }

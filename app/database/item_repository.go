@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"github.com/lib/pq"
@@ -49,17 +48,12 @@ func (r *ItemRepository) CheckDuplicate(contentHash, feedID string, global bool)
 
 // StoreItem stores a normalized item in the database
 func (r *ItemRepository) StoreItem(feedID string, item parser.NormalizedItem) error {
-	rawDataJSON, err := json.Marshal(item.RawData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal raw data: %w", err)
-	}
-
-	_, err = r.db.Exec(`
+	_, err := r.db.Exec(`
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,
 			published_date, updated_date, author_name, author_email,
-			categories, is_filtered, filter_reason, content_hash, raw_data
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			categories, is_filtered, filter_reason, content_hash
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
@@ -67,12 +61,11 @@ func (r *ItemRepository) StoreItem(feedID string, item parser.NormalizedItem) er
 			updated_date = EXCLUDED.updated_date,
 			is_filtered = EXCLUDED.is_filtered,
 			filter_reason = EXCLUDED.filter_reason,
-			content_hash = EXCLUDED.content_hash,
-			raw_data = EXCLUDED.raw_data
+			content_hash = EXCLUDED.content_hash
 	`, feedID, item.GUID, item.Link, item.Title, item.Description, item.Content,
 		item.PublishedDate, item.UpdatedDate, item.AuthorName, item.AuthorEmail,
 		pq.Array(item.Categories), item.IsFiltered, item.FilterReason,
-		item.ContentHash, rawDataJSON)
+		item.ContentHash)
 
 	if err != nil {
 		return fmt.Errorf("failed to store item: %w", err)

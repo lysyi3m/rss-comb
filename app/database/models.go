@@ -38,6 +38,5 @@ type Item struct {
 	IsFiltered    bool
 	FilterReason  string
 	ContentHash   string
-	RawData       map[string]interface{}
 	CreatedAt     time.Time
 }

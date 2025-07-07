@@ -142,7 +142,6 @@ rss-comb/
 **feed_items table:**
 - Normalized item data with content hashing
 - Filtering and deduplication flags
-- JSONB storage for raw feed data
 - Optimized indexes for common queries
 
 ## Detailed Architecture

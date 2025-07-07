@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -251,54 +250,3 @@ func TestCoalesceFunction(t *testing.T) {
 	}
 }
 
-func TestItemToMap(t *testing.T) {
-	parser := NewParser()
-
-	// Create a simple test feed to get a gofeed.Item
-	rssData := `<?xml version="1.0"?>
-<rss version="2.0">
-  <channel>
-    <title>Test</title>
-    <item>
-      <title>Test Item</title>
-      <link>https://example.com/item</link>
-      <description>Test Description</description>
-      <guid>test-guid</guid>
-      <category>test-category</category>
-    </item>
-  </channel>
-</rss>`
-
-	feed, err := parser.gofeedParser.Parse(strings.NewReader(rssData))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(feed.Items) == 0 {
-		t.Fatal("Expected at least one item")
-	}
-
-	itemMap := parser.itemToMap(feed.Items[0])
-
-	// Check basic fields
-	if itemMap["title"] != "Test Item" {
-		t.Errorf("Expected title 'Test Item', got '%v'", itemMap["title"])
-	}
-	if itemMap["link"] != "https://example.com/item" {
-		t.Errorf("Expected link 'https://example.com/item', got '%v'", itemMap["link"])
-	}
-	if itemMap["description"] != "Test Description" {
-		t.Errorf("Expected description 'Test Description', got '%v'", itemMap["description"])
-	}
-	if itemMap["guid"] != "test-guid" {
-		t.Errorf("Expected guid 'test-guid', got '%v'", itemMap["guid"])
-	}
-
-	// Check categories
-	categories, ok := itemMap["categories"].([]string)
-	if !ok {
-		t.Error("Expected categories to be []string")
-	} else if len(categories) != 1 || categories[0] != "test-category" {
-		t.Errorf("Expected categories ['test-category'], got %v", categories)
-	}
-}

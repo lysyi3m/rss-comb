@@ -90,9 +90,6 @@ func (p *Parser) normalizeItem(item *gofeed.Item) NormalizedItem {
 		normalized.Categories = item.Categories
 	}
 
-	// Convert to raw data map for storage
-	normalized.RawData = p.itemToMap(item)
-
 	return normalized
 }
 
@@ -118,55 +115,3 @@ func (p *Parser) coalesce(values ...string) string {
 	return ""
 }
 
-// itemToMap converts a gofeed.Item to a map for JSON storage
-func (p *Parser) itemToMap(item *gofeed.Item) map[string]interface{} {
-	itemMap := make(map[string]interface{})
-	
-	// Basic fields
-	itemMap["title"] = item.Title
-	itemMap["description"] = item.Description
-	itemMap["content"] = item.Content
-	itemMap["link"] = item.Link
-	itemMap["guid"] = item.GUID
-	
-	// Dates
-	if item.Published != "" {
-		itemMap["published"] = item.Published
-	}
-	if item.Updated != "" {
-		itemMap["updated"] = item.Updated
-	}
-	
-	// Author
-	if item.Author != nil {
-		authorMap := make(map[string]interface{})
-		authorMap["name"] = item.Author.Name
-		authorMap["email"] = item.Author.Email
-		itemMap["author"] = authorMap
-	}
-	
-	// Categories
-	if len(item.Categories) > 0 {
-		itemMap["categories"] = item.Categories
-	}
-	
-	// Enclosures (for podcasts, etc.)
-	if len(item.Enclosures) > 0 {
-		enclosures := make([]map[string]interface{}, len(item.Enclosures))
-		for i, enc := range item.Enclosures {
-			enclosures[i] = map[string]interface{}{
-				"url":    enc.URL,
-				"type":   enc.Type,
-				"length": enc.Length,
-			}
-		}
-		itemMap["enclosures"] = enclosures
-	}
-	
-	// Custom fields (extensions)
-	if item.Extensions != nil {
-		itemMap["extensions"] = item.Extensions
-	}
-	
-	return itemMap
-}
