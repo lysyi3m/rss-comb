@@ -60,7 +60,7 @@ func (m *MockFeedRepository) GetFeedCount() (int, error) {
 func (m *MockFeedRepository) GetActiveFeedCount() (int, error) {
 	count := 0
 	for _, feed := range m.feeds {
-		if feed.IsActive {
+		if feed.Enabled {
 			count++
 		}
 	}

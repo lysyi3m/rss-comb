@@ -213,7 +213,7 @@ func (h *Handler) GetFeedDetailsByID(c *gin.Context) {
 			"last_fetched": feed.LastFetched,
 			"last_success": feed.LastSuccess,
 			"next_fetch":   feed.NextFetch,
-			"is_active":    feed.IsActive,
+			"enabled":      feed.Enabled,
 			"created_at":   feed.CreatedAt,
 			"updated_at":   feed.UpdatedAt,
 		}

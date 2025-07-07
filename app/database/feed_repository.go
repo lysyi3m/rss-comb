@@ -122,9 +122,9 @@ func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) err
 func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, is_active, created_at, updated_at
+		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
 		FROM feeds
-		WHERE is_active = true
+		WHERE enabled = true
 		  AND (next_fetch IS NULL OR next_fetch <= NOW())
 		ORDER BY COALESCE(next_fetch, '1970-01-01'::timestamp)
 		LIMIT 50
@@ -139,7 +139,7 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 		var feed Feed
 		err := rows.Scan(
 			&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
-			&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.IsActive,
+			&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
 			&feed.CreatedAt, &feed.UpdatedAt,
 		)
 		if err != nil {
@@ -160,12 +160,12 @@ func (r *FeedRepository) GetFeedByConfigFile(configFile string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
 		SELECT id, feed_id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, is_active, created_at, updated_at
+		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
 		FROM feeds
 		WHERE config_file = $1
 	`, configFile).Scan(
 		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
-		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.IsActive,
+		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
 
@@ -184,12 +184,12 @@ func (r *FeedRepository) GetFeedByURL(feedURL string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
 		SELECT id, feed_id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, is_active, created_at, updated_at
+		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
 		FROM feeds
 		WHERE feed_url = $1
 	`, feedURL).Scan(
 		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
-		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.IsActive,
+		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
 
@@ -208,12 +208,12 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
 		SELECT id, feed_id, config_file, feed_url, feed_name, COALESCE(feed_icon_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, is_active, created_at, updated_at
+		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
 		FROM feeds
 		WHERE feed_id = $1
 	`, feedID).Scan(
 		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Name, &feed.IconURL, &feed.Language,
-		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.IsActive,
+		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
 
@@ -231,7 +231,7 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 func (r *FeedRepository) SetFeedActive(feedID string, active bool) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
-		SET is_active = $2, updated_at = NOW()
+		SET enabled = $2, updated_at = NOW()
 		WHERE id = $1
 	`, feedID, active)
 
@@ -255,7 +255,7 @@ func (r *FeedRepository) GetFeedCount() (int, error) {
 // GetActiveFeedCount returns the count of enabled feeds
 func (r *FeedRepository) GetActiveFeedCount() (int, error) {
 	var count int
-	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds WHERE is_active = true").Scan(&count)
+	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds WHERE enabled = true").Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get active feed count: %w", err)
 	}

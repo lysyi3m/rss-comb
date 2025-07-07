@@ -16,7 +16,7 @@ type Feed struct {
 	LastFetched *time.Time
 	LastSuccess *time.Time
 	NextFetch   *time.Time
-	IsActive    bool
+	Enabled     bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
