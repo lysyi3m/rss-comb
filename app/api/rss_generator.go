@@ -42,7 +42,7 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 	
 	// Self-referencing link (Atom namespace)
 	selfLink := fmt.Sprintf("http://localhost:%s/feeds/%s", g.Port, feed.FeedID)
-	buf.WriteString(fmt.Sprintf("    <atom:link href=\"%s\" rel=\"self\" type=\"application/rss+xml\" />\n", 
+	buf.WriteString(fmt.Sprintf("    <atom:link href=\"%s\" rel=\"self\" type=\"application/xml\" />\n", 
 		html.EscapeString(selfLink)))
 	
 	g.writeElement(&buf, "lastBuildDate", time.Now().Format(time.RFC1123Z), 4)

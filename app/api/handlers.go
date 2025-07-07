@@ -37,7 +37,7 @@ func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository
 func (h *Handler) GetFeedByID(c *gin.Context) {
 	feedID := c.Param("id")
 	if feedID == "" {
-		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
+		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.String(http.StatusBadRequest, h.generator.GenerateError("", "", "Missing feed ID"))
 		return
 	}
@@ -54,7 +54,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	// If not registered, return 404
 	if feedConfig == nil {
 		log.Printf("Feed ID not found: %s", feedID)
-		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
+		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.String(http.StatusNotFound, h.generator.GenerateError("", "", "Feed not found"))
 		return
 	}
@@ -63,7 +63,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	feed, err := h.feedRepo.GetFeedByID(feedID)
 	if err != nil {
 		log.Printf("Database error getting feed %s: %v", feedID, err)
-		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
+		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.String(http.StatusInternalServerError, h.generator.GenerateError(feedConfig.Feed.Name, feedConfig.Feed.URL, "Database error"))
 		return
 	}
@@ -71,7 +71,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	// If feed not found in database, return empty feed
 	if feed == nil {
 		log.Printf("Feed not yet processed: %s", feedID)
-		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
+		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Name, feedConfig.Feed.URL))
 		return
 	}
@@ -80,7 +80,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	items, err := h.itemRepo.GetVisibleItems(feed.ID, feedConfig.Settings.MaxItems)
 	if err != nil {
 		log.Printf("Database error getting items for feed %s: %v", feedID, err)
-		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
+		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Name, feed.URL, "Failed to retrieve items"))
 		return
 	}
@@ -89,13 +89,13 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	rss, err := h.generator.Generate(*feed, items)
 	if err != nil {
 		log.Printf("RSS generation error for feed %s: %v", feedID, err)
-		c.Header("Content-Type", "application/rss+xml; charset=utf-8")
+		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Name, feed.URL, "RSS generation failed"))
 		return
 	}
 
 	// Set response headers
-	c.Header("Content-Type", "application/rss+xml; charset=utf-8")
+	c.Header("Content-Type", "application/xml; charset=utf-8")
 	c.Header("X-Feed-Items", strconv.Itoa(len(items)))
 	c.Header("X-Feed-ID", feedID)
 	
