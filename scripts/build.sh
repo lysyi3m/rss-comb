@@ -52,15 +52,6 @@ else
     exit 1
 fi
 
-# Build binary
-print_status "Building binary..."
-if go build -o bin/rss-comb app/main.go; then
-    print_success "Binary built successfully: bin/rss-comb"
-else
-    print_error "Failed to build binary"
-    exit 1
-fi
-
 # Build Docker image
 print_status "Building Docker image..."
 if docker build -f Dockerfile -t rss-comb:latest .; then
@@ -84,5 +75,5 @@ docker images rss-comb --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Cr
 
 print_success "Build completed successfully! 🎉"
 print_status "To run the application:"
-print_status "  Local: ./bin/rss-comb"
+print_status "  Local: make run"
 print_status "  Docker: docker-compose -f docker-compose.prod.yml up"
