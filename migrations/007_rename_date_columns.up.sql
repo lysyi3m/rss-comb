@@ -4,6 +4,6 @@ ALTER TABLE feed_items RENAME COLUMN published_date TO published_at;
 ALTER TABLE feed_items RENAME COLUMN updated_date TO updated_at;
 
 -- Update the index to use the new column name
-DROP INDEX idx_feed_items_visible;
+DROP INDEX IF EXISTS idx_feed_items_visible;
 CREATE INDEX idx_feed_items_visible ON feed_items(feed_id, published_at DESC)
-    WHERE is_duplicate = false AND is_filtered = false;
+    WHERE is_filtered = false;
