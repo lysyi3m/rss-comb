@@ -222,11 +222,6 @@ func (p *Processor) getFieldValue(item parser.NormalizedItem, field string) stri
 	}
 }
 
-// ReloadConfigs reloads the feed configurations
-func (p *Processor) ReloadConfigs(configs map[string]*config.FeedConfig) {
-	p.configs = configs
-	log.Printf("Reloaded %d feed configurations", len(configs))
-}
 
 // IsFeedEnabled checks if a feed is enabled in its configuration
 func (p *Processor) IsFeedEnabled(configFile string) bool {

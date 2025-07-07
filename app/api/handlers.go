@@ -160,11 +160,6 @@ func (h *Handler) ListFeeds(c *gin.Context) {
 	})
 }
 
-// ReloadConfigs reloads the feed configurations
-func (h *Handler) ReloadConfigs(configs map[string]*config.FeedConfig) {
-	h.configs = configs
-	log.Printf("Reloaded %d feed configurations in API handler", len(configs))
-}
 
 
 // GetFeedDetailsByID handles detailed information about a specific feed by ID
