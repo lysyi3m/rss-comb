@@ -49,7 +49,7 @@ func (m *MockFeedRepository) GetFeedByID(feedID string) (*database.Feed, error) 
 	return nil, nil
 }
 
-func (m *MockFeedRepository) SetFeedActive(feedID string, active bool) error {
+func (m *MockFeedRepository) SetFeedEnabled(feedID string, enabled bool) error {
 	return nil
 }
 
@@ -57,7 +57,7 @@ func (m *MockFeedRepository) GetFeedCount() (int, error) {
 	return len(m.feeds), nil
 }
 
-func (m *MockFeedRepository) GetActiveFeedCount() (int, error) {
+func (m *MockFeedRepository) GetEnabledFeedCount() (int, error) {
 	count := 0
 	for _, feed := range m.feeds {
 		if feed.Enabled {

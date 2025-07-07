@@ -227,16 +227,16 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 	return &feed, nil
 }
 
-// SetFeedActive sets the active status of a feed
-func (r *FeedRepository) SetFeedActive(feedID string, active bool) error {
+// SetFeedEnabled sets the enabled status of a feed
+func (r *FeedRepository) SetFeedEnabled(feedID string, enabled bool) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
 		SET enabled = $2, updated_at = NOW()
 		WHERE id = $1
-	`, feedID, active)
+	`, feedID, enabled)
 
 	if err != nil {
-		return fmt.Errorf("failed to set feed active status: %w", err)
+		return fmt.Errorf("failed to set feed enabled status: %w", err)
 	}
 
 	return nil
@@ -252,12 +252,12 @@ func (r *FeedRepository) GetFeedCount() (int, error) {
 	return count, nil
 }
 
-// GetActiveFeedCount returns the count of enabled feeds
-func (r *FeedRepository) GetActiveFeedCount() (int, error) {
+// GetEnabledFeedCount returns the count of enabled feeds
+func (r *FeedRepository) GetEnabledFeedCount() (int, error) {
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds WHERE enabled = true").Scan(&count)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get active feed count: %w", err)
+		return 0, fmt.Errorf("failed to get enabled feed count: %w", err)
 	}
 	return count, nil
 }

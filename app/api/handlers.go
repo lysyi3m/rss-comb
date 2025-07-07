@@ -114,9 +114,9 @@ func (h *Handler) GetStats(c *gin.Context) {
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
 
-	// Get active feed count
-	if activeFeedCount, err := h.feedRepo.GetActiveFeedCount(); err == nil {
-		stats["active_feeds"] = activeFeedCount
+	// Get enabled feed count
+	if enabledFeedCount, err := h.feedRepo.GetEnabledFeedCount(); err == nil {
+		stats["enabled_feeds"] = enabledFeedCount
 	}
 
 	stats["loaded_configurations"] = len(h.configs)

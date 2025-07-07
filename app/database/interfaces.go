@@ -12,7 +12,7 @@ type FeedRepositoryInterface interface {
 	GetFeedByConfigFile(configFile string) (*Feed, error)
 	GetFeedByURL(feedURL string) (*Feed, error)
 	GetFeedByID(feedID string) (*Feed, error)
-	SetFeedActive(feedID string, active bool) error
+	SetFeedEnabled(feedID string, enabled bool) error
 	GetFeedCount() (int, error)
-	GetActiveFeedCount() (int, error)
+	GetEnabledFeedCount() (int, error)
 }
