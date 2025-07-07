@@ -51,14 +51,14 @@ func (r *ItemRepository) StoreItem(feedID string, item parser.NormalizedItem) er
 	_, err := r.db.Exec(`
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,
-			published_date, updated_date, author_name, author_email,
+			published_at, updated_at, author_name, author_email,
 			categories, is_filtered, filter_reason, content_hash
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
 			content = EXCLUDED.content,
-			updated_date = EXCLUDED.updated_date,
+			updated_at = EXCLUDED.updated_at,
 			is_filtered = EXCLUDED.is_filtered,
 			filter_reason = EXCLUDED.filter_reason,
 			content_hash = EXCLUDED.content_hash
@@ -79,14 +79,14 @@ func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, erro
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
 		       COALESCE(description, ''), COALESCE(content, ''),
-		       published_date, updated_date, COALESCE(author_name, ''), 
+		       published_at, updated_at, COALESCE(author_name, ''), 
 		       COALESCE(author_email, ''), COALESCE(categories, '{}'),
 		       is_filtered, COALESCE(filter_reason, ''),
 		       content_hash, created_at
 		FROM feed_items
 		WHERE feed_id = $1
 		  AND is_filtered = false
-		ORDER BY COALESCE(published_date, created_at) DESC
+		ORDER BY COALESCE(published_at, created_at) DESC
 		LIMIT $2
 	`, feedID, limit)
 	if err != nil {
@@ -151,13 +151,13 @@ func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
 		       COALESCE(description, ''), COALESCE(content, ''),
-		       published_date, updated_date, COALESCE(author_name, ''), 
+		       published_at, updated_at, COALESCE(author_name, ''), 
 		       COALESCE(author_email, ''), COALESCE(categories, '{}'),
 		       is_filtered, COALESCE(filter_reason, ''),
 		       content_hash, created_at
 		FROM feed_items
 		WHERE feed_id = $1
-		ORDER BY COALESCE(published_date, created_at) DESC
+		ORDER BY COALESCE(published_at, created_at) DESC
 	`, feedID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all items: %w", err)
