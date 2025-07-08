@@ -113,8 +113,8 @@ make build
 # Run application
 make run
 
-# Run database migrations
-make migrate
+# Database migrations run automatically on startup
+# To disable: export DISABLE_MIGRATE=true
 ```
 
 ## License

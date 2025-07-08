@@ -29,8 +29,8 @@ make build
 # Run with development dependencies
 make run
 
-# Run database migrations
-make migrate
+# Database migrations run automatically on startup
+# To disable: DISABLE_MIGRATE=true make run
 
 # Run tests
 make test
