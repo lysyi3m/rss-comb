@@ -73,7 +73,7 @@ while [ $attempt -lt $max_attempts ]; do
     if docker-compose -f docker-compose.prod.yml ps | grep -q "healthy"; then
         break
     fi
-    
+
     attempt=$((attempt + 1))
     print_status "Waiting for services... (attempt $attempt/$max_attempts)"
     sleep 10
@@ -83,14 +83,6 @@ done
 print_status "Checking service status..."
 docker-compose -f docker-compose.prod.yml ps
 
-# Run database migrations
-print_status "Running database migrations..."
-if docker-compose -f docker-compose.prod.yml run --rm migrations; then
-    print_success "Database migrations completed"
-else
-    print_warning "Migration step completed (may have been already applied)"
-fi
-
 # Verify deployment
 print_status "Verifying deployment..."
 sleep 5
@@ -98,11 +90,11 @@ sleep 5
 # Check if the application is responding
 if curl -f -s http://localhost:${PORT:-8080}/ > /dev/null; then
     print_success "Application is responding"
-    
+
     # Show application info
     print_status "Application information:"
     curl -s http://localhost:${PORT:-8080}/stats
-    
+
     print_success "Deployment completed successfully! 🎉"
     print_status "RSS Comb is running at http://localhost:${PORT:-8080}"
     print_status ""

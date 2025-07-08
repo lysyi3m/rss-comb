@@ -54,33 +54,6 @@ services:
     ports:
       - "127.0.0.1:5432:5432" # Only bind to localhost for security
 
-  # Optional: Database migration runner
-  migrations:
-    image: rss-comb:latest
-    depends_on:
-      - db
-    environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=rss_user
-      - DB_PASSWORD=${DB_PASSWORD:-rss_password}
-      - DB_NAME=rss_comb
-    command: >
-      sh -c "
-        echo 'Waiting for database to be ready...' &&
-        until nc -z db 5432; do
-          echo 'Database not ready, waiting...'
-          sleep 2
-        done &&
-        echo 'Database port is open, waiting for PostgreSQL to be ready...' &&
-        sleep 10 &&
-        echo 'Running migrations...' &&
-        /usr/local/bin/migrate -path ./migrations -database 'postgres://rss_user:${DB_PASSWORD:-rss_password}@db:5432/rss_comb?sslmode=disable' up &&
-        echo 'Migrations completed successfully'
-      "
-    networks:
-      - rss-comb-network
-    restart: "no"
 
 networks:
   rss-comb-network:

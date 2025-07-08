@@ -56,11 +56,11 @@ docker build -f Dockerfile -t rss-comb:latest . --build-arg PORT=9000
 
 #### Database Operations
 ```bash
-# Run migrations
-migrate -path migrations -database "postgres://rss_user:rss_password@localhost:5432/rss_comb?sslmode=disable" up
+# Database migrations are now handled automatically by the application on startup
+# To disable auto-migration, use --disable-migrate flag or set DISABLE_MIGRATE=true
 
-# Create new migration
-migrate create -ext sql -dir migrations -seq migration_name
+# Create new migration files in app/database/migrations/
+# Follow the naming convention: NNN_description.up.sql and NNN_description.down.sql
 ```
 
 ## Project Structure
@@ -73,12 +73,11 @@ rss-comb/
 │   ├── main.go              # Application entry point
 │   ├── api/                 # HTTP handlers and server
 │   ├── config/              # Configuration loading
-│   ├── database/            # Database connections and repositories
+│   ├── database/            # Database connections, repositories, and embedded migrations
 │   ├── feed/                # Feed processing logic
 │   ├── parser/              # RSS/Atom parsing
 │   └── scheduler/           # Background job scheduling
 ├── feeds/                    # Feed configuration files (*.yml)
-├── migrations/              # Database migration scripts
 ├── scripts/                 # Build and deployment scripts
 ├── docker-compose.yml       # Development services
 ├── docker-compose.prod.yml  # Production deployment
@@ -113,6 +112,7 @@ rss-comb/
    - PostgreSQL with UUID primary keys
    - Separate repositories for feeds and items
    - Optimized queries with proper indexing
+   - Embedded migrations with automatic execution on startup
 
 6. **Background Scheduler** (`app/scheduler/`)
    - Worker pool for concurrent feed processing
@@ -158,6 +158,8 @@ rss-comb/
 - `item_repository.go`: CRUD operations for feed items
 - `interfaces.go`: Database interface definitions
 - `models.go`: Database model structs
+- `migrations.go`: Embedded migration management
+- `migrations/`: SQL migration files
 
 ### Configuration Loading (`app/config/`)
 - `loader.go`: Configuration loading logic
@@ -201,6 +203,7 @@ rss-comb/
 - **Production**: `make deploy`, `make docker-up`, `make docker-down`
 - **Cleanup**: `make clean`
 - **Never use direct docker/go commands** - always use Makefile targets
+- **Migrations**: Handled automatically by the application (no separate migrate commands needed)
 
 ### Cleanup Commands
 ```bash
@@ -260,6 +263,7 @@ All configuration options support both environment variables and command-line fl
 - `SCHEDULER_INTERVAL` (default: 30) - Scheduler interval in seconds
 - `API_ACCESS_KEY` (optional) - API access key for authentication
 - `USER_AGENT` (default: "RSS Comb/1.0") - User agent string for HTTP requests
+- `DISABLE_MIGRATE` (default: false) - Disable automatic database migrations on startup
 
 Use `./app/main.go --help` or `go run app/main.go --help` to see all available command-line flags.
 

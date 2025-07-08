@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down test build run migrate docker-build docker-up docker-down deploy clean
+.PHONY: dev-up dev-down test build run docker-build docker-up docker-down deploy clean
 
 # Development commands
 dev-up:
@@ -16,8 +16,6 @@ build:
 run: dev-up
 	go run app/main.go
 
-migrate:
-	$(shell go env GOPATH)/bin/migrate -path migrations -database "postgres://rss_user:rss_password@localhost:5432/rss_comb?sslmode=disable" up
 
 # Docker commands
 docker-build:

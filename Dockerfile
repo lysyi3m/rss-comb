@@ -18,9 +18,6 @@ COPY go.mod go.sum ./
 # Download dependencies - this will be cached unless go.mod/go.sum changes
 RUN go mod download
 
-# Install specific version of migrate tool - pinned for reproducibility
-RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
-
 # Copy source code (this layer changes most frequently, so it's last)
 COPY . .
 
@@ -51,11 +48,7 @@ WORKDIR /app
 # Copy binary from builder stage
 COPY --from=builder /build/rss-comb .
 
-# Copy migrate binary from builder stage
-COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
-
-# Copy migrations directory
-COPY --from=builder /build/migrations ./migrations
+# Migrations are now embedded in the application binary
 
 # Create feeds directory and set ownership (combine for fewer layers)
 RUN mkdir -p feeds && \

@@ -34,13 +34,30 @@ func main() {
 	// Database connection
 	log.Println("Connecting to database...")
 	db, err := database.NewConnection(
-		appConfig.DBHost, appConfig.DBPort, appConfig.DBUser, 
+		appConfig.DBHost, appConfig.DBPort, appConfig.DBUser,
 		appConfig.DBPassword, appConfig.DBName)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer db.Close()
 	log.Printf("Connected to database successfully")
+
+	// Run database migrations unless disabled
+	if !appConfig.DisableMigrate {
+		log.Println("Running database migrations...")
+		if err := database.RunMigrations(db); err != nil {
+			log.Fatal("Failed to run database migrations:", err)
+		}
+
+		version, dirty, err := database.GetMigrationVersion(db)
+		if err != nil {
+			log.Printf("Warning: Failed to get migration version: %v", err)
+		} else {
+			log.Printf("Database migrations completed successfully (version: %d, dirty: %v)", version, dirty)
+		}
+	} else {
+		log.Println("Auto-migration is disabled, skipping database migrations")
+	}
 
 
 	// Load feed configurations
@@ -66,7 +83,7 @@ func main() {
 			log.Printf("Warning: Failed to register feed %s: %v", configFile, err)
 			continue
 		}
-		
+
 		if urlChanged {
 			log.Printf("Feed URL updated: %s (ID: %s, DB ID: %s, New URL: %s)", cfg.Feed.Name, cfg.Feed.ID, dbID, cfg.Feed.URL)
 			urlChangedCount++
@@ -86,7 +103,7 @@ func main() {
 
 	// Initialize and start scheduler
 	log.Printf("Starting background scheduler with %d workers...", appConfig.WorkerCount)
-	feedScheduler := scheduler.NewScheduler(feedProcessor, feedRepo, 
+	feedScheduler := scheduler.NewScheduler(feedProcessor, feedRepo,
 		time.Duration(appConfig.SchedulerInterval)*time.Second, appConfig.WorkerCount)
 	feedScheduler.Start()
 	defer feedScheduler.Stop()
@@ -112,7 +129,7 @@ func main() {
 		log.Printf("API endpoints available:")
 		log.Printf("  Feed:       http://localhost:%s/feeds/<id>", appConfig.Port)
 		log.Printf("  Statistics: http://localhost:%s/stats", appConfig.Port)
-		
+
 		if appConfig.APIAccessKey != "" {
 			log.Printf("  List feeds:    http://localhost:%s/api/feeds (requires API key)", appConfig.Port)
 			log.Printf("  Feed details:  http://localhost:%s/api/feeds/<id>/details (requires API key)", appConfig.Port)
@@ -120,7 +137,7 @@ func main() {
 		} else {
 			log.Printf("  API endpoints: DISABLED (API_ACCESS_KEY not set)")
 		}
-		
+
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverErrChan <- fmt.Errorf("HTTP server error: %w", err)
 		}
@@ -142,7 +159,7 @@ func main() {
 
 	// Graceful shutdown
 	log.Println("Shutting down server gracefully...")
-	
+
 	// Create shutdown context with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -175,6 +192,7 @@ type AppConfig struct {
 	WorkerCount       int    `long:"worker-count" env:"WORKER_COUNT" default:"5" description:"Number of background workers for feed processing"`
 	SchedulerInterval int    `long:"scheduler-interval" env:"SCHEDULER_INTERVAL" default:"30" description:"Scheduler interval in seconds"`
 	APIAccessKey      string `long:"api-key" env:"API_ACCESS_KEY" description:"API access key for authentication (optional)"`
+	DisableMigrate    bool   `long:"disable-migrate" env:"DISABLE_MIGRATE" description:"Disable automatic database migrations on startup"`
 
 	// Application metadata
 	UserAgent string `long:"user-agent" env:"USER_AGENT" default:"RSS Comb/1.0" description:"User agent string for HTTP requests"`
@@ -183,10 +201,10 @@ type AppConfig struct {
 // loadConfig loads configuration from environment variables and command-line flags
 func loadConfig() *AppConfig {
 	var appConfig AppConfig
-	
+
 	// Parse command-line arguments and environment variables
 	parser := flags.NewParser(&appConfig, flags.Default)
-	
+
 	// Parse arguments (this will also process environment variables)
 	if _, err := parser.Parse(); err != nil {
 		if flagsErr, ok := err.(*flags.Error); ok {
@@ -200,6 +218,6 @@ func loadConfig() *AppConfig {
 
 	// Additional validation can be added here if needed
 	log.Printf("Configuration loaded successfully")
-	
+
 	return &appConfig
 }
