@@ -1,6 +1,6 @@
 feed:
   id: "example"
-  name: "Example Feed"
+  title: "Example Feed"
   url: "https://example.com/feed.xml"
 
 settings:

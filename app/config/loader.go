@@ -98,8 +98,8 @@ func (l *Loader) validate(config *FeedConfig) error {
 	if config.Feed.URL == "" {
 		return fmt.Errorf("feed URL is required")
 	}
-	if config.Feed.Name == "" {
-		return fmt.Errorf("feed name is required")
+	if config.Feed.Title == "" {
+		return fmt.Errorf("feed title is required")
 	}
 
 	// Validate settings

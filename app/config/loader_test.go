@@ -16,7 +16,7 @@ func TestLoadValidConfig(t *testing.T) {
 feed:
   id: "test"
   url: "https://example.com/feed.xml"
-  name: "Test Feed"
+  title: "Test Feed"
 
 settings:
   enabled: true
@@ -63,8 +63,8 @@ filters:
 	if config.Feed.URL != "https://example.com/feed.xml" {
 		t.Errorf("Expected URL 'https://example.com/feed.xml', got '%s'", config.Feed.URL)
 	}
-	if config.Feed.Name != "Test Feed" {
-		t.Errorf("Expected name 'Test Feed', got '%s'", config.Feed.Name)
+	if config.Feed.Title != "Test Feed" {
+		t.Errorf("Expected title 'Test Feed', got '%s'", config.Feed.Title)
 	}
 	if config.Settings.GetRefreshInterval() != 1800*time.Second {
 		t.Errorf("Expected refresh interval 1800s, got %v", config.Settings.GetRefreshInterval())
@@ -86,7 +86,7 @@ func TestLoadConfigWithDefaults(t *testing.T) {
 feed:
   id: "test-defaults"
   url: "https://example.com/feed.xml"
-  name: "Test Feed"
+  title: "Test Feed"
 
 settings:
   enabled: true
@@ -127,7 +127,7 @@ func TestInvalidConfig(t *testing.T) {
 	// Create invalid YAML file (missing feed ID and URL)
 	content := `
 feed:
-  name: "Test Feed"
+  title: "Test Feed"
 
 settings:
   enabled: true

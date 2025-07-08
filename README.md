@@ -59,7 +59,7 @@ Create YML configuration files in the `feeds/` directory:
 feed:
   id: "example"           # Unique identifier for URL routing
   url: "https://example.com/feed.xml"
-  name: "Example Feed"
+  title: "Example Feed"
 
 settings:
   enabled: true

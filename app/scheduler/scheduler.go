@@ -144,11 +144,11 @@ func (s *Scheduler) enqueueDueFeeds() {
 	for _, feed := range enabledFeeds {
 		select {
 		case s.jobQueue <- feed:
-			log.Printf("Enqueued feed for processing: %s", feed.Name)
+			log.Printf("Enqueued feed for processing: %s", feed.Title)
 		case <-s.ctx.Done():
 			return
 		default:
-			log.Printf("Warning: job queue full, skipping feed: %s", feed.Name)
+			log.Printf("Warning: job queue full, skipping feed: %s", feed.Title)
 		}
 	}
 
@@ -182,7 +182,7 @@ func (s *Scheduler) worker(id int) {
 
 // processFeed processes a single feed
 func (s *Scheduler) processFeed(workerID int, feed database.Feed) {
-	log.Printf("Worker %d processing feed: %s (%s)", workerID, feed.Name, feed.URL)
+	log.Printf("Worker %d processing feed: %s (%s)", workerID, feed.Title, feed.URL)
 	start := time.Now()
 
 	err := s.processor.ProcessFeed(feed.ID, feed.ConfigFile)
@@ -206,9 +206,9 @@ func (s *Scheduler) processFeed(workerID int, feed database.Feed) {
 
 	if err != nil {
 		s.stats.TotalErrors++
-		log.Printf("Worker %d error processing feed %s: %v", workerID, feed.Name, err)
+		log.Printf("Worker %d error processing feed %s: %v", workerID, feed.Title, err)
 	} else {
-		log.Printf("Worker %d successfully processed feed %s in %v", workerID, feed.Name, duration)
+		log.Printf("Worker %d successfully processed feed %s in %v", workerID, feed.Title, duration)
 	}
 }
 

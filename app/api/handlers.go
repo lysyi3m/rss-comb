@@ -64,7 +64,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	if err != nil {
 		log.Printf("Database error getting feed %s: %v", feedID, err)
 		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feedConfig.Feed.Name, feedConfig.Feed.URL, "Database error"))
+		c.String(http.StatusInternalServerError, h.generator.GenerateError(feedConfig.Feed.Title, feedConfig.Feed.URL, "Database error"))
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	if feed == nil {
 		log.Printf("Feed not yet processed: %s", feedID)
 		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Name, feedConfig.Feed.URL))
+		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Title, feedConfig.Feed.URL))
 		return
 	}
 
@@ -81,7 +81,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	if err != nil {
 		log.Printf("Database error getting items for feed %s: %v", feedID, err)
 		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Name, feed.URL, "Failed to retrieve items"))
+		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Title, feed.URL, "Failed to retrieve items"))
 		return
 	}
 
@@ -90,7 +90,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	if err != nil {
 		log.Printf("RSS generation error for feed %s: %v", feedID, err)
 		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Name, feed.URL, "RSS generation failed"))
+		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Title, feed.URL, "RSS generation failed"))
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h *Handler) ListFeeds(c *gin.Context) {
 
 	for configFile, config := range h.configs {
 		feedInfo := map[string]interface{}{
-			"name":            config.Feed.Name,
+			"name":            config.Feed.Title,
 			"url":             config.Feed.URL,
 			"config_file":     configFile,
 			"enabled":         config.Settings.Enabled,
@@ -188,7 +188,7 @@ func (h *Handler) GetFeedDetailsByID(c *gin.Context) {
 
 	details := map[string]interface{}{
 		"id":               feedConfig.Feed.ID,
-		"name":             feedConfig.Feed.Name,
+		"name":             feedConfig.Feed.Title,
 		"url":              feedConfig.Feed.URL,
 		"config_file":      configFile,
 		"enabled":          feedConfig.Settings.Enabled,
@@ -285,7 +285,7 @@ func (h *Handler) ReapplyFiltersByID(c *gin.Context) {
 		"message": "Filters re-applied successfully",
 		"feed": gin.H{
 			"id":   feedConfig.Feed.ID,
-			"name": feedConfig.Feed.Name,
+			"name": feedConfig.Feed.Title,
 			"url":  feedConfig.Feed.URL,
 		},
 		"results": gin.H{

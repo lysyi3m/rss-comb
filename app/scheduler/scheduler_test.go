@@ -261,7 +261,7 @@ func TestProcessFeedStatistics(t *testing.T) {
 	feed := database.Feed{
 		ID:         "test-id",
 		ConfigFile: "test.yml",
-		Name:       "Test Feed",
+		Title:      "Test Feed",
 		URL:        "https://example.com/feed.xml",
 	}
 
@@ -309,7 +309,7 @@ func TestSchedulerLifecycle(t *testing.T) {
 			{
 				ID:         "test-id",
 				ConfigFile: "test.yml",
-				Name:       "Test Feed",
+				Title:      "Test Feed",
 				URL:        "https://example.com/feed.xml",
 			},
 		},

@@ -36,7 +36,7 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 	buf.WriteString("\n  <channel>\n")
 
 	// Channel metadata
-	g.writeElement(&buf, "title", feed.Name, 4)
+	g.writeElement(&buf, "title", feed.Title, 4)
 	g.writeElement(&buf, "link", feed.URL, 4)
 	g.writeElement(&buf, "description", fmt.Sprintf("Processed feed from %s", feed.URL), 4)
 	
@@ -56,7 +56,7 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 	if feed.ImageURL != "" {
 		buf.WriteString("    <image>\n")
 		g.writeElement(&buf, "url", feed.ImageURL, 6)
-		g.writeElement(&buf, "title", feed.Name, 6)
+		g.writeElement(&buf, "title", feed.Title, 6)
 		g.writeElement(&buf, "link", feed.URL, 6)
 		buf.WriteString("    </image>\n")
 	}

@@ -9,9 +9,9 @@ type FeedConfig struct {
 
 // FeedInfo contains basic feed information
 type FeedInfo struct {
-	ID   string `yaml:"id"`
-	URL  string `yaml:"url"`
-	Name string `yaml:"name"`
+	ID    string `yaml:"id"`
+	URL   string `yaml:"url"`
+	Title string `yaml:"title"`
 }
 
 // FeedSettings contains feed processing settings

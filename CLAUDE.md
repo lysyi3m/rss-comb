@@ -224,7 +224,7 @@ make docker-down
 feed:
   id: "feed-identifier"     # Unique identifier for URL routing
   url: "https://example.com/feed.xml"
-  name: "Feed Name"
+  title: "Feed Title"
 
 settings:
   enabled: true

@@ -51,11 +51,11 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 	}
 
 	if !feedConfig.Settings.Enabled {
-		log.Printf("Feed %s is disabled, skipping", feedConfig.Feed.Name)
+		log.Printf("Feed %s is disabled, skipping", feedConfig.Feed.Title)
 		return nil
 	}
 
-	log.Printf("Processing feed: %s (%s)", feedConfig.Feed.Name, feedConfig.Feed.URL)
+	log.Printf("Processing feed: %s (%s)", feedConfig.Feed.Title, feedConfig.Feed.URL)
 	startTime := time.Now()
 
 	// Fetch feed data
@@ -80,7 +80,7 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 	for i, item := range items {
 		// Stop if we've reached the max items limit
 		if processedCount >= feedConfig.Settings.MaxItems {
-			log.Printf("Reached max items limit (%d) for feed %s", feedConfig.Settings.MaxItems, feedConfig.Feed.Name)
+			log.Printf("Reached max items limit (%d) for feed %s", feedConfig.Settings.MaxItems, feedConfig.Feed.Title)
 			break
 		}
 
@@ -123,7 +123,7 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 	duration := time.Since(startTime)
 	newItems := processedCount - filteredCount
 	log.Printf("Processed feed %s: %d items (%d new, %d skipped duplicates, %d filtered) in %v",
-		feedConfig.Feed.Name, len(items), newItems, skippedCount, filteredCount, duration)
+		feedConfig.Feed.Title, len(items), newItems, skippedCount, filteredCount, duration)
 
 	return nil
 }
@@ -247,7 +247,7 @@ func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) 
 		return 0, 0, fmt.Errorf("configuration not found: %s", configFile)
 	}
 
-	log.Printf("Re-applying filters for feed: %s", feedConfig.Feed.Name)
+	log.Printf("Re-applying filters for feed: %s", feedConfig.Feed.Title)
 
 	// Get all items for the feed
 	items, err := p.itemRepo.GetAllItems(feedID)
@@ -256,11 +256,11 @@ func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) 
 	}
 
 	if len(items) == 0 {
-		log.Printf("No items found for feed %s", feedConfig.Feed.Name)
+		log.Printf("No items found for feed %s", feedConfig.Feed.Title)
 		return 0, 0, nil
 	}
 
-	log.Printf("Found %d items to re-filter for feed %s", len(items), feedConfig.Feed.Name)
+	log.Printf("Found %d items to re-filter for feed %s", len(items), feedConfig.Feed.Title)
 
 	updatedCount := 0
 	errorCount := 0
@@ -299,7 +299,7 @@ func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) 
 	}
 
 	log.Printf("Re-applied filters for feed %s: %d items updated, %d errors", 
-		feedConfig.Feed.Name, updatedCount, errorCount)
+		feedConfig.Feed.Title, updatedCount, errorCount)
 
 	return updatedCount, errorCount, nil
 }

@@ -78,17 +78,17 @@ func main() {
 	registeredCount := 0
 	urlChangedCount := 0
 	for configFile, cfg := range configs {
-		dbID, urlChanged, err := feedRepo.UpsertFeedWithChangeDetection(configFile, cfg.Feed.ID, cfg.Feed.URL, cfg.Feed.Name)
+		dbID, urlChanged, err := feedRepo.UpsertFeedWithChangeDetection(configFile, cfg.Feed.ID, cfg.Feed.URL, cfg.Feed.Title)
 		if err != nil {
 			log.Printf("Warning: Failed to register feed %s: %v", configFile, err)
 			continue
 		}
 
 		if urlChanged {
-			log.Printf("Feed URL updated: %s (ID: %s, DB ID: %s, New URL: %s)", cfg.Feed.Name, cfg.Feed.ID, dbID, cfg.Feed.URL)
+			log.Printf("Feed URL updated: %s (ID: %s, DB ID: %s, New URL: %s)", cfg.Feed.Title, cfg.Feed.ID, dbID, cfg.Feed.URL)
 			urlChangedCount++
 		} else {
-			log.Printf("Registered feed: %s (ID: %s, DB ID: %s, URL: %s)", cfg.Feed.Name, cfg.Feed.ID, dbID, cfg.Feed.URL)
+			log.Printf("Registered feed: %s (ID: %s, DB ID: %s, URL: %s)", cfg.Feed.Title, cfg.Feed.ID, dbID, cfg.Feed.URL)
 		}
 		registeredCount++
 	}

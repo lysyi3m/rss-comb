@@ -10,7 +10,7 @@ type Feed struct {
 	FeedID      string     // Configuration feed ID
 	ConfigFile  string
 	URL         string
-	Name        string
+	Title       string
 	ImageURL    string
 	Language    string
 	LastFetched *time.Time

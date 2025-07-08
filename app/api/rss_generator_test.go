@@ -14,7 +14,7 @@ func TestRSSGeneratorGenerate(t *testing.T) {
 	// Create test feed
 	feed := database.Feed{
 		ID:      "test-feed-id",
-		Name:    "Test Feed",
+		Title:   "Test Feed",
 		URL:     "https://example.com/feed.xml",
 		ImageURL: "https://example.com/icon.png",
 	}
@@ -202,9 +202,9 @@ func TestGenerateWithEscaping(t *testing.T) {
 
 	// Test with content that needs escaping
 	feed := database.Feed{
-		ID:   "test-feed-id",
-		Name: "Feed with <tags> & \"quotes\"",
-		URL:  "https://example.com/feed.xml",
+		ID:    "test-feed-id",
+		Title: "Feed with <tags> & \"quotes\"",
+		URL:   "https://example.com/feed.xml",
 	}
 
 	items := []database.Item{
