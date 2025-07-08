@@ -16,7 +16,7 @@ func TestRSSGeneratorGenerate(t *testing.T) {
 		ID:      "test-feed-id",
 		Name:    "Test Feed",
 		URL:     "https://example.com/feed.xml",
-		IconURL: "https://example.com/icon.png",
+		ImageURL: "https://example.com/icon.png",
 	}
 
 	// Create test items

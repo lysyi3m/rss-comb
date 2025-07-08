@@ -57,8 +57,8 @@ func TestParseRSS2(t *testing.T) {
 	if metadata.Language != "en-us" {
 		t.Errorf("Expected language 'en-us', got '%s'", metadata.Language)
 	}
-	if metadata.IconURL != "https://example.com/icon.png" {
-		t.Errorf("Expected icon URL 'https://example.com/icon.png', got '%s'", metadata.IconURL)
+	if metadata.ImageURL != "https://example.com/icon.png" {
+		t.Errorf("Expected image URL 'https://example.com/icon.png', got '%s'", metadata.ImageURL)
 	}
 
 	// Test items

@@ -7,7 +7,7 @@ type FeedMetadata struct {
 	Title       string
 	Link        string
 	Description string
-	IconURL     string
+	ImageURL    string
 	Language    string
 	Updated     *time.Time
 }

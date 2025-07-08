@@ -37,9 +37,9 @@ func (p *Parser) Parse(data []byte) (*FeedMetadata, []NormalizedItem, error) {
 		Language:    feed.Language,
 	}
 
-	// Set feed icon if available
+	// Set feed image URL if available
 	if feed.Image != nil {
-		metadata.IconURL = feed.Image.URL
+		metadata.ImageURL = feed.Image.URL
 	}
 
 	// Set updated timestamp

@@ -52,10 +52,10 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 		g.writeElement(&buf, "language", feed.Language, 4)
 	}
 
-	// Feed icon if available
-	if feed.IconURL != "" {
+	// Feed image if available
+	if feed.ImageURL != "" {
 		buf.WriteString("    <image>\n")
-		g.writeElement(&buf, "url", feed.IconURL, 6)
+		g.writeElement(&buf, "url", feed.ImageURL, 6)
 		g.writeElement(&buf, "title", feed.Name, 6)
 		g.writeElement(&buf, "link", feed.URL, 6)
 		buf.WriteString("    </image>\n")

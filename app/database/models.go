@@ -11,7 +11,7 @@ type Feed struct {
 	ConfigFile  string
 	URL         string
 	Name        string
-	IconURL     string
+	ImageURL    string
 	Language    string
 	LastFetched *time.Time
 	LastSuccess *time.Time
