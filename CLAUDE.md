@@ -291,10 +291,11 @@ go test -v ./app/database
 - API endpoint testing with real feeds
 
 ### Manual Testing
-1. Create test feed configuration in `feeds/test.yml`
+1. Enable the example feed in `feeds/example.yml` (set `enabled: true`)
 2. Start services with `make run`
 3. Monitor logs for feed processing
-4. Test API endpoint: `curl "http://localhost:${PORT:-8080}/feeds/<id>"`
+4. Test API endpoint: `curl "http://localhost:${PORT:-8080}/feeds/example"`
+5. Reset example feed to disabled when done testing
 
 ## Deployment
 
