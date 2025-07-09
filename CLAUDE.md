@@ -41,11 +41,13 @@ make test
 
 #### Docker Commands
 ```bash
-# Build production image (for CI/CD)
-make docker-build
+# Build production image manually (if needed)
+docker build -f Dockerfile -t rss-comb:latest .
 
 # Build with custom PORT
 docker build -f Dockerfile -t rss-comb:latest . --build-arg PORT=9000
+
+# Note: Production images are automatically built via GitHub Actions on git tags
 ```
 
 #### Database Operations
@@ -186,14 +188,14 @@ rss-comb/
 ### After making changes:
 1. **Build & Test**: `make build && make test`
 2. **Local verification**: `make run` then test endpoints
-3. **Docker verification**: `make docker-build` then test locally
+3. **Docker verification**: `docker build -f Dockerfile -t rss-comb:latest .` then test locally
 4. **Commit changes**: Only when explicitly requested
 5. **Cleanup**: `make clean`
 
 ### All operations should use Makefile:
 - **Development**: `make db-up`, `make run`, `make db-down`
 - **Testing**: `make test`
-- **Docker**: `make docker-build`
+- **Building**: `make build`
 - **Cleanup**: `make clean`
 - **Never use direct docker/go commands** - always use Makefile targets
 - **Migrations**: Handled automatically by the application (no separate migrate commands needed)
