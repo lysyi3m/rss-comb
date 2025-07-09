@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lysyi3m/rss-comb/app/version"
 )
 
 // NewServer creates a new HTTP server with all routes configured
@@ -33,7 +34,7 @@ func NewServer(handler *Handler, apiAccessKey string) *gin.Engine {
 			)
 		},
 	}))
-	
+
 	r.Use(gin.Recovery())
 
 	// CORS middleware for API endpoints
@@ -41,12 +42,12 @@ func NewServer(handler *Handler, apiAccessKey string) *gin.Engine {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-		
+
 		c.Next()
 	})
 
@@ -84,22 +85,21 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 			"feed":   "/feeds/<id>",
 			"health": "/health",
 		}
-		
+
 		// Add API endpoints if authentication is enabled
 		if apiAccessKey != "" {
 			endpoints["feeds"] = "/api/feeds (requires X-API-Key header)"
 			endpoints["details"] = "/api/feeds/<id>/details (requires X-API-Key header)"
 			endpoints["refilter"] = "/api/feeds/<id>/refilter (POST, requires X-API-Key header)"
 		}
-		
+
 		c.JSON(200, gin.H{
 			"service":     "RSS Comb",
-			"version":     "1.0.0",
+			"version":     version.GetVersion(),
 			"description": "RSS/Atom feed proxy with normalization, deduplication, and filtering",
 			"endpoints":   endpoints,
 			"api_status":  map[string]interface{}{
 				"enabled": apiAccessKey != "",
-				"auth_required": apiAccessKey != "",
 				"header": "X-API-Key",
 			},
 			"documentation": "https://github.com/lysyi3m/rss-comb",
@@ -117,7 +117,7 @@ func authMiddleware(apiAccessKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get API key from X-API-Key header
 		providedKey := c.GetHeader("X-API-Key")
-		
+
 		// Also check Authorization header with Bearer prefix
 		if providedKey == "" {
 			authHeader := c.GetHeader("Authorization")
@@ -125,7 +125,7 @@ func authMiddleware(apiAccessKey string) gin.HandlerFunc {
 				providedKey = strings.TrimPrefix(authHeader, "Bearer ")
 			}
 		}
-		
+
 		// Check if API key is provided and matches
 		if providedKey == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -135,7 +135,7 @@ func authMiddleware(apiAccessKey string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		if providedKey != apiAccessKey {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "Invalid API key",
@@ -144,7 +144,7 @@ func authMiddleware(apiAccessKey string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		// Continue to next middleware/handler
 		c.Next()
 	}
