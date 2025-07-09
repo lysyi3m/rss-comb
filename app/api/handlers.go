@@ -26,7 +26,7 @@ type Handler struct {
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository,
-	configs map[string]*config.FeedConfig, processor feed.FeedProcessor, 
+	configs map[string]*config.FeedConfig, processor feed.FeedProcessor,
 	taskScheduler *tasks.TaskScheduler, port string, userAgent string) *Handler {
 	return &Handler{
 		feedRepo:  fr,
@@ -103,7 +103,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	c.Header("Content-Type", "application/xml; charset=utf-8")
 	c.Header("X-Feed-Items", strconv.Itoa(len(items)))
 	c.Header("X-Feed-ID", feedID)
-	
+
 	if feed.LastSuccess != nil {
 		c.Header("X-Last-Updated", feed.LastSuccess.Format(time.RFC3339))
 	}
@@ -111,7 +111,6 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	log.Printf("Served feed %s with %d items", feedID, len(items))
 	c.String(http.StatusOK, rss)
 }
-
 
 // GetHealth handles the health endpoint
 func (h *Handler) GetHealth(c *gin.Context) {
@@ -129,8 +128,8 @@ func (h *Handler) GetHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, health)
 }
 
-// ListFeeds handles listing all configured feeds
-func (h *Handler) ListFeeds(c *gin.Context) {
+// APIListFeeds handles listing all configured feeds
+func (h *Handler) APIListFeeds(c *gin.Context) {
 	feeds := make([]map[string]interface{}, 0, len(h.configs))
 
 	for configFile, config := range h.configs {
@@ -149,7 +148,7 @@ func (h *Handler) ListFeeds(c *gin.Context) {
 			feedInfo["last_fetched"] = feed.LastFetched
 			feedInfo["last_success"] = feed.LastSuccess
 			feedInfo["next_fetch"] = feed.NextFetch
-			
+
 			// Get item count
 			if itemCount, err := h.itemRepo.GetItemCount(feed.ID); err == nil {
 				feedInfo["item_count"] = itemCount
@@ -165,10 +164,8 @@ func (h *Handler) ListFeeds(c *gin.Context) {
 	})
 }
 
-
-
-// GetFeedDetailsByID handles detailed information about a specific feed by ID
-func (h *Handler) GetFeedDetailsByID(c *gin.Context) {
+// APIGetFeedDetailsByID handles detailed information about a specific feed by ID
+func (h *Handler) APIGetFeedDetailsByID(c *gin.Context) {
 	feedID := c.Param("id")
 	if feedID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing feed ID parameter"})
@@ -231,8 +228,8 @@ func (h *Handler) GetFeedDetailsByID(c *gin.Context) {
 	c.JSON(http.StatusOK, details)
 }
 
-// ReapplyFiltersByID handles the filter re-application endpoint by feed ID
-func (h *Handler) ReapplyFiltersByID(c *gin.Context) {
+// APIRefilterFeedByID handles the feed refilter endpoint by feed ID
+func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	feedID := c.Param("id")
 	if feedID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing feed ID parameter"})

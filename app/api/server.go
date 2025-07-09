@@ -69,9 +69,9 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 		api := r.Group("/api")
 		api.Use(authMiddleware(apiAccessKey))
 		{
-			api.GET("/feeds", handler.ListFeeds)
-			api.GET("/feeds/:id/details", handler.GetFeedDetailsByID)
-			api.POST("/feeds/:id/refilter", handler.ReapplyFiltersByID)
+			api.GET("/feeds", handler.APIListFeeds)
+			api.GET("/feeds/:id/details", handler.APIGetFeedDetailsByID)
+			api.POST("/feeds/:id/refilter", handler.APIRefilterFeedByID)
 		}
 		log.Printf("API endpoints enabled with authentication")
 	} else {
