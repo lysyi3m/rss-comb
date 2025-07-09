@@ -10,6 +10,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
+	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
 // Handler handles HTTP requests for the RSS API
@@ -19,18 +20,21 @@ type Handler struct {
 	generator *RSSGenerator
 	configs   map[string]*config.FeedConfig
 	processor feed.FeedProcessor
+	scheduler *tasks.TaskScheduler
 	userAgent string
 }
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository,
-	configs map[string]*config.FeedConfig, processor feed.FeedProcessor, port string, userAgent string) *Handler {
+	configs map[string]*config.FeedConfig, processor feed.FeedProcessor, 
+	taskScheduler *tasks.TaskScheduler, port string, userAgent string) *Handler {
 	return &Handler{
 		feedRepo:  fr,
 		itemRepo:  ir,
 		generator: NewRSSGenerator(port),
 		configs:   configs,
 		processor: processor,
+		scheduler: taskScheduler,
 		userAgent: userAgent,
 	}
 }
@@ -264,48 +268,51 @@ func (h *Handler) ReapplyFiltersByID(c *gin.Context) {
 		return
 	}
 
-	// Re-apply filters
-	updatedCount, errorCount, err := h.processor.ReapplyFilters(feed.ID, configFile)
+	// Create and enqueue RefilterFeedTask
+	task := tasks.NewRefilterFeedTask(feed.ID, configFile, h.processor)
+	err = h.scheduler.EnqueueTask(task)
 	if err != nil {
-		log.Printf("Error re-applying filters for feed %s: %v", feedID, err)
+		log.Printf("Error enqueueing refilter task for feed %s: %v", feedID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to re-apply filters",
+			"error": "Failed to enqueue refilter task",
 			"details": err.Error(),
 		})
 		return
 	}
 
-	// Get updated statistics
+	// Get current statistics (before refiltering)
 	total, visible, filtered, err := h.itemRepo.GetItemStats(feed.ID)
 	if err != nil {
-		log.Printf("Warning: failed to get updated stats for feed %s: %v", feedID, err)
+		log.Printf("Warning: failed to get stats for feed %s: %v", feedID, err)
 	}
 
 	response := gin.H{
 		"success": true,
-		"message": "Filters re-applied successfully",
+		"message": "Refilter task enqueued successfully",
 		"feed": gin.H{
 			"id":   feedConfig.Feed.ID,
 			"name": feedConfig.Feed.Title,
 			"url":  feedConfig.Feed.URL,
 		},
-		"results": gin.H{
-			"updated_items": updatedCount,
-			"errors":        errorCount,
+		"task": gin.H{
+			"id":          task.GetID(),
+			"type":        task.GetType(),
+			"priority":    task.GetPriority(),
+			"description": task.GetDescription(),
+			"created_at":  task.GetCreatedAt().Format(time.RFC3339),
 		},
 	}
 
-	// Add updated stats if available
+	// Add current stats if available
 	if err == nil {
-		response["updated_stats"] = gin.H{
+		response["current_stats"] = gin.H{
 			"total_items":    total,
 			"visible_items":  visible,
 			"filtered_items": filtered,
 		}
 	}
 
-	log.Printf("Successfully re-applied filters for feed %s: %d items updated, %d errors", 
-		feedID, updatedCount, errorCount)
+	log.Printf("Successfully enqueued refilter task for feed %s", feedID)
 
 	c.JSON(http.StatusOK, response)
 }

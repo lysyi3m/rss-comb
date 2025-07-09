@@ -1,6 +1,7 @@
-package scheduler
+package tasks
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -105,11 +106,11 @@ func (e *testError) Error() string {
 	return e.msg
 }
 
-func TestNewScheduler(t *testing.T) {
+func TestNewTaskScheduler(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewScheduler(mockProcessor, mockRepo, time.Second, 2)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 2)
 
 	if scheduler == nil {
 		t.Fatal("Expected scheduler to be created")
@@ -132,11 +133,11 @@ func TestNewScheduler(t *testing.T) {
 	}
 }
 
-func TestGetStats(t *testing.T) {
+func TestTaskSchedulerGetStats(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewScheduler(mockProcessor, mockRepo, time.Second, 3)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 3)
 
 	stats := scheduler.GetStats()
 
@@ -157,11 +158,11 @@ func TestGetStats(t *testing.T) {
 	}
 }
 
-func TestHealth(t *testing.T) {
+func TestTaskSchedulerHealth(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewScheduler(mockProcessor, mockRepo, time.Second, 2)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 2)
 
 	health := scheduler.Health()
 
@@ -202,11 +203,11 @@ func TestHealth(t *testing.T) {
 	}
 }
 
-func TestHealthWithHighErrorRate(t *testing.T) {
+func TestTaskSchedulerHealthWithHighErrorRate(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewScheduler(mockProcessor, mockRepo, time.Second, 2)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 2)
 
 	// Simulate high error rate
 	scheduler.mu.Lock()
@@ -226,11 +227,11 @@ func TestHealthWithHighErrorRate(t *testing.T) {
 	}
 }
 
-func TestUpdateAverageProcessTime(t *testing.T) {
+func TestTaskSchedulerUpdateAverageProcessTime(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewScheduler(mockProcessor, mockRepo, time.Second, 1)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 1)
 
 	// Test with no process times
 	scheduler.updateAverageProcessTime()
@@ -252,21 +253,15 @@ func TestUpdateAverageProcessTime(t *testing.T) {
 	}
 }
 
-func TestProcessFeedStatistics(t *testing.T) {
+func TestTaskSchedulerExecuteTask(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewScheduler(mockProcessor, mockRepo, time.Second, 1)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 1)
 
-	feed := database.Feed{
-		ID:         "test-id",
-		ConfigFile: "test.yml",
-		Title:      "Test Feed",
-		FeedURL:    "https://example.com/feed.xml",
-	}
-
-	// Test successful processing
-	scheduler.processFeed(0, feed)
+	// Test successful task execution
+	task := NewProcessFeedTask("test-id", "test.yml", mockProcessor)
+	scheduler.executeTask(0, task)
 
 	stats := scheduler.GetStats()
 	if stats.TotalProcessed != 1 {
@@ -291,7 +286,8 @@ func TestProcessFeedStatistics(t *testing.T) {
 
 	// Test error processing
 	mockProcessor.shouldError = true
-	scheduler.processFeed(0, feed)
+	task2 := NewProcessFeedTask("test-id-2", "test2.yml", mockProcessor)
+	scheduler.executeTask(0, task2)
 
 	stats = scheduler.GetStats()
 	if stats.TotalProcessed != 2 {
@@ -303,7 +299,7 @@ func TestProcessFeedStatistics(t *testing.T) {
 	}
 }
 
-func TestSchedulerLifecycle(t *testing.T) {
+func TestTaskSchedulerLifecycle(t *testing.T) {
 	mockRepo := &MockFeedRepository{
 		feeds: []database.Feed{
 			{
@@ -316,7 +312,7 @@ func TestSchedulerLifecycle(t *testing.T) {
 	}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewScheduler(mockProcessor, mockRepo, 100*time.Millisecond, 1)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, 100*time.Millisecond, 1)
 
 	// Start scheduler
 	scheduler.Start()
@@ -330,5 +326,119 @@ func TestSchedulerLifecycle(t *testing.T) {
 	// Verify processing occurred
 	if len(mockProcessor.processedFeeds) == 0 {
 		t.Error("Expected at least one feed to be processed")
+	}
+}
+
+func TestEnqueueTask(t *testing.T) {
+	mockRepo := &MockFeedRepository{}
+	mockProcessor := &MockProcessor{}
+
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 1)
+
+	// Test successful enqueue
+	task := NewProcessFeedTask("test-id", "test.yml", mockProcessor)
+	err := scheduler.EnqueueTask(task)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	stats := scheduler.GetStats()
+	if stats.QueueSize != 1 {
+		t.Errorf("Expected queue size 1, got %d", stats.QueueSize)
+	}
+}
+
+func TestRefilterFeedTask(t *testing.T) {
+	mockProcessor := &MockProcessor{}
+
+	task := NewRefilterFeedTask("test-id", "test.yml", mockProcessor)
+
+	if task.GetType() != TaskTypeRefilterFeed {
+		t.Errorf("Expected task type %s, got %s", TaskTypeRefilterFeed, task.GetType())
+	}
+
+	if task.GetPriority() != PriorityHigh {
+		t.Errorf("Expected priority %d, got %d", PriorityHigh, task.GetPriority())
+	}
+
+	if task.GetFeedID() != "test-id" {
+		t.Errorf("Expected feed ID 'test-id', got '%s'", task.GetFeedID())
+	}
+
+	if task.GetConfigFile() != "test.yml" {
+		t.Errorf("Expected config file 'test.yml', got '%s'", task.GetConfigFile())
+	}
+
+	// Test execution
+	ctx := context.Background()
+	err := task.Execute(ctx)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+}
+
+func TestProcessFeedTask(t *testing.T) {
+	mockProcessor := &MockProcessor{}
+
+	task := NewProcessFeedTask("test-id", "test.yml", mockProcessor)
+
+	if task.GetType() != TaskTypeProcessFeed {
+		t.Errorf("Expected task type %s, got %s", TaskTypeProcessFeed, task.GetType())
+	}
+
+	if task.GetPriority() != PriorityNormal {
+		t.Errorf("Expected priority %d, got %d", PriorityNormal, task.GetPriority())
+	}
+
+	if task.GetFeedID() != "test-id" {
+		t.Errorf("Expected feed ID 'test-id', got '%s'", task.GetFeedID())
+	}
+
+	if task.GetConfigFile() != "test.yml" {
+		t.Errorf("Expected config file 'test.yml', got '%s'", task.GetConfigFile())
+	}
+
+	// Test execution
+	ctx := context.Background()
+	err := task.Execute(ctx)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	// Verify feed was processed
+	if len(mockProcessor.processedFeeds) != 1 {
+		t.Errorf("Expected 1 processed feed, got %d", len(mockProcessor.processedFeeds))
+	}
+
+	if mockProcessor.processedFeeds[0] != "test-id" {
+		t.Errorf("Expected processed feed ID 'test-id', got '%s'", mockProcessor.processedFeeds[0])
+	}
+}
+
+func TestTaskStats(t *testing.T) {
+	mockRepo := &MockFeedRepository{}
+	mockProcessor := &MockProcessor{}
+
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 1)
+
+	// Execute different types of tasks
+	processTask := NewProcessFeedTask("feed-1", "test.yml", mockProcessor)
+	refilterTask := NewRefilterFeedTask("feed-2", "test.yml", mockProcessor)
+
+	scheduler.executeTask(0, processTask)
+	scheduler.executeTask(0, refilterTask)
+
+	stats := scheduler.GetStats()
+
+	if stats.TaskCounts[TaskTypeProcessFeed] != 1 {
+		t.Errorf("Expected 1 process feed task, got %d", stats.TaskCounts[TaskTypeProcessFeed])
+	}
+
+	if stats.TaskCounts[TaskTypeRefilterFeed] != 1 {
+		t.Errorf("Expected 1 refilter feed task, got %d", stats.TaskCounts[TaskTypeRefilterFeed])
+	}
+
+	if stats.TotalProcessed != 2 {
+		t.Errorf("Expected total processed 2, got %d", stats.TotalProcessed)
 	}
 }

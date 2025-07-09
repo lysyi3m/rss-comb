@@ -16,7 +16,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/parser"
-	"github.com/lysyi3m/rss-comb/app/scheduler"
+	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
 func main() {
@@ -111,16 +111,16 @@ func main() {
 	feedParser := parser.NewParser()
 	feedProcessor := feed.NewProcessor(feedParser, feedRepo, itemRepo, configs, appConfig.UserAgent)
 
-	// Initialize and start scheduler
-	log.Printf("Starting background scheduler with %d workers...", appConfig.WorkerCount)
-	feedScheduler := scheduler.NewScheduler(feedProcessor, feedRepo,
+	// Initialize and start task scheduler
+	log.Printf("Starting background task scheduler with %d workers...", appConfig.WorkerCount)
+	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo,
 		time.Duration(appConfig.SchedulerInterval)*time.Second, appConfig.WorkerCount)
-	feedScheduler.Start()
-	defer feedScheduler.Stop()
+	taskScheduler.Start()
+	defer taskScheduler.Stop()
 
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
-	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, appConfig.Port, appConfig.UserAgent)
+	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 
 	// Create HTTP server with timeouts
@@ -181,8 +181,8 @@ func main() {
 		log.Println("HTTP server stopped")
 	}
 
-	// Scheduler is stopped via defer
-	log.Println("Background scheduler stopped")
+	// Task scheduler is stopped via defer
+	log.Println("Background task scheduler stopped")
 
 	log.Println("RSS Comb server shutdown complete")
 }

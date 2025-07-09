@@ -72,7 +72,7 @@ rss-comb/
 │   ├── database/            # Database connections, repositories, and embedded migrations
 │   ├── feed/                # Feed processing logic
 │   ├── parser/              # RSS/Atom parsing
-│   └── scheduler/           # Background job scheduling
+│   └── tasks/               # Generic task scheduling system
 ├── feeds/                    # Feed configuration files (*.yml)
 ├── docker-compose.yml       # Development database service
 ├── .github/workflows/       # CI/CD automation
@@ -109,8 +109,10 @@ rss-comb/
    - Optimized queries with proper indexing
    - Embedded migrations with automatic execution on startup
 
-6. **Background Scheduler** (`app/scheduler/`)
-   - Worker pool for concurrent feed processing
+6. **Task Scheduling System** (`app/tasks/`)
+   - Generic task queue with priority support
+   - Worker pool for concurrent task execution
+   - Automatic feed processing and manual refiltering tasks
    - Database-driven scheduling with next_fetch timestamps
    - Graceful shutdown handling
 
@@ -123,7 +125,7 @@ rss-comb/
 
 1. Feed configurations loaded from `feeds/*.yml`
 2. Feeds registered in database with metadata
-3. Background scheduler processes feeds based on refresh intervals
+3. Task scheduler processes feeds based on refresh intervals and handles manual refiltering
 4. Items parsed, filtered, and deduplicated before storage
 5. HTTP API serves processed feeds directly from database
 
@@ -387,6 +389,6 @@ go test -v ./app/database
 - Requires X-API-Key header or Authorization: Bearer token
 
 #### `POST /api/feeds/<id>/refilter`
-- Re-applies filters to all items for a specific feed by ID
-- Returns updated item counts and statistics
+- Enqueues a high-priority task to re-apply filters to all items for a specific feed by ID
+- Returns immediately with task information (non-blocking)
 - Requires X-API-Key header or Authorization: Bearer token
