@@ -17,11 +17,14 @@ RSS Comb is a Go server application that acts as a proxy between existing RSS/At
 
 #### Development Setup
 ```bash
-# Start development dependencies
-make dev-up
+# Start database
+make db-up
 
-# Stop development dependencies  
-make dev-down
+# Stop database
+make db-down
+
+# View database logs
+make db-logs
 
 # Build the application
 make build
@@ -38,17 +41,8 @@ make test
 
 #### Docker Commands
 ```bash
-# Start full stack in development
-docker-compose up -d
-
-# Production deployment
-docker-compose -f docker-compose.prod.yml up -d
-
-# Build production image (optimized with caching)
-docker build -f Dockerfile -t rss-comb:latest .
-
-# Force rebuild without cache (only when needed)
-docker build -f Dockerfile -t rss-comb:latest . --no-cache
+# Build production image (for CI/CD)
+make docker-build
 
 # Build with custom PORT
 docker build -f Dockerfile -t rss-comb:latest . --build-arg PORT=9000
@@ -78,9 +72,8 @@ rss-comb/
 │   ├── parser/              # RSS/Atom parsing
 │   └── scheduler/           # Background job scheduling
 ├── feeds/                    # Feed configuration files (*.yml)
-├── scripts/                 # Build and deployment scripts
-├── docker-compose.yml       # Development services
-├── docker-compose.prod.yml  # Production deployment
+├── docker-compose.yml       # Development database service
+├── .github/workflows/       # CI/CD automation
 └── go.mod                   # Go module definition
 ```
 
@@ -172,16 +165,16 @@ rss-comb/
 ### Development Environment
 - **Application**: Running locally via `make run`
 - **Database**: PostgreSQL in Docker container (localhost:5432)
-- **Database URL**: `postgres://rss_user:rss_password@localhost:5432/rss_comb?sslmode=disable`
+- **Database URL**: `postgres://rss_comb_dev_user:rss_comb_dev_password@localhost:5432/rss_comb_dev?sslmode=disable`
 - **Feed configs**: Local `feeds/*.yml` files
 - **Logs**: Console output
 
 ### Production Environment  
-- **Application**: Running in Docker container via `make docker-up`
-- **Database**: PostgreSQL in Docker container (internal network)
-- **Database URL**: `postgres://rss_user:rss_password@db:5432/rss_comb?sslmode=disable`
+- **Application**: Running in Docker container from GitHub Container Registry
+- **Database**: External PostgreSQL instance (configured via environment variables)
+- **Database URL**: Configured via `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
 - **Feed configs**: Mounted `feeds/*.yml` files
-- **Logs**: `make docker-logs`
+- **Deployment**: Automated via GitHub Actions on release tags
 
 ### How to verify "app is running"
 - **Dev**: `curl localhost:8080/stats` returns 200
@@ -193,28 +186,25 @@ rss-comb/
 ### After making changes:
 1. **Build & Test**: `make build && make test`
 2. **Local verification**: `make run` then test endpoints
-3. **Docker verification**: `make docker-build && make docker-up` then test
+3. **Docker verification**: `make docker-build` then test locally
 4. **Commit changes**: Only when explicitly requested
 5. **Cleanup**: `make clean`
 
 ### All operations should use Makefile:
-- **Development**: `make dev-up`, `make run`, `make dev-down`
+- **Development**: `make db-up`, `make run`, `make db-down`
 - **Testing**: `make test`
-- **Production**: `make deploy`, `make docker-up`, `make docker-down`
+- **Docker**: `make docker-build`
 - **Cleanup**: `make clean`
 - **Never use direct docker/go commands** - always use Makefile targets
 - **Migrations**: Handled automatically by the application (no separate migrate commands needed)
 
 ### Cleanup Commands
 ```bash
-# Clean everything
+# Clean project-specific resources only (safe)
 make clean
 
-# Stop development services
-make dev-down
-
-# Stop production services
-make docker-down
+# Stop development database
+make db-down
 ```
 
 ## Configuration
@@ -301,9 +291,19 @@ go test -v ./app/database
 ## Deployment
 
 ### Production Deployment
-1. Configure environment variables in `.env`
-2. Run `./scripts/deploy.sh` for full deployment
-3. Monitor logs: `docker-compose logs -f app`
+1. Create a new git tag (e.g., `v1.0.0`)
+2. Push the tag to GitHub: `git push origin v1.0.0`
+3. GitHub Actions will automatically:
+   - Run tests with PostgreSQL
+   - Build multi-architecture Docker images (linux/amd64, linux/arm64)
+   - Push to GitHub Container Registry with multiple tags:
+     - `ghcr.io/lysyi3m/rss-comb:1.0.0` (exact version)
+     - `ghcr.io/lysyi3m/rss-comb:1.0` (major.minor)
+     - `ghcr.io/lysyi3m/rss-comb:1` (major)
+     - `ghcr.io/lysyi3m/rss-comb:latest` (always latest)
+4. Pull the image using any of the generated tags
+5. Configure environment variables for your deployment
+6. Run the container with your PostgreSQL database and feed configurations
 
 ### Monitoring
 - Statistics endpoint: `/stats`

@@ -22,7 +22,8 @@ RUN go mod download
 COPY . .
 
 # Build the application with optimized flags
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
     -o rss-comb \
@@ -30,6 +31,15 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 
 # Final stage - pin Alpine version for reproducible builds
 FROM alpine:3.22.0
+
+# Add OpenContainers annotations
+LABEL org.opencontainers.image.title="RSS Comb" \
+      org.opencontainers.image.description="RSS/Atom feed proxy with normalization, deduplication, and filtering capabilities" \
+      org.opencontainers.image.vendor="lysyi3m" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.url="https://github.com/lysyi3m/rss-comb" \
+      org.opencontainers.image.source="https://github.com/lysyi3m/rss-comb" \
+      org.opencontainers.image.documentation="https://github.com/lysyi3m/rss-comb/blob/main/README.md"
 
 # Install runtime dependencies with pinned versions
 RUN apk add --no-cache \
