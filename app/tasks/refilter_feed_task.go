@@ -16,12 +16,6 @@ type RefilterFeedTask struct {
 	processor  feed.FeedProcessor
 }
 
-// RefilterResult holds the result of a refilter operation
-type RefilterResult struct {
-	UpdatedItems int
-	Errors       int
-}
-
 // NewRefilterFeedTask creates a new refilter feed task
 func NewRefilterFeedTask(feedID, configFile string, processor feed.FeedProcessor) *RefilterFeedTask {
 	description := fmt.Sprintf("Refilter feed %s from config %s", feedID, configFile)
@@ -55,7 +49,6 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 	log.Printf("RefilterFeedTask completed successfully for feed %s: %d items updated, %d errors", 
 		t.FeedID, updatedCount, errorCount)
 	
-	// Store result for potential retrieval (could be enhanced with a result store)
 	return nil
 }
 
