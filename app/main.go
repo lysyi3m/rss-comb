@@ -109,7 +109,7 @@ func main() {
 
 	// Initialize core components
 	feedParser := parser.NewParser()
-	feedProcessor := feed.NewProcessor(feedParser, feedRepo, itemRepo, configs)
+	feedProcessor := feed.NewProcessor(feedParser, feedRepo, itemRepo, configs, appConfig.UserAgent)
 
 	// Initialize and start scheduler
 	log.Printf("Starting background scheduler with %d workers...", appConfig.WorkerCount)
@@ -120,7 +120,7 @@ func main() {
 
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
-	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, appConfig.Port)
+	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, appConfig.Port, appConfig.UserAgent)
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 
 	// Create HTTP server with timeouts

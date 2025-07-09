@@ -19,17 +19,19 @@ type Handler struct {
 	generator *RSSGenerator
 	configs   map[string]*config.FeedConfig
 	processor feed.FeedProcessor
+	userAgent string
 }
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository,
-	configs map[string]*config.FeedConfig, processor feed.FeedProcessor, port string) *Handler {
+	configs map[string]*config.FeedConfig, processor feed.FeedProcessor, port string, userAgent string) *Handler {
 	return &Handler{
 		feedRepo:  fr,
 		itemRepo:  ir,
 		generator: NewRSSGenerator(port),
 		configs:   configs,
 		processor: processor,
+		userAgent: userAgent,
 	}
 }
 
@@ -194,7 +196,7 @@ func (h *Handler) GetFeedDetailsByID(c *gin.Context) {
 		"max_items":        feedConfig.Settings.MaxItems,
 		"refresh_interval": feedConfig.Settings.GetRefreshInterval().String(),
 		"timeout":          feedConfig.Settings.GetTimeout().String(),
-		"user_agent":       config.GetUserAgent(),
+		"user_agent":       h.userAgent,
 		"deduplication":    feedConfig.Settings.Deduplication,
 		"filters":          feedConfig.Filters,
 	}

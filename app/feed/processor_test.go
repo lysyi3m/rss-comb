@@ -201,7 +201,7 @@ func TestNewProcessor(t *testing.T) {
 	// This is a simple test to ensure NewProcessor doesn't panic
 	// In a real scenario, you'd pass actual instances
 	configs := make(map[string]*config.FeedConfig)
-	processor := NewProcessor(nil, nil, nil, configs)
+	processor := NewProcessor(nil, nil, nil, configs, "RSS Comb/1.0")
 
 	if processor == nil {
 		t.Error("Expected processor to be created")
@@ -227,7 +227,7 @@ func TestGetStats(t *testing.T) {
 		"feed1.yml": {},
 		"feed2.yml": {},
 	}
-	processor := NewProcessor(nil, nil, nil, configs)
+	processor := NewProcessor(nil, nil, nil, configs, "RSS Comb/1.0")
 
 	stats := processor.GetStats()
 

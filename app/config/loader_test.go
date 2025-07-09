@@ -162,19 +162,3 @@ func TestEmptyDirectory(t *testing.T) {
 	}
 }
 
-func TestGetUserAgent(t *testing.T) {
-	// Test default user agent
-	defaultUserAgent := GetUserAgent()
-	if defaultUserAgent != "RSS Comb/1.0" {
-		t.Errorf("Expected default user agent 'RSS Comb/1.0', got '%s'", defaultUserAgent)
-	}
-
-	// Test custom user agent from environment
-	os.Setenv("USER_AGENT", "Custom User Agent/2.0")
-	defer os.Unsetenv("USER_AGENT")
-	
-	customUserAgent := GetUserAgent()
-	if customUserAgent != "Custom User Agent/2.0" {
-		t.Errorf("Expected custom user agent 'Custom User Agent/2.0', got '%s'", customUserAgent)
-	}
-}

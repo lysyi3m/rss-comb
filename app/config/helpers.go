@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"time"
 )
 
@@ -21,10 +20,3 @@ func (s *FeedSettings) GetTimeout() time.Duration {
 	return time.Duration(s.Timeout) * time.Second
 }
 
-// GetUserAgent returns the global user agent from environment or default
-func GetUserAgent() string {
-	if userAgent := os.Getenv("USER_AGENT"); userAgent != "" {
-		return userAgent
-	}
-	return "RSS Comb/1.0"
-}

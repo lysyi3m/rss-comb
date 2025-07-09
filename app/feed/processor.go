@@ -20,11 +20,12 @@ type Processor struct {
 	itemRepo  *database.ItemRepository
 	configs   map[string]*config.FeedConfig
 	client    *http.Client
+	userAgent string
 }
 
 // NewProcessor creates a new feed processor
 func NewProcessor(p *parser.Parser, fr *database.FeedRepository,
-	ir *database.ItemRepository, configs map[string]*config.FeedConfig) *Processor {
+	ir *database.ItemRepository, configs map[string]*config.FeedConfig, userAgent string) *Processor {
 	return &Processor{
 		parser:   p,
 		feedRepo: fr,
@@ -40,6 +41,7 @@ func NewProcessor(p *parser.Parser, fr *database.FeedRepository,
 				MaxIdleConnsPerHost: 5,
 			},
 		},
+		userAgent: userAgent,
 	}
 }
 
@@ -136,7 +138,7 @@ func (p *Processor) fetchFeed(url string, settings config.FeedSettings) ([]byte,
 	}
 
 	// Set headers
-	req.Header.Set("User-Agent", config.GetUserAgent())
+	req.Header.Set("User-Agent", p.userAgent)
 	req.Header.Set("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml")
 
 	// Update client timeout if specified
