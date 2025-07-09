@@ -280,12 +280,6 @@ func (h *Handler) ReapplyFiltersByID(c *gin.Context) {
 		return
 	}
 
-	// Get current statistics (before refiltering)
-	total, visible, filtered, err := h.itemRepo.GetItemStats(feed.ID)
-	if err != nil {
-		log.Printf("Warning: failed to get stats for feed %s: %v", feedID, err)
-	}
-
 	response := gin.H{
 		"success": true,
 		"message": "Refilter task enqueued successfully",
@@ -301,15 +295,6 @@ func (h *Handler) ReapplyFiltersByID(c *gin.Context) {
 			"description": task.GetDescription(),
 			"created_at":  task.GetCreatedAt().Format(time.RFC3339),
 		},
-	}
-
-	// Add current stats if available
-	if err == nil {
-		response["current_stats"] = gin.H{
-			"total_items":    total,
-			"visible_items":  visible,
-			"filtered_items": filtered,
-		}
 	}
 
 	log.Printf("Successfully enqueued refilter task for feed %s", feedID)
