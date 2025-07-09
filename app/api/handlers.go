@@ -54,8 +54,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	// If not registered, return 404
 	if feedConfig == nil {
 		log.Printf("Feed ID not found: %s", feedID)
-		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusNotFound, h.generator.GenerateError("", "", "Feed not found"))
+		c.Status(http.StatusNotFound)
 		return
 	}
 

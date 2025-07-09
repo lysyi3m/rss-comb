@@ -363,7 +363,7 @@ go test -v ./app/database
 
 #### `GET /feeds/<id>`
 - Returns processed RSS feed by feed ID
-- Returns 404 for unknown feed IDs
+- Returns HTTP 404 for unknown feed IDs
 - Returns empty feed template for not-yet-processed feeds
 
 #### `GET /stats`
