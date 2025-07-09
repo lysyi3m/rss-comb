@@ -1,10 +1,10 @@
 # Build stage
 # Pin to specific golang version with Alpine 3.22
-FROM golang:1.24.4-alpine3.22 AS builder
+FROM golang:1.24-alpine3.22 AS builder
 
 # Pin Alpine package versions for build dependencies
 RUN apk add --no-cache \
-    git=2.49.0-r0 \
+    git=2.49.1-r0 \
     ca-certificates=20241121-r2 \
     tzdata=2025b-r0
 
@@ -41,12 +41,13 @@ LABEL org.opencontainers.image.title="RSS Comb" \
       org.opencontainers.image.source="https://github.com/lysyi3m/rss-comb" \
       org.opencontainers.image.documentation="https://github.com/lysyi3m/rss-comb/blob/main/README.md"
 
-# Install runtime dependencies with pinned versions
+# Install only essential runtime dependencies with pinned versions
+# ca-certificates: Required for HTTPS connections to external RSS feeds
+# tzdata: Required for timezone support (TZ environment variable)
+# Note: wget and nc are available via busybox (built into Alpine base image)
 RUN apk add --no-cache \
     ca-certificates=20241121-r2 \
-    tzdata=2025b-r0 \
-    curl=8.14.1-r1 \
-    netcat-openbsd=1.229.1-r0
+    tzdata=2025b-r0
 
 # Create non-root user (combine RUN commands for fewer layers)
 RUN addgroup -g 1001 -S appgroup && \
@@ -77,9 +78,13 @@ ENV GIN_MODE=release \
 ARG PORT=8080
 EXPOSE $PORT
 
-# Health check with environment variable support
+# Optimized health check using busybox wget (available by default in Alpine)
+# --spider: Don't download, just check if resource exists
+# --quiet: Suppress output
+# --tries=1: Only try once, don't retry
+# --timeout=5: Timeout after 5 seconds
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl --fail --silent http://localhost:$PORT/health || exit 1
+    CMD wget --spider --quiet --tries=1 --timeout=5 http://localhost:$PORT/health || exit 1
 
 # Run the application
 CMD ["./rss-comb"]

@@ -311,6 +311,7 @@ go test -v ./app/database
 - Health endpoint: `/health`
 - Database connection monitoring
 - Feed processing metrics in logs
+- Docker healthcheck can be disabled in docker-compose.yml with `healthcheck: { disable: true }`
 
 ## Development Guidelines
 

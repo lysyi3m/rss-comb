@@ -15,7 +15,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:15.13-alpine
         env:
           POSTGRES_DB: rss_comb_test
           POSTGRES_USER: rss_comb_test_user
