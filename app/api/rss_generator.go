@@ -45,7 +45,7 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 	buf.WriteString(fmt.Sprintf("    <atom:link href=\"%s\" rel=\"self\" type=\"application/xml\" />\n", 
 		html.EscapeString(selfLink)))
 	
-	g.writeElement(&buf, "lastBuildDate", time.Now().Format(time.RFC1123Z), 4)
+	g.writeElement(&buf, "lastBuildDate", time.Now().In(time.Local).Format(time.RFC1123Z), 4)
 	g.writeElement(&buf, "generator", "RSS-Comb/1.0", 4)
 	// Language (only include if available)
 	if feed.Language != "" {
@@ -178,7 +178,7 @@ func (g *RSSGenerator) GenerateEmpty(feedName, feedURL string) string {
 </rss>`, 
 		html.EscapeString(feedName), 
 		html.EscapeString(feedURL), 
-		time.Now().Format(time.RFC1123Z))
+		time.Now().In(time.Local).Format(time.RFC1123Z))
 }
 
 // GenerateError creates an RSS feed with error information
@@ -209,8 +209,8 @@ func (g *RSSGenerator) GenerateError(feedName, feedURL, errorMsg string) string 
 		html.EscapeString(feedName), 
 		html.EscapeString(feedURL), 
 		html.EscapeString(errorMsg),
-		time.Now().Format(time.RFC1123Z),
+		time.Now().In(time.Local).Format(time.RFC1123Z),
 		html.EscapeString(errorMsg),
-		time.Now().Format(time.RFC1123Z),
+		time.Now().In(time.Local).Format(time.RFC1123Z),
 		time.Now().Unix())
 }

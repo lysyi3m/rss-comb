@@ -263,6 +263,7 @@ All configuration options support both environment variables and command-line fl
 - `SCHEDULER_INTERVAL` (default: 30) - Scheduler interval in seconds
 - `API_ACCESS_KEY` (optional) - API access key for authentication
 - `USER_AGENT` (default: "RSS Comb/1.0") - User agent string for HTTP requests
+- `TZ` (default: "UTC") - Timezone for display timestamps in API responses and RSS feeds (e.g., UTC, America/New_York, Europe/London). Database operations always use UTC for consistency.
 - `DISABLE_MIGRATE` (default: false) - Disable automatic database migrations on startup
 
 Use `./app/main.go --help` or `go run app/main.go --help` to see all available command-line flags.

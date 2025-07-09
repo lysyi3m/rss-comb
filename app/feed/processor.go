@@ -114,8 +114,8 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 		processedCount++
 	}
 
-	// Update next fetch time
-	nextFetch := time.Now().Add(feedConfig.Settings.GetRefreshInterval())
+	// Update next fetch time (use UTC for database consistency)
+	nextFetch := time.Now().UTC().Add(feedConfig.Settings.GetRefreshInterval())
 	if err := p.feedRepo.UpdateNextFetch(feedID, nextFetch); err != nil {
 		return fmt.Errorf("failed to update next fetch time: %w", err)
 	}

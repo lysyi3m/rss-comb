@@ -29,6 +29,16 @@ func main() {
 		return
 	}
 
+	// Set timezone from configuration
+	if appConfig.Timezone != "" {
+		if loc, err := time.LoadLocation(appConfig.Timezone); err != nil {
+			log.Printf("Warning: Invalid timezone '%s': %v. Using system default.", appConfig.Timezone, err)
+		} else {
+			time.Local = loc
+			log.Printf("Timezone set to: %s", appConfig.Timezone)
+		}
+	}
+
 	log.Println("Starting RSS Comb server...")
 
 	// Database connection
@@ -196,6 +206,7 @@ type AppConfig struct {
 
 	// Application metadata
 	UserAgent string `long:"user-agent" env:"USER_AGENT" default:"RSS Comb/1.0" description:"User agent string for HTTP requests"`
+	Timezone  string `long:"timezone" env:"TZ" default:"UTC" description:"Timezone for timestamps (e.g., UTC, America/New_York)"`
 }
 
 // loadConfig loads configuration from environment variables and command-line flags

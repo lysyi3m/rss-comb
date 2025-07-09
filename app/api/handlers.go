@@ -110,7 +110,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 // GetStats handles the statistics endpoint
 func (h *Handler) GetStats(c *gin.Context) {
 	stats := map[string]interface{}{
-		"timestamp": time.Now().Format(time.RFC3339),
+		"timestamp": time.Now().In(time.Local).Format(time.RFC3339),
 	}
 
 	// Get enabled feed count

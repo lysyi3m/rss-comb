@@ -60,7 +60,8 @@ USER appuser
 # Set default environment variables
 ENV GIN_MODE=release \
     PORT=8080 \
-    FEEDS_DIR=/app/feeds
+    FEEDS_DIR=/app/feeds \
+    TZ=UTC
 
 # Accept PORT as build argument with default
 ARG PORT=8080
