@@ -204,7 +204,7 @@ func TestNewProcessor(t *testing.T) {
 	processor := NewProcessor(nil, nil, nil, configs, "RSS Comb/1.0")
 
 	if processor == nil {
-		t.Error("Expected processor to be created")
+		t.Fatal("Expected processor to be created")
 	}
 
 	if processor.configs == nil {

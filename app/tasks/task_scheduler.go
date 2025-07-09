@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sort"
 	"sync"
 	"time"
 
@@ -270,12 +269,6 @@ func (s *TaskScheduler) GetStats() TaskStats {
 	return statsCopy
 }
 
-// TriggerImmediate triggers immediate processing of all due feeds
-func (s *TaskScheduler) TriggerImmediate() {
-	log.Println("Triggering immediate feed processing...")
-	go s.enqueueDueFeeds()
-}
-
 // Health returns the health status of the scheduler
 func (s *TaskScheduler) Health() map[string]interface{} {
 	stats := s.GetStats()
@@ -307,50 +300,4 @@ func (s *TaskScheduler) Health() map[string]interface{} {
 	}
 
 	return health
-}
-
-// GetQueuedTasks returns information about tasks currently in the queue
-func (s *TaskScheduler) GetQueuedTasks() []map[string]interface{} {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	
-	// Create a snapshot of current tasks in queue
-	tasks := make([]Task, 0, len(s.taskQueue))
-	queueCopy := make(chan Task, len(s.taskQueue))
-	
-	// Drain the queue and copy to both tasks slice and new queue
-	for len(s.taskQueue) > 0 {
-		select {
-		case task := <-s.taskQueue:
-			tasks = append(tasks, task)
-			queueCopy <- task
-		default:
-			break
-		}
-	}
-	
-	// Restore the queue
-	s.taskQueue = queueCopy
-	
-	// Sort tasks by priority (highest first) and then by creation time
-	sort.Slice(tasks, func(i, j int) bool {
-		if tasks[i].GetPriority() != tasks[j].GetPriority() {
-			return tasks[i].GetPriority() > tasks[j].GetPriority()
-		}
-		return tasks[i].GetCreatedAt().Before(tasks[j].GetCreatedAt())
-	})
-	
-	// Convert to response format
-	result := make([]map[string]interface{}, len(tasks))
-	for i, task := range tasks {
-		result[i] = map[string]interface{}{
-			"id":          task.GetID(),
-			"type":        task.GetType(),
-			"priority":    task.GetPriority(),
-			"created_at":  task.GetCreatedAt().Format(time.RFC3339),
-			"description": task.GetDescription(),
-		}
-	}
-	
-	return result
 }
