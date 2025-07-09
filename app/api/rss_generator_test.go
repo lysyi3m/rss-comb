@@ -13,9 +13,10 @@ func TestRSSGeneratorGenerate(t *testing.T) {
 
 	// Create test feed
 	feed := database.Feed{
-		ID:      "test-feed-id",
-		Title:   "Test Feed",
-		URL:     "https://example.com/feed.xml",
+		ID:       "test-feed-id",
+		Title:    "Test Feed",
+		FeedURL:  "https://example.com/feed.xml",
+		Link:     "https://example.com/",
 		ImageURL: "https://example.com/icon.png",
 	}
 
@@ -66,8 +67,8 @@ func TestRSSGeneratorGenerate(t *testing.T) {
 		t.Error("RSS should contain feed title")
 	}
 
-	if !strings.Contains(rss, "<link>https://example.com/feed.xml</link>") {
-		t.Error("RSS should contain feed link")
+	if !strings.Contains(rss, "<link>https://example.com/</link>") {
+		t.Error("RSS should contain homepage link")
 	}
 
 	if !strings.Contains(rss, "<generator>RSS-Comb/1.0</generator>") {
@@ -202,9 +203,10 @@ func TestGenerateWithEscaping(t *testing.T) {
 
 	// Test with content that needs escaping
 	feed := database.Feed{
-		ID:    "test-feed-id",
-		Title: "Feed with <tags> & \"quotes\"",
-		URL:   "https://example.com/feed.xml",
+		ID:      "test-feed-id",
+		Title:   "Feed with <tags> & \"quotes\"",
+		FeedURL: "https://example.com/feed.xml",
+		Link:    "https://example.com/",
 	}
 
 	items := []database.Item{

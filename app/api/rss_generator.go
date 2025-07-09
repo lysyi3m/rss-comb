@@ -37,8 +37,8 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 
 	// Channel metadata
 	g.writeElement(&buf, "title", feed.Title, 4)
-	g.writeElement(&buf, "link", feed.URL, 4)
-	g.writeElement(&buf, "description", fmt.Sprintf("Processed feed from %s", feed.URL), 4)
+	g.writeElement(&buf, "link", feed.Link, 4)
+	g.writeElement(&buf, "description", fmt.Sprintf("Processed feed from %s", feed.FeedURL), 4)
 	
 	// Self-referencing link (Atom namespace)
 	selfLink := fmt.Sprintf("http://localhost:%s/feeds/%s", g.Port, feed.FeedID)
@@ -57,7 +57,7 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 		buf.WriteString("    <image>\n")
 		g.writeElement(&buf, "url", feed.ImageURL, 6)
 		g.writeElement(&buf, "title", feed.Title, 6)
-		g.writeElement(&buf, "link", feed.URL, 6)
+		g.writeElement(&buf, "link", feed.Link, 6)
 		buf.WriteString("    </image>\n")
 	}
 

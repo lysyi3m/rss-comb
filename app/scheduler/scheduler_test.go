@@ -29,7 +29,7 @@ func (m *MockFeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, f
 	return "test-id", false, nil
 }
 
-func (m *MockFeedRepository) UpdateFeedMetadata(feedID string, iconURL string, language string) error {
+func (m *MockFeedRepository) UpdateFeedMetadata(feedID string, link string, iconURL string, language string) error {
 	return nil
 }
 
@@ -262,7 +262,7 @@ func TestProcessFeedStatistics(t *testing.T) {
 		ID:         "test-id",
 		ConfigFile: "test.yml",
 		Title:      "Test Feed",
-		URL:        "https://example.com/feed.xml",
+		FeedURL:    "https://example.com/feed.xml",
 	}
 
 	// Test successful processing
@@ -310,7 +310,7 @@ func TestSchedulerLifecycle(t *testing.T) {
 				ID:         "test-id",
 				ConfigFile: "test.yml",
 				Title:      "Test Feed",
-				URL:        "https://example.com/feed.xml",
+				FeedURL:    "https://example.com/feed.xml",
 			},
 		},
 	}

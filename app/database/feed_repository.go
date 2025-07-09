@@ -29,14 +29,14 @@ func (r *FeedRepository) UpsertFeed(configFile, feedID, feedURL, feedTitle strin
 		// Update existing feed
 		err = r.db.QueryRow(`
 			UPDATE feeds 
-			SET config_file = $2, url = $3, title = $4, updated_at = NOW()
+			SET config_file = $2, feed_url = $3, title = $4, updated_at = NOW()
 			WHERE feed_id = $1
 			RETURNING id
 		`, feedID, configFile, feedURL, feedTitle).Scan(&dbID)
 	} else {
 		// Insert new feed
 		err = r.db.QueryRow(`
-			INSERT INTO feeds (config_file, feed_id, url, title)
+			INSERT INTO feeds (config_file, feed_id, feed_url, title)
 			VALUES ($1, $2, $3, $4)
 			RETURNING id
 		`, configFile, feedID, feedURL, feedTitle).Scan(&dbID)
@@ -61,21 +61,21 @@ func (r *FeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedU
 	var urlChanged bool
 	if existingFeed != nil {
 		// Check if URL has changed
-		if existingFeed.URL != feedURL {
+		if existingFeed.FeedURL != feedURL {
 			urlChanged = true
 		}
 		
 		// Update existing feed
 		err = r.db.QueryRow(`
 			UPDATE feeds 
-			SET config_file = $2, url = $3, title = $4, updated_at = NOW()
+			SET config_file = $2, feed_url = $3, title = $4, updated_at = NOW()
 			WHERE feed_id = $1
 			RETURNING id
 		`, feedID, configFile, feedURL, feedTitle).Scan(&dbID)
 	} else {
 		// Insert new feed
 		err = r.db.QueryRow(`
-			INSERT INTO feeds (config_file, feed_id, url, title)
+			INSERT INTO feeds (config_file, feed_id, feed_url, title)
 			VALUES ($1, $2, $3, $4)
 			RETURNING id
 		`, configFile, feedID, feedURL, feedTitle).Scan(&dbID)
@@ -89,12 +89,12 @@ func (r *FeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedU
 }
 
 // UpdateFeedMetadata updates feed metadata after successful parsing
-func (r *FeedRepository) UpdateFeedMetadata(feedID string, imageURL string, language string) error {
+func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL string, language string) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
-		SET image_url = $2, language = $3, last_success = NOW(), updated_at = NOW()
+		SET link = $2, image_url = $3, language = $4, last_success = NOW(), updated_at = NOW()
 		WHERE id = $1
-	`, feedID, imageURL, language)
+	`, feedID, link, imageURL, language)
 
 	if err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)
@@ -121,7 +121,7 @@ func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) err
 // GetFeedsDueForRefresh returns feeds that need to be refreshed
 func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 	rows, err := r.db.Query(`
-		SELECT id, feed_id, config_file, url, title, COALESCE(image_url, ''), COALESCE(language, ''),
+		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
 		FROM feeds
 		WHERE enabled = true
@@ -138,7 +138,7 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 	for rows.Next() {
 		var feed Feed
 		err := rows.Scan(
-			&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Title, &feed.ImageURL, &feed.Language,
+			&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
 			&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
 			&feed.CreatedAt, &feed.UpdatedAt,
 		)
@@ -159,12 +159,12 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 func (r *FeedRepository) GetFeedByConfigFile(configFile string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
-		SELECT id, feed_id, config_file, url, title, COALESCE(image_url, ''), COALESCE(language, ''),
+		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
 		FROM feeds
 		WHERE config_file = $1
 	`, configFile).Scan(
-		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Title, &feed.ImageURL, &feed.Language,
+		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
 		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
@@ -183,12 +183,12 @@ func (r *FeedRepository) GetFeedByConfigFile(configFile string) (*Feed, error) {
 func (r *FeedRepository) GetFeedByURL(feedURL string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
-		SELECT id, feed_id, config_file, url, title, COALESCE(image_url, ''), COALESCE(language, ''),
+		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
 		FROM feeds
-		WHERE url = $1
+		WHERE feed_url = $1
 	`, feedURL).Scan(
-		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Title, &feed.ImageURL, &feed.Language,
+		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
 		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
@@ -207,12 +207,12 @@ func (r *FeedRepository) GetFeedByURL(feedURL string) (*Feed, error) {
 func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
-		SELECT id, feed_id, config_file, url, title, COALESCE(image_url, ''), COALESCE(language, ''),
+		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
 		FROM feeds
 		WHERE feed_id = $1
 	`, feedID).Scan(
-		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.URL, &feed.Title, &feed.ImageURL, &feed.Language,
+		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
 		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)

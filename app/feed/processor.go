@@ -73,7 +73,7 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 	}
 
 	// Update feed metadata
-	if err := p.feedRepo.UpdateFeedMetadata(feedID, metadata.ImageURL, metadata.Language); err != nil {
+	if err := p.feedRepo.UpdateFeedMetadata(feedID, metadata.Link, metadata.ImageURL, metadata.Language); err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
 

@@ -182,7 +182,7 @@ func (s *Scheduler) worker(id int) {
 
 // processFeed processes a single feed
 func (s *Scheduler) processFeed(workerID int, feed database.Feed) {
-	log.Printf("Worker %d processing feed: %s (%s)", workerID, feed.Title, feed.URL)
+	log.Printf("Worker %d processing feed: %s (%s)", workerID, feed.Title, feed.FeedURL)
 	start := time.Now()
 
 	err := s.processor.ProcessFeed(feed.ID, feed.ConfigFile)

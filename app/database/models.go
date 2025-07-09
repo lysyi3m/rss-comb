@@ -9,7 +9,8 @@ type Feed struct {
 	ID          string     // Database UUID
 	FeedID      string     // Configuration feed ID
 	ConfigFile  string
-	URL         string
+	FeedURL     string     // RSS/Atom feed URL from configuration
+	Link        string     // Homepage URL from feed's <link> element (RSS 2.0 spec)
 	Title       string
 	ImageURL    string
 	Language    string

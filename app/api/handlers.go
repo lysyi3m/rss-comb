@@ -82,7 +82,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	if err != nil {
 		log.Printf("Database error getting items for feed %s: %v", feedID, err)
 		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Title, feed.URL, "Failed to retrieve items"))
+		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Title, feed.FeedURL, "Failed to retrieve items"))
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	if err != nil {
 		log.Printf("RSS generation error for feed %s: %v", feedID, err)
 		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Title, feed.URL, "RSS generation failed"))
+		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Title, feed.FeedURL, "RSS generation failed"))
 		return
 	}
 
