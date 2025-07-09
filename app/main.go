@@ -138,7 +138,7 @@ func main() {
 		log.Printf("Starting HTTP server on port %s", appConfig.Port)
 		log.Printf("API endpoints available:")
 		log.Printf("  Feed:       http://localhost:%s/feeds/<id>", appConfig.Port)
-		log.Printf("  Statistics: http://localhost:%s/stats", appConfig.Port)
+		log.Printf("  Health: http://localhost:%s/health", appConfig.Port)
 
 		if appConfig.APIAccessKey != "" {
 			log.Printf("  List feeds:    http://localhost:%s/api/feeds (requires API key)", appConfig.Port)

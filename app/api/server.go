@@ -61,8 +61,8 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 	// Main feed endpoint
 	r.GET("/feeds/:id", handler.GetFeedByID)
 
-	// Status endpoint
-	r.GET("/stats", handler.GetStats)
+	// Health endpoint
+	r.GET("/health", handler.GetHealth)
 
 	// API endpoints (conditionally enabled with authentication)
 	if apiAccessKey != "" {
@@ -81,8 +81,8 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 	// Root endpoint with basic information
 	r.GET("/", func(c *gin.Context) {
 		endpoints := map[string]string{
-			"feed":  "/feeds/<id>",
-			"stats": "/stats",
+			"feed":   "/feeds/<id>",
+			"health": "/health",
 		}
 		
 		// Add API endpoints if authentication is enabled

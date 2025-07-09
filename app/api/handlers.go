@@ -109,20 +109,20 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 }
 
 
-// GetStats handles the statistics endpoint
-func (h *Handler) GetStats(c *gin.Context) {
-	stats := map[string]interface{}{
+// GetHealth handles the health endpoint
+func (h *Handler) GetHealth(c *gin.Context) {
+	health := map[string]interface{}{
 		"timestamp": time.Now().In(time.Local).Format(time.RFC3339),
 	}
 
 	// Get enabled feed count
 	if enabledFeedCount, err := h.feedRepo.GetEnabledFeedCount(); err == nil {
-		stats["enabled_feeds"] = enabledFeedCount
+		health["enabled_feeds"] = enabledFeedCount
 	}
 
-	stats["loaded_configurations"] = len(h.configs)
+	health["loaded_configurations"] = len(h.configs)
 
-	c.JSON(http.StatusOK, stats)
+	c.JSON(http.StatusOK, health)
 }
 
 // ListFeeds handles listing all configured feeds

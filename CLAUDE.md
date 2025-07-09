@@ -179,8 +179,8 @@ rss-comb/
 - **Deployment**: Automated via GitHub Actions on release tags
 
 ### How to verify "app is running"
-- **Dev**: `curl localhost:8080/stats` returns 200
-- **Prod**: `curl localhost:8080/stats` returns 200
+- **Dev**: `curl localhost:8080/health` returns 200
+- **Prod**: `curl localhost:8080/health` returns 200
 - **Database**: `make test` passes, or manual query works
 
 ## Work Verification Process
@@ -308,7 +308,7 @@ go test -v ./app/database
 6. Run the container with your PostgreSQL database and feed configurations
 
 ### Monitoring
-- Statistics endpoint: `/stats`
+- Health endpoint: `/health`
 - Database connection monitoring
 - Feed processing metrics in logs
 
@@ -369,8 +369,8 @@ go test -v ./app/database
 - Returns HTTP 404 for unknown feed IDs
 - Returns empty feed template for not-yet-processed feeds
 
-#### `GET /stats`
-- Returns application statistics
+#### `GET /health`
+- Returns application health status and statistics
 - Includes feed counts and processing metrics
 
 ### API Endpoints (require API key)
