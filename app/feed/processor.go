@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
@@ -15,12 +16,13 @@ import (
 
 // Processor handles feed processing including fetching, parsing, filtering, and storage
 type Processor struct {
-	parser    *parser.Parser
-	feedRepo  *database.FeedRepository
-	itemRepo  *database.ItemRepository
-	configs   map[string]*config.FeedConfig
-	client    *http.Client
-	userAgent string
+	parser      *parser.Parser
+	feedRepo    *database.FeedRepository
+	itemRepo    *database.ItemRepository
+	configs     map[string]*config.FeedConfig
+	configsMutex sync.RWMutex
+	client      *http.Client
+	userAgent   string
 }
 
 // NewProcessor creates a new feed processor
@@ -47,7 +49,7 @@ func NewProcessor(p *parser.Parser, fr *database.FeedRepository,
 
 // ProcessFeed processes a single feed
 func (p *Processor) ProcessFeed(feedID, configFile string) error {
-	feedConfig, ok := p.configs[configFile]
+	feedConfig, ok := p.getConfig(configFile)
 	if !ok {
 		return fmt.Errorf("configuration not found: %s", configFile)
 	}
@@ -227,7 +229,7 @@ func (p *Processor) getFieldValue(item parser.NormalizedItem, field string) stri
 
 // IsFeedEnabled checks if a feed is enabled in its configuration
 func (p *Processor) IsFeedEnabled(configFile string) bool {
-	feedConfig, ok := p.configs[configFile]
+	feedConfig, ok := p.getConfig(configFile)
 	if !ok {
 		return false // Configuration not found, treat as disabled
 	}
@@ -242,9 +244,40 @@ func (p *Processor) GetStats() map[string]interface{} {
 	}
 }
 
+// OnConfigUpdate implements the ConfigUpdateHandler interface
+func (p *Processor) OnConfigUpdate(configs map[string]*config.FeedConfig) error {
+	p.configsMutex.Lock()
+	p.configs = configs
+	p.configsMutex.Unlock()
+	
+	log.Printf("Feed processor updated with %d configurations", len(configs))
+	return nil
+}
+
+// getConfig safely retrieves a configuration
+func (p *Processor) getConfig(configFile string) (*config.FeedConfig, bool) {
+	p.configsMutex.RLock()
+	defer p.configsMutex.RUnlock()
+	config, ok := p.configs[configFile]
+	return config, ok
+}
+
+// getAllConfigs safely retrieves all configurations
+func (p *Processor) getAllConfigs() map[string]*config.FeedConfig {
+	p.configsMutex.RLock()
+	defer p.configsMutex.RUnlock()
+	
+	// Return a copy
+	configsCopy := make(map[string]*config.FeedConfig, len(p.configs))
+	for k, v := range p.configs {
+		configsCopy[k] = v
+	}
+	return configsCopy
+}
+
 // ReapplyFilters re-applies filters to all items of a specific feed
 func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) {
-	feedConfig, ok := p.configs[configFile]
+	feedConfig, ok := p.getConfig(configFile)
 	if !ok {
 		return 0, 0, fmt.Errorf("configuration not found: %s", configFile)
 	}

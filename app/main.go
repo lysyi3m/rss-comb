@@ -70,13 +70,13 @@ func main() {
 	}
 
 
-	// Load feed configurations
-	log.Printf("Loading feed configurations from %s...", appConfig.FeedsDir)
-	loader := config.NewLoader(appConfig.FeedsDir)
-	configs, err := loader.LoadAll()
+	// Initialize configuration watcher
+	log.Printf("Initializing configuration watcher for %s...", appConfig.FeedsDir)
+	configWatcher, err := config.NewConfigWatcher(appConfig.FeedsDir)
 	if err != nil {
-		log.Fatal("Failed to load configurations:", err)
+		log.Fatal("Failed to initialize config watcher:", err)
 	}
+	configs := configWatcher.GetConfigs()
 	log.Printf("Loaded %d feed configurations", len(configs))
 
 	// Initialize repositories
@@ -121,6 +121,10 @@ func main() {
 	// Initialize HTTP server
 	log.Println("Initializing HTTP server...")
 	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
+
+	// Register components with config watcher for hot-reload
+	configWatcher.AddUpdateHandler(feedProcessor)
+	configWatcher.AddUpdateHandler(apiHandler)
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 
 	// Create HTTP server with timeouts
@@ -131,6 +135,18 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
+
+	// Start config watcher in a goroutine
+	configWatcherCtx, configWatcherCancel := context.WithCancel(context.Background())
+	go func() {
+		if err := configWatcher.Start(configWatcherCtx); err != nil && err != context.Canceled {
+			log.Printf("Config watcher error: %v", err)
+		}
+	}()
+	defer func() {
+		configWatcherCancel()
+		configWatcher.Stop()
+	}()
 
 	// Start HTTP server in a goroutine
 	serverErrChan := make(chan error, 1)

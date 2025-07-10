@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,13 +16,14 @@ import (
 
 // Handler handles HTTP requests for the RSS API
 type Handler struct {
-	feedRepo  database.FeedRepositoryInterface
-	itemRepo  *database.ItemRepository
-	generator *RSSGenerator
-	configs   map[string]*config.FeedConfig
-	processor feed.FeedProcessor
-	scheduler *tasks.TaskScheduler
-	userAgent string
+	feedRepo     database.FeedRepositoryInterface
+	itemRepo     *database.ItemRepository
+	generator    *RSSGenerator
+	configs      map[string]*config.FeedConfig
+	configsMutex sync.RWMutex
+	processor    feed.FeedProcessor
+	scheduler    *tasks.TaskScheduler
+	userAgent    string
 }
 
 // NewHandler creates a new API handler
@@ -49,7 +51,8 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 
 	// Find matching configuration by feed ID
 	var feedConfig *config.FeedConfig
-	for _, cfg := range h.configs {
+	configs := h.getConfigs()
+	for _, cfg := range configs {
 		if cfg.Feed.ID == feedID {
 			feedConfig = cfg
 			break
@@ -119,16 +122,17 @@ func (h *Handler) GetHealth(c *gin.Context) {
 		health["enabled_feeds"] = enabledFeedCount
 	}
 
-	health["loaded_configurations"] = len(h.configs)
+	health["loaded_configurations"] = len(h.getConfigs())
 
 	c.JSON(http.StatusOK, health)
 }
 
 // APIListFeeds handles listing all configured feeds
 func (h *Handler) APIListFeeds(c *gin.Context) {
-	feeds := make([]map[string]interface{}, 0, len(h.configs))
+	configs := h.getConfigs()
+	feeds := make([]map[string]interface{}, 0, len(configs))
 
-	for configFile, config := range h.configs {
+	for configFile, config := range configs {
 		feedInfo := map[string]interface{}{
 			"name":            config.Feed.Title,
 			"url":             config.Feed.URL,
@@ -171,7 +175,8 @@ func (h *Handler) APIGetFeedDetailsByID(c *gin.Context) {
 	// Find configuration by feed ID
 	var configFile string
 	var feedConfig *config.FeedConfig
-	for file, cfg := range h.configs {
+	configs := h.getConfigs()
+	for file, cfg := range configs {
 		if cfg.Feed.ID == feedID {
 			configFile = file
 			feedConfig = cfg
@@ -235,7 +240,8 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	// Find configuration by feed ID
 	var configFile string
 	var feedConfig *config.FeedConfig
-	for file, cfg := range h.configs {
+	configs := h.getConfigs()
+	for file, cfg := range configs {
 		if cfg.Feed.ID == feedID {
 			configFile = file
 			feedConfig = cfg
@@ -293,4 +299,27 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	log.Printf("Successfully enqueued refilter task for feed %s", feedID)
 
 	c.JSON(http.StatusOK, response)
+}
+
+// OnConfigUpdate implements the ConfigUpdateHandler interface
+func (h *Handler) OnConfigUpdate(configs map[string]*config.FeedConfig) error {
+	h.configsMutex.Lock()
+	h.configs = configs
+	h.configsMutex.Unlock()
+	
+	log.Printf("API handler updated with %d configurations", len(configs))
+	return nil
+}
+
+// getConfigs safely retrieves all configurations
+func (h *Handler) getConfigs() map[string]*config.FeedConfig {
+	h.configsMutex.RLock()
+	defer h.configsMutex.RUnlock()
+	
+	// Return a copy
+	configsCopy := make(map[string]*config.FeedConfig, len(h.configs))
+	for k, v := range h.configs {
+		configsCopy[k] = v
+	}
+	return configsCopy
 }
