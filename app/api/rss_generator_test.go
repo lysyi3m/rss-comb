@@ -146,34 +146,6 @@ func TestRSSGeneratorGenerateEmpty(t *testing.T) {
 	}
 }
 
-func TestRSSGeneratorGenerateError(t *testing.T) {
-	generator := NewRSSGenerator("8080")
-
-	rss := generator.GenerateError("Test Feed", "https://example.com/feed.xml", "Connection timeout")
-
-	// Test basic structure
-	if !strings.Contains(rss, `<?xml version="1.0" encoding="UTF-8"?>`) {
-		t.Error("Error RSS should contain XML declaration")
-	}
-
-	if !strings.Contains(rss, "<title>Test Feed - Error</title>") {
-		t.Error("Error RSS should contain error title")
-	}
-
-	if !strings.Contains(rss, "Connection timeout") {
-		t.Error("Error RSS should contain error message")
-	}
-
-	// Should contain one error item
-	itemCount := strings.Count(rss, "<item>")
-	if itemCount != 1 {
-		t.Errorf("Error RSS should contain exactly 1 error item, found %d", itemCount)
-	}
-
-	if !strings.Contains(rss, "<title>Feed Processing Error</title>") {
-		t.Error("Error RSS should contain error item title")
-	}
-}
 
 func TestIsURL(t *testing.T) {
 	generator := NewRSSGenerator("8080")

@@ -43,8 +43,7 @@ func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository
 func (h *Handler) GetFeedByID(c *gin.Context) {
 	feedID := c.Param("id")
 	if feedID == "" {
-		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusBadRequest, h.generator.GenerateError("", "", "Missing feed ID"))
+		c.Status(http.StatusBadRequest)
 		return
 	}
 
@@ -68,8 +67,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	feed, err := h.feedRepo.GetFeedByID(feedID)
 	if err != nil {
 		log.Printf("Database error getting feed %s: %v", feedID, err)
-		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feedConfig.Feed.Title, feedConfig.Feed.URL, "Database error"))
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 
@@ -85,8 +83,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	items, err := h.itemRepo.GetVisibleItems(feed.ID, feedConfig.Settings.MaxItems)
 	if err != nil {
 		log.Printf("Database error getting items for feed %s: %v", feedID, err)
-		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Title, feed.FeedURL, "Failed to retrieve items"))
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 
@@ -94,8 +91,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	rss, err := h.generator.Generate(*feed, items)
 	if err != nil {
 		log.Printf("RSS generation error for feed %s: %v", feedID, err)
-		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusInternalServerError, h.generator.GenerateError(feed.Title, feed.FeedURL, "RSS generation failed"))
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 

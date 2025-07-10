@@ -183,37 +183,3 @@ func (g *RSSGenerator) GenerateEmpty(feedName, feedURL string) string {
 		version.GetVersion())
 }
 
-// GenerateError creates an RSS feed with error information
-func (g *RSSGenerator) GenerateError(feedName, feedURL, errorMsg string) string {
-	if feedName == "" {
-		feedName = "Error Feed"
-	}
-	if feedURL == "" {
-		feedURL = fmt.Sprintf("http://localhost:%s/", g.Port)
-	}
-
-	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
-  <channel>
-    <title>%s - Error</title>
-    <link>%s</link>
-    <description>Error processing feed: %s</description>
-    <lastBuildDate>%s</lastBuildDate>
-    <generator>RSS-Comb/%s</generator>
-    <item>
-      <title>Feed Processing Error</title>
-      <description>%s</description>
-      <pubDate>%s</pubDate>
-      <guid isPermaLink="false">error-%d</guid>
-    </item>
-  </channel>
-</rss>`, 
-		html.EscapeString(feedName), 
-		html.EscapeString(feedURL), 
-		html.EscapeString(errorMsg),
-		time.Now().In(time.Local).Format(time.RFC1123Z),
-		version.GetVersion(),
-		html.EscapeString(errorMsg),
-		time.Now().In(time.Local).Format(time.RFC1123Z),
-		time.Now().Unix())
-}
