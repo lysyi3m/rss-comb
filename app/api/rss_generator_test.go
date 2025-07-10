@@ -1,11 +1,13 @@
 package api
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/version"
 )
 
 func TestRSSGeneratorGenerate(t *testing.T) {
@@ -71,8 +73,9 @@ func TestRSSGeneratorGenerate(t *testing.T) {
 		t.Error("RSS should contain homepage link")
 	}
 
-	if !strings.Contains(rss, "<generator>RSS-Comb/1.0</generator>") {
-		t.Error("RSS should contain generator")
+	expectedGenerator := fmt.Sprintf("<generator>RSS-Comb/%s</generator>", version.GetVersion())
+	if !strings.Contains(rss, expectedGenerator) {
+		t.Errorf("RSS should contain generator: %s", expectedGenerator)
 	}
 
 	// Test image element

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/version"
 )
 
 // RSSGenerator handles generating RSS 2.0 XML from feed data
@@ -46,7 +47,7 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 		html.EscapeString(selfLink)))
 	
 	g.writeElement(&buf, "lastBuildDate", time.Now().In(time.Local).Format(time.RFC1123Z), 4)
-	g.writeElement(&buf, "generator", "RSS-Comb/1.0", 4)
+	g.writeElement(&buf, "generator", fmt.Sprintf("RSS-Comb/%s", version.GetVersion()), 4)
 	// Language (only include if available)
 	if feed.Language != "" {
 		g.writeElement(&buf, "language", feed.Language, 4)
@@ -173,12 +174,13 @@ func (g *RSSGenerator) GenerateEmpty(feedName, feedURL string) string {
     <link>%s</link>
     <description>Feed is being processed. Please check back later.</description>
     <lastBuildDate>%s</lastBuildDate>
-    <generator>RSS-Comb/1.0</generator>
+    <generator>RSS-Comb/%s</generator>
   </channel>
 </rss>`, 
 		html.EscapeString(feedName), 
 		html.EscapeString(feedURL), 
-		time.Now().In(time.Local).Format(time.RFC1123Z))
+		time.Now().In(time.Local).Format(time.RFC1123Z),
+		version.GetVersion())
 }
 
 // GenerateError creates an RSS feed with error information
@@ -197,7 +199,7 @@ func (g *RSSGenerator) GenerateError(feedName, feedURL, errorMsg string) string 
     <link>%s</link>
     <description>Error processing feed: %s</description>
     <lastBuildDate>%s</lastBuildDate>
-    <generator>RSS-Comb/1.0</generator>
+    <generator>RSS-Comb/%s</generator>
     <item>
       <title>Feed Processing Error</title>
       <description>%s</description>
@@ -210,6 +212,7 @@ func (g *RSSGenerator) GenerateError(feedName, feedURL, errorMsg string) string 
 		html.EscapeString(feedURL), 
 		html.EscapeString(errorMsg),
 		time.Now().In(time.Local).Format(time.RFC1123Z),
+		version.GetVersion(),
 		html.EscapeString(errorMsg),
 		time.Now().In(time.Local).Format(time.RFC1123Z),
 		time.Now().Unix())

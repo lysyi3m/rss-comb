@@ -23,9 +23,8 @@ COPY . .
 
 # Build the application with optimized flags
 ARG TARGETARCH
-ARG VERSION
-RUN VERSION=${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo "unknown")} && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
+ARG VERSION=unknown
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags="-w -s -extldflags '-static' -X github.com/lysyi3m/rss-comb/app/version.Version=${VERSION}" \
     -a -installsuffix cgo \
     -o rss-comb \
