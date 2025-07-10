@@ -20,7 +20,7 @@ func TestApplyFilters(t *testing.T) {
 		Content:     "Full content about programming and technology",
 		AuthorName:  "John Doe",
 		Link:        "https://example.com/tech-news",
-		Categories:  []string{"Technology", "Programming"},
+		Categories:  []string{"Technology", "Programming", "c++", "1c"},
 	}
 
 	tests := []struct {
@@ -148,6 +148,36 @@ func TestApplyFilters(t *testing.T) {
 				},
 			},
 			expected: false, // Should not be filtered (case insensitive)
+		},
+		{
+			name: "Category exclude with special characters (c++)",
+			filters: []config.Filter{
+				{
+					Field:    "categories",
+					Excludes: []string{"c++"},
+				},
+			},
+			expected: true, // Should be filtered (matches c++ in categories)
+		},
+		{
+			name: "Category exclude with numbers (1c)",
+			filters: []config.Filter{
+				{
+					Field:    "categories",
+					Excludes: []string{"1c"},
+				},
+			},
+			expected: true, // Should be filtered (matches 1c in categories)
+		},
+		{
+			name: "Category include with special characters (c++)",
+			filters: []config.Filter{
+				{
+					Field:    "categories",
+					Includes: []string{"c++"},
+				},
+			},
+			expected: false, // Should not be filtered (includes c++)
 		},
 	}
 

@@ -183,7 +183,7 @@ func (p *Processor) applyFilters(item parser.NormalizedItem, filters []config.Fi
 
 		// Check excludes first (if any exclude matches, item is filtered)
 		for _, exclude := range filter.Excludes {
-			if strings.Contains(strings.ToLower(value), strings.ToLower(exclude)) {
+			if p.matchesFilter(value, exclude) {
 				return true, fmt.Sprintf("Excluded by %s filter: contains '%s'", filter.Field, exclude)
 			}
 		}
@@ -192,7 +192,7 @@ func (p *Processor) applyFilters(item parser.NormalizedItem, filters []config.Fi
 		if len(filter.Includes) > 0 {
 			matched := false
 			for _, include := range filter.Includes {
-				if strings.Contains(strings.ToLower(value), strings.ToLower(include)) {
+				if p.matchesFilter(value, include) {
 					matched = true
 					break
 				}
@@ -204,6 +204,11 @@ func (p *Processor) applyFilters(item parser.NormalizedItem, filters []config.Fi
 	}
 
 	return false, ""
+}
+
+// matchesFilter performs case-insensitive substring matching
+func (p *Processor) matchesFilter(value, pattern string) bool {
+	return strings.Contains(strings.ToLower(value), strings.ToLower(pattern))
 }
 
 // getFieldValue extracts the value of a specific field from an item
