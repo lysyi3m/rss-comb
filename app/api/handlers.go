@@ -302,12 +302,18 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 }
 
 // OnConfigUpdate implements the ConfigUpdateHandler interface
-func (h *Handler) OnConfigUpdate(configs map[string]*config.FeedConfig) error {
+func (h *Handler) OnConfigUpdate(filePath string, config *config.FeedConfig, isDelete bool) error {
 	h.configsMutex.Lock()
-	h.configs = configs
-	h.configsMutex.Unlock()
+	defer h.configsMutex.Unlock()
 	
-	log.Printf("API handler updated with %d configurations", len(configs))
+	if isDelete {
+		delete(h.configs, filePath)
+		log.Printf("API handler removed configuration: %s (ID: %s)", filePath, config.Feed.ID)
+	} else {
+		h.configs[filePath] = config
+		log.Printf("API handler updated configuration: %s (ID: %s)", filePath, config.Feed.ID)
+	}
+	
 	return nil
 }
 

@@ -128,11 +128,100 @@ type TestUpdateHandler struct {
 	updateChan chan bool
 }
 
-func (h *TestUpdateHandler) OnConfigUpdate(configs map[string]*FeedConfig) error {
+func (h *TestUpdateHandler) OnConfigUpdate(filePath string, config *FeedConfig, isDelete bool) error {
 	select {
 	case h.updateChan <- true:
 	default:
 		// Channel full, ignore
+	}
+	return nil
+}
+
+func TestConfigFileDeletion(t *testing.T) {
+	// Create temporary directory for test
+	tempDir, err := os.MkdirTemp("", "config-deletion-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create config file
+	configFile := filepath.Join(tempDir, "test.yml")
+	configContent := `feed:
+  id: "test-feed"
+  url: "https://example.com/feed.xml"
+  title: "Test Feed"
+settings:
+  enabled: true`
+
+	err = os.WriteFile(configFile, []byte(configContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Create config watcher
+	watcher, err := NewConfigWatcher(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to create config watcher: %v", err)
+	}
+	defer watcher.Stop()
+
+	// Verify initial config loaded
+	configs := watcher.GetConfigs()
+	if len(configs) != 1 {
+		t.Fatalf("Expected 1 config, got %d", len(configs))
+	}
+
+	// Set up update handler to track deletions
+	deletionReceived := make(chan bool, 1)
+	handler := &DeletionTestHandler{
+		deletionChan: deletionReceived,
+	}
+	watcher.AddUpdateHandler(handler)
+
+	// Start watcher in background
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		watcher.Start(ctx)
+	}()
+
+	// Give watcher time to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Delete the config file
+	err = os.Remove(configFile)
+	if err != nil {
+		t.Fatalf("Failed to delete config file: %v", err)
+	}
+
+	// Wait for deletion notification
+	select {
+	case <-deletionReceived:
+		// Deletion received, check configs
+		updatedConfigs := watcher.GetConfigs()
+		if len(updatedConfigs) != 0 {
+			t.Fatalf("Expected 0 configs after deletion, got %d", len(updatedConfigs))
+		}
+
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for config deletion")
+	}
+}
+
+// DeletionTestHandler implements ConfigUpdateHandler for testing deletions
+type DeletionTestHandler struct {
+	deletionChan chan bool
+}
+
+func (h *DeletionTestHandler) OnConfigUpdate(filePath string, config *FeedConfig, isDelete bool) error {
+	if isDelete {
+		select {
+		case h.deletionChan <- true:
+		default:
+			// Channel full, ignore
+		}
 	}
 	return nil
 }

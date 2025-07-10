@@ -58,6 +58,20 @@ func (l *Loader) LoadAll() (map[string]*FeedConfig, error) {
 	return configs, nil
 }
 
+// Load loads and validates a single configuration file
+func (l *Loader) Load(path string) (*FeedConfig, error) {
+	config, err := l.loadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("error loading %s: %w", path, err)
+	}
+
+	if err := l.validate(config); err != nil {
+		return nil, fmt.Errorf("invalid config %s: %w", path, err)
+	}
+
+	return config, nil
+}
+
 // loadFile loads a single YAML configuration file
 func (l *Loader) loadFile(path string) (*FeedConfig, error) {
 	data, err := os.ReadFile(path)

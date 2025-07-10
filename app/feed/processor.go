@@ -245,12 +245,18 @@ func (p *Processor) GetStats() map[string]interface{} {
 }
 
 // OnConfigUpdate implements the ConfigUpdateHandler interface
-func (p *Processor) OnConfigUpdate(configs map[string]*config.FeedConfig) error {
+func (p *Processor) OnConfigUpdate(filePath string, config *config.FeedConfig, isDelete bool) error {
 	p.configsMutex.Lock()
-	p.configs = configs
-	p.configsMutex.Unlock()
+	defer p.configsMutex.Unlock()
 	
-	log.Printf("Feed processor updated with %d configurations", len(configs))
+	if isDelete {
+		delete(p.configs, filePath)
+		log.Printf("Feed processor removed configuration: %s (ID: %s)", filePath, config.Feed.ID)
+	} else {
+		p.configs[filePath] = config
+		log.Printf("Feed processor updated configuration: %s (ID: %s)", filePath, config.Feed.ID)
+	}
+	
 	return nil
 }
 
