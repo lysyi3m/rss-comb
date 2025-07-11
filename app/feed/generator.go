@@ -11,6 +11,9 @@ import (
 	"github.com/lysyi3m/rss-comb/app/version"
 )
 
+// Compile-time interface compliance checks
+var _ GeneratorInterface = (*Generator)(nil)
+
 // NewGenerator creates a new RSS generator
 func NewGenerator(port string) *Generator {
 	if port == "" {

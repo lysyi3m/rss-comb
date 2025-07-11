@@ -7,6 +7,12 @@ import (
 	"github.com/lib/pq"
 )
 
+// Compile-time interface compliance checks
+var _ ItemRepositoryInterface = (*ItemRepository)(nil)
+var _ ItemReader = (*ItemRepository)(nil)
+var _ ItemWriter = (*ItemRepository)(nil)
+var _ ItemDuplicateChecker = (*ItemRepository)(nil)
+
 // ItemRepository handles database operations for feed items
 type ItemRepository struct {
 	db *DB

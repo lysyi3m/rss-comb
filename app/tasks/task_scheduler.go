@@ -11,6 +11,9 @@ import (
 	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
+// Compile-time interface compliance checks
+var _ TaskSchedulerInterface = (*TaskScheduler)(nil)
+
 // TaskScheduler manages the execution of tasks using a generic task queue
 type TaskScheduler struct {
 	processor    feed.ProcessorInterface

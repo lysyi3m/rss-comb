@@ -10,6 +10,9 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
+// Compile-time interface compliance checks
+var _ ParserInterface = (*Parser)(nil)
+
 // NewParser creates a new feed parser
 func NewParser() *Parser {
 	return &Parser{

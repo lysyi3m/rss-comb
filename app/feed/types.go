@@ -13,7 +13,7 @@ import (
 type Processor struct {
 	parser      *Parser
 	generator   *Generator
-	feedRepo    database.FeedManager
+	feedRepo    database.FeedRepositoryInterface
 	itemRepo    database.ItemRepositoryInterface
 	configCache *config_sync.ConfigCacheHandler
 	client      *http.Client

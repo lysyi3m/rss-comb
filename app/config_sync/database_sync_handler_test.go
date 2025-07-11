@@ -70,7 +70,7 @@ func (m *MockFeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time)
 // Implement other required methods with minimal implementations
 func (m *MockFeedRepository) GetFeedsDueForRefresh() ([]database.Feed, error) { return nil, nil }
 func (m *MockFeedRepository) UpsertFeed(configFile, feedID, feedURL, feedTitle string) (string, error) { return "", nil }
-func (m *MockFeedRepository) UpdateFeedMetadata(feedID string, link string, iconURL string, language string) error { return nil }
+func (m *MockFeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL string, language string) error { return nil }
 func (m *MockFeedRepository) GetFeedByConfigFile(configFile string) (*database.Feed, error) { return nil, nil }
 func (m *MockFeedRepository) GetFeedByURL(feedURL string) (*database.Feed, error) { return nil, nil }
 func (m *MockFeedRepository) GetFeedCount() (int, error) { return 0, nil }
