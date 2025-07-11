@@ -1,4 +1,4 @@
-package generator
+package feed
 
 import (
 	"bytes"
@@ -11,17 +11,16 @@ import (
 	"github.com/lysyi3m/rss-comb/app/version"
 )
 
-
-// NewRSSGenerator creates a new RSS generator
-func NewRSSGenerator(port string) *RSSGenerator {
+// NewGenerator creates a new RSS generator
+func NewGenerator(port string) *Generator {
 	if port == "" {
 		port = "8080"
 	}
-	return &RSSGenerator{Port: port}
+	return &Generator{Port: port}
 }
 
 // Generate creates RSS 2.0 XML from feed and items data
-func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (string, error) {
+func (g *Generator) Generate(feed database.Feed, items []database.Item) (string, error) {
 	var buf bytes.Buffer
 
 	// XML declaration
@@ -69,7 +68,7 @@ func (g *RSSGenerator) Generate(feed database.Feed, items []database.Item) (stri
 }
 
 // writeItem writes a single RSS item
-func (g *RSSGenerator) writeItem(buf *bytes.Buffer, item database.Item) {
+func (g *Generator) writeItem(buf *bytes.Buffer, item database.Item) {
 	buf.WriteString("    <item>\n")
 
 	// GUID (required)
@@ -128,7 +127,7 @@ func (g *RSSGenerator) writeItem(buf *bytes.Buffer, item database.Item) {
 }
 
 // writeElement writes an XML element with proper escaping
-func (g *RSSGenerator) writeElement(buf *bytes.Buffer, tag, content string, indent int) {
+func (g *Generator) writeElement(buf *bytes.Buffer, tag, content string, indent int) {
 	if content == "" {
 		return
 	}
@@ -150,12 +149,12 @@ func (g *RSSGenerator) writeElement(buf *bytes.Buffer, tag, content string, inde
 }
 
 // isURL checks if a string looks like a URL (for GUID isPermaLink attribute)
-func (g *RSSGenerator) isURL(s string) bool {
-	return len(s) > 7 && (s[:7] == "http://" || s[:8] == "https://")
+func (g *Generator) isURL(s string) bool {
+	return (len(s) > 7 && s[:7] == "http://") || (len(s) > 8 && s[:8] == "https://")
 }
 
 // GenerateEmpty creates an empty RSS feed template
-func (g *RSSGenerator) GenerateEmpty(feedName, feedURL string) string {
+func (g *Generator) GenerateEmpty(feedName, feedURL string) string {
 	if feedName == "" {
 		feedName = "Empty Feed"
 	}

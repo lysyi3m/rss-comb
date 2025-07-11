@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
-	"github.com/lysyi3m/rss-comb/app/parser"
 	"github.com/lysyi3m/rss-comb/app/version"
 )
 
@@ -14,7 +13,7 @@ func TestApplyFilters(t *testing.T) {
 	processor := &Processor{}
 
 	// Test item
-	item := parser.NormalizedItem{
+	item := Item{
 		Title:       "Technology News: Latest Updates",
 		Description: "This is a technology article about programming",
 		Content:     "Full content about programming and technology",
@@ -197,7 +196,7 @@ func TestApplyFilters(t *testing.T) {
 func TestGetFieldValue(t *testing.T) {
 	processor := &Processor{}
 
-	item := parser.NormalizedItem{
+	item := Item{
 		Title:       "Test Title",
 		Description: "Test Description",
 		Content:     "Test Content",
@@ -233,7 +232,7 @@ func TestNewProcessor(t *testing.T) {
 	// This is a simple test to ensure NewProcessor doesn't panic
 	// In a real scenario, you'd pass actual instances
 	configs := make(map[string]*config.FeedConfig)
-	processor := NewProcessor(nil, nil, nil, configs, fmt.Sprintf("RSS Comb/%s", version.GetVersion()))
+	processor := NewProcessor(nil, nil, configs, fmt.Sprintf("RSS Comb/%s", version.GetVersion()), "8080")
 
 	if processor == nil {
 		t.Fatal("Expected processor to be created")
@@ -259,7 +258,7 @@ func TestGetStats(t *testing.T) {
 		"feed1.yml": {},
 		"feed2.yml": {},
 	}
-	processor := NewProcessor(nil, nil, nil, configs, fmt.Sprintf("RSS Comb/%s", version.GetVersion()))
+	processor := NewProcessor(nil, nil, configs, fmt.Sprintf("RSS Comb/%s", version.GetVersion()), "8080")
 
 	stats := processor.GetStats()
 

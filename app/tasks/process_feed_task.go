@@ -13,11 +13,11 @@ type ProcessFeedTask struct {
 	BaseTask
 	FeedID     string
 	ConfigFile string
-	processor  feed.FeedProcessor
+	processor  feed.ProcessorInterface
 }
 
 // NewProcessFeedTask creates a new process feed task
-func NewProcessFeedTask(feedID, configFile string, processor feed.FeedProcessor) *ProcessFeedTask {
+func NewProcessFeedTask(feedID, configFile string, processor feed.ProcessorInterface) *ProcessFeedTask {
 	description := fmt.Sprintf("Process feed %s from config %s", feedID, configFile)
 	
 	return &ProcessFeedTask{

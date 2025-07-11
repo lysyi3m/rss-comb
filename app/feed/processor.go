@@ -11,15 +11,15 @@ import (
 	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
-	"github.com/lysyi3m/rss-comb/app/parser"
 )
 
 
 // NewProcessor creates a new feed processor
-func NewProcessor(p *parser.Parser, fr *database.FeedRepository,
-	ir *database.ItemRepository, configs map[string]*config.FeedConfig, userAgent string) *Processor {
+func NewProcessor(fr database.FeedManager, ir database.ItemRepositoryInterface, 
+	configs map[string]*config.FeedConfig, userAgent string, port string) *Processor {
 	return &Processor{
-		parser:      p,
+		parser:      NewParser(),
+		generator:   NewGenerator(port),
 		feedRepo:    fr,
 		itemRepo:    ir,
 		configCache: config_sync.NewConfigCacheHandler("Feed processor", configs),
@@ -100,7 +100,8 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 		}
 
 		// Store item (duplicates already skipped)
-		if err := p.itemRepo.StoreItem(feedID, item); err != nil {
+		dbItem := p.convertToDBItem(item)
+		if err := p.itemRepo.StoreItem(feedID, dbItem); err != nil {
 			log.Printf("Warning: failed to store item %d: %v", i, err)
 			continue
 		}
@@ -167,7 +168,7 @@ func (p *Processor) fetchFeed(url string, settings config.FeedSettings) ([]byte,
 }
 
 // applyFilters applies configured filters to an item
-func (p *Processor) applyFilters(item parser.NormalizedItem, filters []config.Filter) (bool, string) {
+func (p *Processor) applyFilters(item Item, filters []config.Filter) (bool, string) {
 	for _, filter := range filters {
 		value := p.getFieldValue(item, filter.Field)
 
@@ -202,7 +203,7 @@ func (p *Processor) matchesFilter(value, pattern string) bool {
 }
 
 // getFieldValue extracts the value of a specific field from an item
-func (p *Processor) getFieldValue(item parser.NormalizedItem, field string) string {
+func (p *Processor) getFieldValue(item Item, field string) string {
 	switch field {
 	case "title":
 		return item.Title
@@ -272,7 +273,7 @@ func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) 
 
 	for _, item := range items {
 		// Convert database item to normalized item for filtering
-		normalizedItem := parser.NormalizedItem{
+		normalizedItem := Item{
 			GUID:         item.GUID,
 			Link:         item.Link,
 			Title:        item.Title,
@@ -307,4 +308,23 @@ func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) 
 		feedConfig.Feed.Title, updatedCount, errorCount)
 
 	return updatedCount, errorCount, nil
+}
+
+// convertToDBItem converts a feed.Item to database.FeedItem for database operations
+func (p *Processor) convertToDBItem(item Item) database.FeedItem {
+	return database.FeedItem{
+		GUID:          item.GUID,
+		Title:         item.Title,
+		Link:          item.Link,
+		Description:   item.Description,
+		Content:       item.Content,
+		PublishedDate: item.PublishedDate,
+		UpdatedDate:   item.UpdatedDate,
+		AuthorName:    item.AuthorName,
+		AuthorEmail:   item.AuthorEmail,
+		Categories:    item.Categories,
+		ContentHash:   item.ContentHash,
+		IsFiltered:    item.IsFiltered,
+		FilterReason:  item.FilterReason,
+	}
 }

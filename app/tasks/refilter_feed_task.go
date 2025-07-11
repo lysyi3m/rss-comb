@@ -13,11 +13,11 @@ type RefilterFeedTask struct {
 	BaseTask
 	FeedID     string
 	ConfigFile string
-	processor  feed.FeedProcessor
+	processor  feed.ProcessorInterface
 }
 
 // NewRefilterFeedTask creates a new refilter feed task
-func NewRefilterFeedTask(feedID, configFile string, processor feed.FeedProcessor) *RefilterFeedTask {
+func NewRefilterFeedTask(feedID, configFile string, processor feed.ProcessorInterface) *RefilterFeedTask {
 	description := fmt.Sprintf("Refilter feed %s from config %s", feedID, configFile)
 	
 	return &RefilterFeedTask{

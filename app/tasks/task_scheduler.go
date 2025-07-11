@@ -13,8 +13,8 @@ import (
 
 // TaskScheduler manages the execution of tasks using a generic task queue
 type TaskScheduler struct {
-	processor    feed.FeedProcessor
-	feedRepo     database.FeedRepositoryInterface
+	processor    feed.ProcessorInterface
+	feedRepo     database.FeedScheduler
 	interval     time.Duration
 	workerCount  int
 	ctx          context.Context
@@ -38,8 +38,8 @@ type TaskStats struct {
 }
 
 // NewTaskScheduler creates a new generic task scheduler
-func NewTaskScheduler(processor feed.FeedProcessor, feedRepo database.FeedRepositoryInterface,
-	interval time.Duration, workerCount int) *TaskScheduler {
+func NewTaskScheduler(processor feed.ProcessorInterface, feedRepo database.FeedScheduler,
+	interval time.Duration, workerCount int) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	return &TaskScheduler{

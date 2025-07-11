@@ -1,4 +1,4 @@
-package parser
+package feed
 
 import (
 	"bytes"
@@ -10,11 +10,6 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
-// Parser handles parsing of RSS/Atom feeds
-type Parser struct {
-	gofeedParser *gofeed.Parser
-}
-
 // NewParser creates a new feed parser
 func NewParser() *Parser {
 	return &Parser{
@@ -23,14 +18,14 @@ func NewParser() *Parser {
 }
 
 // Parse parses feed data and returns metadata and normalized items
-func (p *Parser) Parse(data []byte) (*FeedMetadata, []NormalizedItem, error) {
+func (p *Parser) Parse(data []byte) (*Metadata, []Item, error) {
 	feed, err := p.gofeedParser.Parse(bytes.NewReader(data))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse feed: %w", err)
 	}
 
 	// Extract feed metadata
-	metadata := &FeedMetadata{
+	metadata := &Metadata{
 		Title:       feed.Title,
 		Link:        feed.Link,
 		Description: feed.Description,
@@ -48,7 +43,7 @@ func (p *Parser) Parse(data []byte) (*FeedMetadata, []NormalizedItem, error) {
 	}
 
 	// Process feed items
-	items := make([]NormalizedItem, 0, len(feed.Items))
+	items := make([]Item, 0, len(feed.Items))
 	for _, item := range feed.Items {
 		normalized := p.normalizeItem(item)
 		normalized.ContentHash = p.generateContentHash(normalized)
@@ -59,9 +54,9 @@ func (p *Parser) Parse(data []byte) (*FeedMetadata, []NormalizedItem, error) {
 	return metadata, items, nil
 }
 
-// normalizeItem converts a gofeed.Item to our NormalizedItem format
-func (p *Parser) normalizeItem(item *gofeed.Item) NormalizedItem {
-	normalized := NormalizedItem{
+// normalizeItem converts a gofeed.Item to our Item format
+func (p *Parser) normalizeItem(item *gofeed.Item) Item {
+	normalized := Item{
 		GUID:        p.coalesce(item.GUID, item.Link),
 		Title:       item.Title,
 		Link:        item.Link,
@@ -94,7 +89,7 @@ func (p *Parser) normalizeItem(item *gofeed.Item) NormalizedItem {
 }
 
 // generateContentHash generates a hash for content deduplication
-func (p *Parser) generateContentHash(item NormalizedItem) string {
+func (p *Parser) generateContentHash(item Item) string {
 	// Use only title and link for hash generation
 	// This prevents duplicate detection when only description changes (e.g., article updates)
 	content := fmt.Sprintf("%s|%s",
@@ -114,4 +109,3 @@ func (p *Parser) coalesce(values ...string) string {
 	}
 	return ""
 }
-

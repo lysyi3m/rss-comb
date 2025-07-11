@@ -11,19 +11,18 @@ import (
 	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
-	"github.com/lysyi3m/rss-comb/app/generator"
 	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
 
 // NewHandler creates a new API handler
-func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository,
-	configs map[string]*config.FeedConfig, processor feed.FeedProcessor,
-	taskScheduler *tasks.TaskScheduler, port string, userAgent string) *Handler {
+func NewHandler(fr database.FeedReader, ir database.ItemReader,
+	configs map[string]*config.FeedConfig, processor feed.ProcessorInterface,
+	taskScheduler tasks.TaskSchedulerInterface, port string, userAgent string) *Handler {
 	return &Handler{
 		feedRepo:    fr,
 		itemRepo:    ir,
-		generator:   generator.NewRSSGenerator(port),
+		generator:   feed.NewGenerator(port),
 		configCache: config_sync.NewConfigCacheHandler("API handler", configs),
 		processor:   processor,
 		scheduler:   taskScheduler,

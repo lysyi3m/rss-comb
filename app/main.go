@@ -17,7 +17,6 @@ import (
 	"github.com/lysyi3m/rss-comb/app/config_watcher"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
-	"github.com/lysyi3m/rss-comb/app/parser"
 	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
@@ -117,8 +116,7 @@ func main() {
 	}
 
 	// Initialize core components
-	feedParser := parser.NewParser()
-	feedProcessor := feed.NewProcessor(feedParser, feedRepo, itemRepo, configs, appConfig.UserAgent)
+	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, configs, appConfig.UserAgent, appConfig.Port)
 
 	// Initialize and start task scheduler
 	log.Printf("Starting background task scheduler with %d workers...", appConfig.WorkerCount)

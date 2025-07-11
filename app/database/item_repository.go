@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/lib/pq"
-	"github.com/lysyi3m/rss-comb/app/parser"
 )
 
 // ItemRepository handles database operations for feed items
@@ -47,7 +46,7 @@ func (r *ItemRepository) CheckDuplicate(contentHash, feedID string, global bool)
 }
 
 // StoreItem stores a normalized item in the database
-func (r *ItemRepository) StoreItem(feedID string, item parser.NormalizedItem) error {
+func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
 	_, err := r.db.Exec(`
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,

@@ -13,12 +13,12 @@ import (
 
 // DatabaseSyncHandler handles synchronizing configuration changes with the database
 type DatabaseSyncHandler struct {
-	feedRepo database.FeedRepositoryInterface
+	feedRepo database.FeedManager
 	feedsDir string
 }
 
 // NewDatabaseSyncHandler creates a new database sync handler
-func NewDatabaseSyncHandler(feedRepo database.FeedRepositoryInterface, feedsDir string) *DatabaseSyncHandler {
+func NewDatabaseSyncHandler(feedRepo database.FeedManager, feedsDir string) *DatabaseSyncHandler {
 	return &DatabaseSyncHandler{
 		feedRepo: feedRepo,
 		feedsDir: feedsDir,
