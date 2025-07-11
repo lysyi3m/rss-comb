@@ -72,3 +72,31 @@ func (h *ConfigCacheHandler) GetConfigCount() int {
 	defer h.configsMutex.RUnlock()
 	return len(h.configs)
 }
+
+// GetConfigByFeedID finds a configuration by its feed ID
+// Returns the configuration and whether it was found
+func (h *ConfigCacheHandler) GetConfigByFeedID(feedID string) (*config.FeedConfig, bool) {
+	h.configsMutex.RLock()
+	defer h.configsMutex.RUnlock()
+	
+	for _, cfg := range h.configs {
+		if cfg.Feed.ID == feedID {
+			return cfg, true
+		}
+	}
+	return nil, false
+}
+
+// GetConfigAndFileByFeedID finds a configuration and its file path by feed ID
+// Returns the configuration, file path, and whether it was found
+func (h *ConfigCacheHandler) GetConfigAndFileByFeedID(feedID string) (*config.FeedConfig, string, bool) {
+	h.configsMutex.RLock()
+	defer h.configsMutex.RUnlock()
+	
+	for file, cfg := range h.configs {
+		if cfg.Feed.ID == feedID {
+			return cfg, file, true
+		}
+	}
+	return nil, "", false
+}

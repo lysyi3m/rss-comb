@@ -39,17 +39,8 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	}
 
 	// Find matching configuration by feed ID
-	var feedConfig *config.FeedConfig
-	configs := h.configCache.GetAllConfigs()
-	for _, cfg := range configs {
-		if cfg.Feed.ID == feedID {
-			feedConfig = cfg
-			break
-		}
-	}
-
-	// If not registered, return 404
-	if feedConfig == nil {
+	feedConfig, found := h.configCache.GetConfigByFeedID(feedID)
+	if !found {
 		log.Printf("Feed ID not found: %s", feedID)
 		c.Status(http.StatusNotFound)
 		return
@@ -162,18 +153,8 @@ func (h *Handler) APIGetFeedDetailsByID(c *gin.Context) {
 	}
 
 	// Find configuration by feed ID
-	var configFile string
-	var feedConfig *config.FeedConfig
-	configs := h.configCache.GetAllConfigs()
-	for file, cfg := range configs {
-		if cfg.Feed.ID == feedID {
-			configFile = file
-			feedConfig = cfg
-			break
-		}
-	}
-
-	if feedConfig == nil {
+	feedConfig, configFile, found := h.configCache.GetConfigAndFileByFeedID(feedID)
+	if !found {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not configured"})
 		return
 	}
@@ -227,18 +208,8 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	}
 
 	// Find configuration by feed ID
-	var configFile string
-	var feedConfig *config.FeedConfig
-	configs := h.configCache.GetAllConfigs()
-	for file, cfg := range configs {
-		if cfg.Feed.ID == feedID {
-			configFile = file
-			feedConfig = cfg
-			break
-		}
-	}
-
-	if feedConfig == nil {
+	feedConfig, configFile, found := h.configCache.GetConfigAndFileByFeedID(feedID)
+	if !found {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not configured"})
 		return
 	}
