@@ -239,8 +239,8 @@ func TestNewProcessor(t *testing.T) {
 		t.Fatal("Expected processor to be created")
 	}
 
-	if processor.configs == nil {
-		t.Error("Expected configs to be initialized")
+	if processor.configCache == nil {
+		t.Error("Expected configCache to be initialized")
 	}
 
 	if processor.client == nil {

@@ -40,7 +40,7 @@ func (l *Loader) LoadAll() (map[string]*FeedConfig, error) {
 			return nil, fmt.Errorf("error loading %s: %w", file, err)
 		}
 
-		if err := l.validate(config); err != nil {
+		if err := ValidateConfig(config); err != nil {
 			return nil, fmt.Errorf("invalid config %s: %w", file, err)
 		}
 
@@ -65,7 +65,7 @@ func (l *Loader) Load(path string) (*FeedConfig, error) {
 		return nil, fmt.Errorf("error loading %s: %w", path, err)
 	}
 
-	if err := l.validate(config); err != nil {
+	if err := ValidateConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid config %s: %w", path, err)
 	}
 
@@ -103,48 +103,3 @@ func (l *Loader) setDefaults(config *FeedConfig) {
 	}
 }
 
-// validate validates the configuration
-func (l *Loader) validate(config *FeedConfig) error {
-	// Validate feed information
-	if config.Feed.ID == "" {
-		return fmt.Errorf("feed ID is required")
-	}
-	if config.Feed.URL == "" {
-		return fmt.Errorf("feed URL is required")
-	}
-	if config.Feed.Title == "" {
-		return fmt.Errorf("feed title is required")
-	}
-
-	// Validate settings
-	if config.Settings.RefreshInterval < 0 {
-		return fmt.Errorf("refresh interval must be non-negative")
-	}
-	if config.Settings.MaxItems < 0 {
-		return fmt.Errorf("max items must be non-negative")
-	}
-	if config.Settings.Timeout < 0 {
-		return fmt.Errorf("timeout must be non-negative")
-	}
-
-	// Validate filter fields
-	validFields := map[string]bool{
-		"title":       true,
-		"description": true,
-		"content":     true,
-		"author":      true,
-		"link":        true,
-		"categories":  true,
-	}
-
-	for i, filter := range config.Filters {
-		if !validFields[filter.Field] {
-			return fmt.Errorf("invalid filter field at index %d: %s", i, filter.Field)
-		}
-		if len(filter.Includes) == 0 && len(filter.Excludes) == 0 {
-			return fmt.Errorf("filter at index %d must have at least one include or exclude rule", i)
-		}
-	}
-
-	return nil
-}

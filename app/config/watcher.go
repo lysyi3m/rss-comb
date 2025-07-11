@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -146,7 +147,7 @@ func (cw *ConfigWatcher) handleFileEvent(event fsnotify.Event) {
 	
 	// Set new timer for this file
 	cw.debouncer[event.Name] = time.AfterFunc(cw.debounceDelay, func() {
-		cw.reloadSingleConfiguration(event.Name, event.Op)
+		cw.reloadConfiguration(event.Name, event.Op)
 		
 		// Remove timer from map
 		cw.debounceMutex.Lock()
@@ -156,23 +157,38 @@ func (cw *ConfigWatcher) handleFileEvent(event fsnotify.Event) {
 }
 
 
-// reloadSingleConfiguration reloads a single configuration file and notifies handlers
-func (cw *ConfigWatcher) reloadSingleConfiguration(filePath string, op fsnotify.Op) {
+// reloadConfiguration reloads a configuration file and notifies handlers
+func (cw *ConfigWatcher) reloadConfiguration(filePath string, op fsnotify.Op) {
 	relPath, _ := filepath.Rel(cw.feedsDir, filePath)
 	
-	// Handle file deletion
+	// Handle file deletion and rename operations
 	if op&fsnotify.Remove == fsnotify.Remove || op&fsnotify.Rename == fsnotify.Rename {
 		cw.handleConfigDeletion(filePath, relPath)
+		
+		// For rename operations, also check if a new file was created at a different path
+		// This is handled by the fsnotify create event, so we don't need to do anything special here
 		return
 	}
 	
-	// Handle file creation/modification
-	log.Printf("Reloading single configuration: %s", relPath)
+	// Handle file creation/modification with robust error handling
+	log.Printf("Reloading configuration: %s", relPath)
 	
-	// Load the specific configuration file
+	// Validate that the file exists before attempting to load
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("Configuration file no longer exists, treating as deletion: %s", relPath)
+			cw.handleConfigDeletion(filePath, relPath)
+			return
+		}
+		log.Printf("Error accessing configuration file %s: %v", relPath, err)
+		return
+	}
+	
+	// Load the specific configuration file with comprehensive error handling
 	newConfig, err := cw.loader.Load(filePath)
 	if err != nil {
 		log.Printf("Error reloading configuration %s: %v", relPath, err)
+		log.Printf("Configuration file %s will be skipped until the error is resolved", relPath)
 		return
 	}
 	
@@ -183,16 +199,23 @@ func (cw *ConfigWatcher) reloadSingleConfiguration(filePath string, op fsnotify.
 	cw.configsMutex.Unlock()
 	
 	// Log what changed
-	cw.logSingleConfigChange(filePath, oldConfig, newConfig, existed)
+	cw.logConfigChange(filePath, oldConfig, newConfig, existed)
 	
 	// Notify all registered handlers about the config update
+	handlerErrors := make([]error, 0)
 	for _, handler := range cw.updateHandlers {
 		if err := handler.OnConfigUpdate(filePath, newConfig, false); err != nil {
+			handlerErrors = append(handlerErrors, err)
 			log.Printf("Error notifying config update handler: %v", err)
 		}
 	}
 	
-	log.Printf("Single configuration reload completed: %s", relPath)
+	// Report overall success or failure
+	if len(handlerErrors) > 0 {
+		log.Printf("Configuration reload completed with %d handler errors: %s", len(handlerErrors), relPath)
+	} else {
+		log.Printf("Configuration reload completed successfully: %s", relPath)
+	}
 }
 
 // handleConfigDeletion handles configuration file deletion
@@ -215,15 +238,24 @@ func (cw *ConfigWatcher) handleConfigDeletion(filePath, relPath string) {
 	log.Printf("Removed configuration: %s (ID: %s)", relPath, deletedConfig.Feed.ID)
 	
 	// Notify all registered handlers about the deletion
+	handlerErrors := make([]error, 0)
 	for _, handler := range cw.updateHandlers {
 		if err := handler.OnConfigUpdate(filePath, deletedConfig, true); err != nil {
+			handlerErrors = append(handlerErrors, err)
 			log.Printf("Error notifying config deletion handler: %v", err)
 		}
 	}
+	
+	// Report overall success or failure
+	if len(handlerErrors) > 0 {
+		log.Printf("Configuration deletion handling completed with %d handler errors: %s", len(handlerErrors), relPath)
+	} else {
+		log.Printf("Configuration deletion handling completed successfully: %s", relPath)
+	}
 }
 
-// logSingleConfigChange logs what changed in a single configuration
-func (cw *ConfigWatcher) logSingleConfigChange(filePath string, oldConfig, newConfig *FeedConfig, existed bool) {
+// logConfigChange logs what changed in a configuration
+func (cw *ConfigWatcher) logConfigChange(filePath string, oldConfig, newConfig *FeedConfig, existed bool) {
 	relPath, _ := filepath.Rel(cw.feedsDir, filePath)
 	
 	if !existed {

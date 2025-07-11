@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
@@ -19,8 +18,7 @@ type Processor struct {
 	parser      *parser.Parser
 	feedRepo    *database.FeedRepository
 	itemRepo    *database.ItemRepository
-	configs     map[string]*config.FeedConfig
-	configsMutex sync.RWMutex
+	configCache *config.ConfigCacheHandler
 	client      *http.Client
 	userAgent   string
 }
@@ -29,10 +27,10 @@ type Processor struct {
 func NewProcessor(p *parser.Parser, fr *database.FeedRepository,
 	ir *database.ItemRepository, configs map[string]*config.FeedConfig, userAgent string) *Processor {
 	return &Processor{
-		parser:   p,
-		feedRepo: fr,
-		itemRepo: ir,
-		configs:  configs,
+		parser:      p,
+		feedRepo:    fr,
+		itemRepo:    ir,
+		configCache: config.NewConfigCacheHandler("Feed processor", configs),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
@@ -49,7 +47,7 @@ func NewProcessor(p *parser.Parser, fr *database.FeedRepository,
 
 // ProcessFeed processes a single feed
 func (p *Processor) ProcessFeed(feedID, configFile string) error {
-	feedConfig, ok := p.getConfig(configFile)
+	feedConfig, ok := p.configCache.GetConfig(configFile)
 	if !ok {
 		return fmt.Errorf("configuration not found: %s", configFile)
 	}
@@ -234,7 +232,7 @@ func (p *Processor) getFieldValue(item parser.NormalizedItem, field string) stri
 
 // IsFeedEnabled checks if a feed is enabled in its configuration
 func (p *Processor) IsFeedEnabled(configFile string) bool {
-	feedConfig, ok := p.getConfig(configFile)
+	feedConfig, ok := p.configCache.GetConfig(configFile)
 	if !ok {
 		return false // Configuration not found, treat as disabled
 	}
@@ -244,51 +242,20 @@ func (p *Processor) IsFeedEnabled(configFile string) bool {
 // GetStats returns processing statistics
 func (p *Processor) GetStats() map[string]interface{} {
 	return map[string]interface{}{
-		"loaded_configs": len(p.configs),
+		"loaded_configs": p.configCache.GetConfigCount(),
 		"client_timeout": p.client.Timeout.String(),
 	}
 }
 
 // OnConfigUpdate implements the ConfigUpdateHandler interface
 func (p *Processor) OnConfigUpdate(filePath string, config *config.FeedConfig, isDelete bool) error {
-	p.configsMutex.Lock()
-	defer p.configsMutex.Unlock()
-	
-	if isDelete {
-		delete(p.configs, filePath)
-		log.Printf("Feed processor removed configuration: %s (ID: %s)", filePath, config.Feed.ID)
-	} else {
-		p.configs[filePath] = config
-		log.Printf("Feed processor updated configuration: %s (ID: %s)", filePath, config.Feed.ID)
-	}
-	
-	return nil
+	return p.configCache.OnConfigUpdate(filePath, config, isDelete)
 }
 
-// getConfig safely retrieves a configuration
-func (p *Processor) getConfig(configFile string) (*config.FeedConfig, bool) {
-	p.configsMutex.RLock()
-	defer p.configsMutex.RUnlock()
-	config, ok := p.configs[configFile]
-	return config, ok
-}
-
-// getAllConfigs safely retrieves all configurations
-func (p *Processor) getAllConfigs() map[string]*config.FeedConfig {
-	p.configsMutex.RLock()
-	defer p.configsMutex.RUnlock()
-	
-	// Return a copy
-	configsCopy := make(map[string]*config.FeedConfig, len(p.configs))
-	for k, v := range p.configs {
-		configsCopy[k] = v
-	}
-	return configsCopy
-}
 
 // ReapplyFilters re-applies filters to all items of a specific feed
 func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) {
-	feedConfig, ok := p.getConfig(configFile)
+	feedConfig, ok := p.configCache.GetConfig(configFile)
 	if !ok {
 		return 0, 0, fmt.Errorf("configuration not found: %s", configFile)
 	}

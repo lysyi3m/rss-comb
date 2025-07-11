@@ -123,6 +123,8 @@ func main() {
 	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
 
 	// Register components with config watcher for hot-reload
+	databaseSyncHandler := config.NewDatabaseSyncHandler(feedRepo, appConfig.FeedsDir)
+	configWatcher.AddUpdateHandler(databaseSyncHandler)
 	configWatcher.AddUpdateHandler(feedProcessor)
 	configWatcher.AddUpdateHandler(apiHandler)
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)

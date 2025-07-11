@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,8 +18,7 @@ type Handler struct {
 	feedRepo     database.FeedRepositoryInterface
 	itemRepo     *database.ItemRepository
 	generator    *RSSGenerator
-	configs      map[string]*config.FeedConfig
-	configsMutex sync.RWMutex
+	configCache  *config.ConfigCacheHandler
 	processor    feed.FeedProcessor
 	scheduler    *tasks.TaskScheduler
 	userAgent    string
@@ -31,13 +29,13 @@ func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository
 	configs map[string]*config.FeedConfig, processor feed.FeedProcessor,
 	taskScheduler *tasks.TaskScheduler, port string, userAgent string) *Handler {
 	return &Handler{
-		feedRepo:  fr,
-		itemRepo:  ir,
-		generator: NewRSSGenerator(port),
-		configs:   configs,
-		processor: processor,
-		scheduler: taskScheduler,
-		userAgent: userAgent,
+		feedRepo:    fr,
+		itemRepo:    ir,
+		generator:   NewRSSGenerator(port),
+		configCache: config.NewConfigCacheHandler("API handler", configs),
+		processor:   processor,
+		scheduler:   taskScheduler,
+		userAgent:   userAgent,
 	}
 }
 
@@ -51,7 +49,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 
 	// Find matching configuration by feed ID
 	var feedConfig *config.FeedConfig
-	configs := h.getConfigs()
+	configs := h.configCache.GetAllConfigs()
 	for _, cfg := range configs {
 		if cfg.Feed.ID == feedID {
 			feedConfig = cfg
@@ -122,14 +120,14 @@ func (h *Handler) GetHealth(c *gin.Context) {
 		health["enabled_feeds"] = enabledFeedCount
 	}
 
-	health["loaded_configurations"] = len(h.getConfigs())
+	health["loaded_configurations"] = h.configCache.GetConfigCount()
 
 	c.JSON(http.StatusOK, health)
 }
 
 // APIListFeeds handles listing all configured feeds
 func (h *Handler) APIListFeeds(c *gin.Context) {
-	configs := h.getConfigs()
+	configs := h.configCache.GetAllConfigs()
 	feeds := make([]map[string]interface{}, 0, len(configs))
 
 	for configFile, config := range configs {
@@ -175,7 +173,7 @@ func (h *Handler) APIGetFeedDetailsByID(c *gin.Context) {
 	// Find configuration by feed ID
 	var configFile string
 	var feedConfig *config.FeedConfig
-	configs := h.getConfigs()
+	configs := h.configCache.GetAllConfigs()
 	for file, cfg := range configs {
 		if cfg.Feed.ID == feedID {
 			configFile = file
@@ -240,7 +238,7 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	// Find configuration by feed ID
 	var configFile string
 	var feedConfig *config.FeedConfig
-	configs := h.getConfigs()
+	configs := h.configCache.GetAllConfigs()
 	for file, cfg := range configs {
 		if cfg.Feed.ID == feedID {
 			configFile = file
@@ -303,29 +301,6 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 
 // OnConfigUpdate implements the ConfigUpdateHandler interface
 func (h *Handler) OnConfigUpdate(filePath string, config *config.FeedConfig, isDelete bool) error {
-	h.configsMutex.Lock()
-	defer h.configsMutex.Unlock()
-	
-	if isDelete {
-		delete(h.configs, filePath)
-		log.Printf("API handler removed configuration: %s (ID: %s)", filePath, config.Feed.ID)
-	} else {
-		h.configs[filePath] = config
-		log.Printf("API handler updated configuration: %s (ID: %s)", filePath, config.Feed.ID)
-	}
-	
-	return nil
+	return h.configCache.OnConfigUpdate(filePath, config, isDelete)
 }
 
-// getConfigs safely retrieves all configurations
-func (h *Handler) getConfigs() map[string]*config.FeedConfig {
-	h.configsMutex.RLock()
-	defer h.configsMutex.RUnlock()
-	
-	// Return a copy
-	configsCopy := make(map[string]*config.FeedConfig, len(h.configs))
-	for k, v := range h.configs {
-		configsCopy[k] = v
-	}
-	return configsCopy
-}
