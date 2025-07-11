@@ -12,7 +12,9 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/lysyi3m/rss-comb/app/api"
-	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/config_loader"
+	"github.com/lysyi3m/rss-comb/app/config_sync"
+	"github.com/lysyi3m/rss-comb/app/config_watcher"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/parser"
@@ -70,14 +72,21 @@ func main() {
 	}
 
 
+	// Initialize configuration loading
+	log.Printf("Initializing configuration loader for %s...", appConfig.FeedsDir)
+	configLoader := config_loader.NewLoader(appConfig.FeedsDir)
+	configs, err := configLoader.LoadAll()
+	if err != nil {
+		log.Fatal("Failed to load configurations:", err)
+	}
+	log.Printf("Loaded %d feed configurations", len(configs))
+
 	// Initialize configuration watcher
-	log.Printf("Initializing configuration watcher for %s...", appConfig.FeedsDir)
-	configWatcher, err := config.NewConfigWatcher(appConfig.FeedsDir)
+	log.Printf("Initializing configuration watcher...")
+	configWatcher, err := config_watcher.NewConfigWatcher(configLoader, appConfig.FeedsDir)
 	if err != nil {
 		log.Fatal("Failed to initialize config watcher:", err)
 	}
-	configs := configWatcher.GetConfigs()
-	log.Printf("Loaded %d feed configurations", len(configs))
 
 	// Initialize repositories
 	feedRepo := database.NewFeedRepository(db)
@@ -123,7 +132,7 @@ func main() {
 	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
 
 	// Register components with config watcher for hot-reload
-	databaseSyncHandler := config.NewDatabaseSyncHandler(feedRepo, appConfig.FeedsDir)
+	databaseSyncHandler := config_sync.NewDatabaseSyncHandler(feedRepo, appConfig.FeedsDir)
 	configWatcher.AddUpdateHandler(databaseSyncHandler)
 	configWatcher.AddUpdateHandler(feedProcessor)
 	configWatcher.AddUpdateHandler(apiHandler)

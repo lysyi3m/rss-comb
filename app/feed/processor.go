@@ -9,19 +9,11 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/parser"
 )
 
-// Processor handles feed processing including fetching, parsing, filtering, and storage
-type Processor struct {
-	parser      *parser.Parser
-	feedRepo    *database.FeedRepository
-	itemRepo    *database.ItemRepository
-	configCache *config.ConfigCacheHandler
-	client      *http.Client
-	userAgent   string
-}
 
 // NewProcessor creates a new feed processor
 func NewProcessor(p *parser.Parser, fr *database.FeedRepository,
@@ -30,7 +22,7 @@ func NewProcessor(p *parser.Parser, fr *database.FeedRepository,
 		parser:      p,
 		feedRepo:    fr,
 		itemRepo:    ir,
-		configCache: config.NewConfigCacheHandler("Feed processor", configs),
+		configCache: config_sync.NewConfigCacheHandler("Feed processor", configs),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{

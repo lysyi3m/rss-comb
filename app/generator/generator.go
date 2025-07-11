@@ -11,10 +11,6 @@ import (
 	"github.com/lysyi3m/rss-comb/app/version"
 )
 
-// RSSGenerator handles generating RSS 2.0 XML from feed data
-type RSSGenerator struct {
-	Port string // Server port for self-referencing links
-}
 
 // NewRSSGenerator creates a new RSS generator
 func NewRSSGenerator(port string) *RSSGenerator {

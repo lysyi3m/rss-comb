@@ -8,22 +8,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/generator"
 	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
-// Handler handles HTTP requests for the RSS API
-type Handler struct {
-	feedRepo     database.FeedRepositoryInterface
-	itemRepo     *database.ItemRepository
-	generator    *generator.RSSGenerator
-	configCache  *config.ConfigCacheHandler
-	processor    feed.FeedProcessor
-	scheduler    *tasks.TaskScheduler
-	userAgent    string
-}
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository,
@@ -33,7 +24,7 @@ func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository
 		feedRepo:    fr,
 		itemRepo:    ir,
 		generator:   generator.NewRSSGenerator(port),
-		configCache: config.NewConfigCacheHandler("API handler", configs),
+		configCache: config_sync.NewConfigCacheHandler("API handler", configs),
 		processor:   processor,
 		scheduler:   taskScheduler,
 		userAgent:   userAgent,
