@@ -83,7 +83,7 @@ func (p *Processor) ProcessFeed(feedID, configFile string) error {
 
 		// Check for duplicates BEFORE storing (skip duplicates entirely)
 		if feedConfig.Settings.Deduplication {
-			isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID, false)
+			isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID)
 			if err != nil {
 				log.Printf("Warning: failed to check duplicate for item %d: %v", i, err)
 			} else if isDup {

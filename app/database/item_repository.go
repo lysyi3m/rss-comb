@@ -23,23 +23,13 @@ func NewItemRepository(db *DB) *ItemRepository {
 	return &ItemRepository{db: db}
 }
 
-// CheckDuplicate checks if an item with the given content hash already exists
-func (r *ItemRepository) CheckDuplicate(contentHash, feedID string, global bool) (bool, *string, error) {
+// CheckDuplicate checks if an item with the given content hash already exists within the same feed
+func (r *ItemRepository) CheckDuplicate(contentHash, feedID string) (bool, *string, error) {
 	var duplicateID sql.NullString
-	var query string
-	var args []interface{}
-
-	if global {
-		// Check for duplicates across all feeds
-		query = `SELECT id FROM feed_items WHERE content_hash = $1 LIMIT 1`
-		args = []interface{}{contentHash}
-	} else {
-		// Check for duplicates within the same feed
-		query = `SELECT id FROM feed_items WHERE feed_id = $1 AND content_hash = $2 LIMIT 1`
-		args = []interface{}{feedID, contentHash}
-	}
-
-	err := r.db.QueryRow(query, args...).Scan(&duplicateID)
+	
+	// Check for duplicates within the same feed
+	query := `SELECT id FROM feed_items WHERE feed_id = $1 AND content_hash = $2 LIMIT 1`
+	err := r.db.QueryRow(query, feedID, contentHash).Scan(&duplicateID)
 	if err == sql.ErrNoRows {
 		return false, nil, nil
 	}
