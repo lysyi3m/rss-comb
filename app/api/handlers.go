@@ -10,6 +10,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
+	"github.com/lysyi3m/rss-comb/app/generator"
 	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
@@ -17,7 +18,7 @@ import (
 type Handler struct {
 	feedRepo     database.FeedRepositoryInterface
 	itemRepo     *database.ItemRepository
-	generator    *RSSGenerator
+	generator    *generator.RSSGenerator
 	configCache  *config.ConfigCacheHandler
 	processor    feed.FeedProcessor
 	scheduler    *tasks.TaskScheduler
@@ -31,7 +32,7 @@ func NewHandler(fr database.FeedRepositoryInterface, ir *database.ItemRepository
 	return &Handler{
 		feedRepo:    fr,
 		itemRepo:    ir,
-		generator:   NewRSSGenerator(port),
+		generator:   generator.NewRSSGenerator(port),
 		configCache: config.NewConfigCacheHandler("API handler", configs),
 		processor:   processor,
 		scheduler:   taskScheduler,

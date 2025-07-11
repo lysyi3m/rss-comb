@@ -1,4 +1,4 @@
-package api
+package generator
 
 import (
 	"bytes"
@@ -182,4 +182,3 @@ func (g *RSSGenerator) GenerateEmpty(feedName, feedURL string) string {
 		time.Now().In(time.Local).Format(time.RFC1123Z),
 		version.GetVersion())
 }
-
