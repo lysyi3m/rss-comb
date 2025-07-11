@@ -219,21 +219,6 @@ func TestTaskSchedulerHealthWithHighErrorRate(t *testing.T) {
 	}
 }
 
-func TestTaskSchedulerUpdateAverageProcessTime(t *testing.T) {
-	mockRepo := &MockFeedRepository{}
-	mockProcessor := &MockProcessor{}
-
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 1)
-
-	// Cannot test updateAverageProcessTime with interface since it's a private method
-	// and we can't access private fields. This is good for encapsulation.
-	
-	// Just test that GetStats() returns a valid AverageProcessTime
-	stats := scheduler.GetStats()
-	if stats.AverageProcessTime < 0 {
-		t.Error("Expected average process time to be non-negative")
-	}
-}
 
 func TestTaskSchedulerExecuteTask(t *testing.T) {
 	mockRepo := &MockFeedRepository{}

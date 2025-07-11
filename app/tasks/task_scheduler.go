@@ -35,8 +35,6 @@ type TaskStats struct {
 	CurrentWorkers     int
 	QueueSize          int
 	LastProcessedAt    *time.Time
-	AverageProcessTime time.Duration
-	processTimes       []time.Duration
 	TaskCounts         map[TaskType]int64
 }
 
@@ -55,7 +53,6 @@ func NewTaskScheduler(processor feed.ProcessorInterface, feedRepo database.FeedS
 		taskQueue:   make(chan Task, 100), // Buffer of 100 tasks
 		stats: &TaskStats{
 			CurrentWorkers: workerCount,
-			processTimes:   make([]time.Duration, 0, 100),
 			TaskCounts:     make(map[TaskType]int64),
 		},
 	}
@@ -226,13 +223,6 @@ func (s *TaskScheduler) executeTask(workerID int, task Task) {
 	s.stats.LastProcessedAt = &now
 	s.stats.QueueSize = len(s.taskQueue)
 
-	// Update average processing time
-	s.stats.processTimes = append(s.stats.processTimes, duration)
-	if len(s.stats.processTimes) > 100 {
-		s.stats.processTimes = s.stats.processTimes[1:] // Keep only last 100
-	}
-	s.updateAverageProcessTime()
-
 	if err != nil {
 		s.stats.TotalErrors++
 		log.Printf("Worker %d error executing task %s: %v", workerID, task.GetDescription(), err)
@@ -241,19 +231,6 @@ func (s *TaskScheduler) executeTask(workerID int, task Task) {
 	}
 }
 
-// updateAverageProcessTime calculates the average processing time
-func (s *TaskScheduler) updateAverageProcessTime() {
-	if len(s.stats.processTimes) == 0 {
-		s.stats.AverageProcessTime = 0
-		return
-	}
-
-	var total time.Duration
-	for _, t := range s.stats.processTimes {
-		total += t
-	}
-	s.stats.AverageProcessTime = total / time.Duration(len(s.stats.processTimes))
-}
 
 // GetStats returns current scheduler statistics
 func (s *TaskScheduler) GetStats() TaskStats {
@@ -282,7 +259,6 @@ func (s *TaskScheduler) Health() map[string]interface{} {
 		"queue_size":          stats.QueueSize,
 		"total_processed":     stats.TotalProcessed,
 		"total_errors":        stats.TotalErrors,
-		"average_process_time": stats.AverageProcessTime.String(),
 		"task_counts":         stats.TaskCounts,
 	}
 
