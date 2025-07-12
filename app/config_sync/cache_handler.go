@@ -1,7 +1,7 @@
 package config_sync
 
 import (
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/lysyi3m/rss-comb/app/config"
@@ -36,10 +36,10 @@ func (h *ConfigCacheHandler) OnConfigUpdate(filePath string, cfg *config.FeedCon
 
 	if isDelete {
 		delete(h.configs, filePath)
-		log.Printf("%s removed configuration: %s (ID: %s)", h.componentName, filePath, cfg.Feed.ID)
+		slog.Info("Configuration removed", "component", h.componentName, "file", filePath, "feed_id", cfg.Feed.ID)
 	} else {
 		h.configs[filePath] = cfg
-		log.Printf("%s updated configuration: %s (ID: %s)", h.componentName, filePath, cfg.Feed.ID)
+		slog.Info("Configuration updated", "component", h.componentName, "file", filePath, "feed_id", cfg.Feed.ID)
 	}
 
 	return nil

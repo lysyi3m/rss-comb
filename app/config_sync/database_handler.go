@@ -2,7 +2,7 @@ package config_sync
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -40,7 +40,7 @@ func (h *DatabaseSyncHandler) handleConfigUpsert(filePath, relPath string, cfg *
 	// Validate that the file still exists (handles edge cases)
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
-			log.Printf("Database sync warning: Config file no longer exists: %s", relPath)
+			slog.Warn("Config file no longer exists", "file", relPath)
 			return nil // Don't treat as an error, file might have been moved/renamed
 		}
 		return fmt.Errorf("failed to stat config file %s: %w", relPath, err)
@@ -48,7 +48,7 @@ func (h *DatabaseSyncHandler) handleConfigUpsert(filePath, relPath string, cfg *
 
 	// Validate configuration before processing
 	if err := config.ValidateConfig(cfg); err != nil {
-		log.Printf("Database sync error: Invalid configuration in %s: %v", relPath, err)
+		slog.Error("Invalid configuration", "file", relPath, "error", err)
 		return fmt.Errorf("invalid configuration in %s: %w", relPath, err)
 	}
 
@@ -56,17 +56,15 @@ func (h *DatabaseSyncHandler) handleConfigUpsert(filePath, relPath string, cfg *
 	dbID, urlChanged, err := h.feedRepo.UpsertFeedWithChangeDetection(
 		filePath, cfg.Feed.ID, cfg.Feed.URL, cfg.Feed.Title)
 	if err != nil {
-		log.Printf("Database sync error: Failed to register feed %s: %v", relPath, err)
+		slog.Error("Failed to register feed", "file", relPath, "error", err)
 		return fmt.Errorf("failed to register feed %s: %w", relPath, err)
 	}
 
 	// Log the operation
 	if urlChanged {
-		log.Printf("Database sync: Feed updated - %s (ID: %s, DB ID: %s, New URL: %s)",
-			cfg.Feed.Title, cfg.Feed.ID, dbID, cfg.Feed.URL)
+		slog.Info("Feed updated", "title", cfg.Feed.Title, "feed_id", cfg.Feed.ID, "db_id", dbID, "new_url", cfg.Feed.URL)
 	} else {
-		log.Printf("Database sync: Feed registered - %s (ID: %s, DB ID: %s)",
-			cfg.Feed.Title, cfg.Feed.ID, dbID)
+		slog.Info("Feed registered", "title", cfg.Feed.Title, "feed_id", cfg.Feed.ID, "db_id", dbID)
 	}
 
 	// For immediate processing, we'll reset the next_fetch time to NULL
@@ -74,12 +72,12 @@ func (h *DatabaseSyncHandler) handleConfigUpsert(filePath, relPath string, cfg *
 	if cfg.Settings.Enabled {
 		// Reset next_fetch to NULL to trigger immediate processing
 		if err := h.feedRepo.UpdateNextFetch(dbID, time.Time{}); err != nil {
-			log.Printf("Database sync warning: Failed to reset next_fetch for immediate processing: %v", err)
+			slog.Warn("Failed to reset next_fetch for immediate processing", "error", err)
 		} else {
-			log.Printf("Database sync: Feed scheduled for immediate processing: %s", cfg.Feed.Title)
+			slog.Info("Feed scheduled for immediate processing", "title", cfg.Feed.Title)
 		}
 	} else {
-		log.Printf("Database sync: Skipping immediate processing for disabled feed: %s", cfg.Feed.Title)
+		slog.Info("Skipping immediate processing for disabled feed", "title", cfg.Feed.Title)
 	}
 
 	return nil
@@ -87,29 +85,28 @@ func (h *DatabaseSyncHandler) handleConfigUpsert(filePath, relPath string, cfg *
 
 // handleConfigDeletion handles deletion of configuration files
 func (h *DatabaseSyncHandler) handleConfigDeletion(filePath, relPath string, cfg *config.FeedConfig) error {
-	log.Printf("Database sync: Processing deletion of config file: %s (ID: %s)", relPath, cfg.Feed.ID)
+	slog.Info("Processing deletion of config file", "file", relPath, "feed_id", cfg.Feed.ID)
 
 	// Find the feed in the database by feed ID
 	dbFeed, err := h.feedRepo.GetFeedByID(cfg.Feed.ID)
 	if err != nil {
-		log.Printf("Database sync error: Failed to find feed %s in database: %v", cfg.Feed.ID, err)
+		slog.Error("Failed to find feed in database", "feed_id", cfg.Feed.ID, "error", err)
 		return fmt.Errorf("failed to find feed %s in database: %w", cfg.Feed.ID, err)
 	}
 
 	if dbFeed == nil {
-		log.Printf("Database sync warning: Feed %s not found in database (already deleted?)", cfg.Feed.ID)
+		slog.Warn("Feed not found in database (already deleted?)", "feed_id", cfg.Feed.ID)
 		return nil // Feed doesn't exist in database, nothing to do
 	}
 
 	// Disable the feed in the database (preserving data)
 	if err := h.feedRepo.SetFeedEnabled(dbFeed.ID, false); err != nil {
-		log.Printf("Database sync error: Failed to disable feed %s: %v", cfg.Feed.ID, err)
+		slog.Error("Failed to disable feed", "feed_id", cfg.Feed.ID, "error", err)
 		return fmt.Errorf("failed to disable feed %s: %w", cfg.Feed.ID, err)
 	}
 
-	log.Printf("Database sync: Feed disabled in database - %s (ID: %s, DB ID: %s)",
-		cfg.Feed.Title, cfg.Feed.ID, dbFeed.ID)
-	log.Printf("Database sync: Feed data preserved in database for potential restoration")
+	slog.Info("Feed disabled in database", "title", cfg.Feed.Title, "feed_id", cfg.Feed.ID, "db_id", dbFeed.ID)
+	slog.Info("Feed data preserved in database for potential restoration")
 
 	return nil
 }

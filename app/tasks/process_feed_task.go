@@ -3,7 +3,7 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/lysyi3m/rss-comb/app/config"
 )
@@ -27,7 +27,7 @@ func NewProcessFeedTask(feedID string, feedConfig *config.FeedConfig, processor 
 }
 
 func (t *ProcessFeedTask) Execute(ctx context.Context) error {
-	log.Printf("Executing ProcessFeedTask for feed %s", t.FeedID)
+	slog.Debug("Task started", "type", "ProcessFeed", "feed_id", t.FeedID)
 	
 	// Fast-fail on cancellation to avoid unnecessary work
 	select {
@@ -38,11 +38,11 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	
 	err := t.processor.ProcessFeed(t.FeedID, t.FeedConfig)
 	if err != nil {
-		log.Printf("ProcessFeedTask failed for feed %s: %v", t.FeedID, err)
+		slog.Error("Task failed", "type", "ProcessFeed", "feed_id", t.FeedID, "error", err)
 		return fmt.Errorf("failed to process feed %s: %w", t.FeedID, err)
 	}
 	
-	log.Printf("ProcessFeedTask completed successfully for feed %s", t.FeedID)
+	slog.Debug("Task completed", "type", "ProcessFeed", "feed_id", t.FeedID)
 	return nil
 }
 

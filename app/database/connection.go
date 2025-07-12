@@ -3,7 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -32,6 +32,6 @@ func NewConnection(host, port, user, password, dbname string) (*DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	log.Printf("Connected to database at %s:%s", host, port)
+	slog.Info("Database connected", "host", host, "port", port)
 	return &DB{db}, nil
 }

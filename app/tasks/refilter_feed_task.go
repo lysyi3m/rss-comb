@@ -3,7 +3,7 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/lysyi3m/rss-comb/app/config"
 )
@@ -30,7 +30,7 @@ func NewRefilterFeedTask(feedID string, feedConfig *config.FeedConfig, processor
 
 // Execute reapplies filters to the feed items
 func (t *RefilterFeedTask) Execute(ctx context.Context) error {
-	log.Printf("Executing RefilterFeedTask for feed %s", t.FeedID)
+	slog.Debug("Task started", "type", "RefilterFeed", "feed_id", t.FeedID)
 	
 	// Check if context is cancelled before starting
 	select {
@@ -42,12 +42,11 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 	// Reapply filters
 	updatedCount, errorCount, err := t.processor.ReapplyFilters(t.FeedID, t.FeedConfig)
 	if err != nil {
-		log.Printf("RefilterFeedTask failed for feed %s: %v", t.FeedID, err)
+		slog.Error("Task failed", "type", "RefilterFeed", "feed_id", t.FeedID, "error", err)
 		return fmt.Errorf("failed to refilter feed %s: %w", t.FeedID, err)
 	}
 	
-	log.Printf("RefilterFeedTask completed successfully for feed %s: %d items updated, %d errors", 
-		t.FeedID, updatedCount, errorCount)
+	slog.Info("Task completed", "type", "RefilterFeed", "feed_id", t.FeedID, "updated", updatedCount, "errors", errorCount)
 	
 	return nil
 }

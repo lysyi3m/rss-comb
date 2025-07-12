@@ -1,7 +1,7 @@
 package api
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -41,7 +41,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	// Find matching configuration by feed ID
 	feedConfig, found := h.configCache.GetConfigByFeedID(feedID)
 	if !found {
-		log.Printf("Feed ID not found: %s", feedID)
+		slog.Warn("Feed not found", "feed_id", feedID)
 		c.Status(http.StatusNotFound)
 		return
 	}
@@ -49,14 +49,14 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	// Get feed from database
 	feed, err := h.feedRepo.GetFeedByID(feedID)
 	if err != nil {
-		log.Printf("Database error getting feed %s: %v", feedID, err)
+		slog.Error("Database error", "operation", "get_feed", "feed_id", feedID, "error", err)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 
 	// If feed not found in database, return empty feed
 	if feed == nil {
-		log.Printf("Feed not yet processed: %s", feedID)
+		slog.Info("Feed not yet processed", "feed_id", feedID)
 		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Title, feedConfig.Feed.URL))
 		return
@@ -65,7 +65,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	// Get feed items
 	items, err := h.itemRepo.GetVisibleItems(feed.ID, feedConfig.Settings.MaxItems)
 	if err != nil {
-		log.Printf("Database error getting items for feed %s: %v", feedID, err)
+		slog.Error("Database error", "operation", "get_items", "feed_id", feedID, "error", err)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -73,7 +73,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	// Generate RSS
 	rss, err := h.generator.Generate(*feed, items)
 	if err != nil {
-		log.Printf("RSS generation error for feed %s: %v", feedID, err)
+		slog.Error("RSS generation error", "feed_id", feedID, "error", err)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -87,7 +87,7 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 		c.Header("X-Last-Updated", feed.LastSuccess.Format(time.RFC3339))
 	}
 
-	log.Printf("Served feed %s with %d items", feedID, len(items))
+	slog.Debug("Served feed", "feed_id", feedID, "item_count", len(items))
 	c.String(http.StatusOK, rss)
 }
 
@@ -217,7 +217,7 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	// Get feed from database
 	feed, err := h.feedRepo.GetFeedByID(feedID)
 	if err != nil {
-		log.Printf("Database error getting feed %s: %v", feedID, err)
+		slog.Error("Database error", "operation", "get_feed", "feed_id", feedID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
@@ -231,7 +231,7 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	task := tasks.NewRefilterFeedTask(feed.ID, feedConfig, h.processor)
 	err = h.scheduler.EnqueueTask(task)
 	if err != nil {
-		log.Printf("Error enqueueing refilter task for feed %s: %v", feedID, err)
+		slog.Error("Error enqueueing refilter task", "feed_id", feedID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to enqueue refilter task",
 			"details": err.Error(),
@@ -256,7 +256,7 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 		},
 	}
 
-	log.Printf("Successfully enqueued refilter task for feed %s", feedID)
+	slog.Info("Successfully enqueued refilter task", "feed_id", feedID)
 
 	c.JSON(http.StatusOK, response)
 }

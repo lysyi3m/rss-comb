@@ -2,7 +2,7 @@ package config_watcher
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,7 +58,7 @@ func NewConfigWatcher(loader *config_loader.Loader, feedsDir string) (*ConfigWat
 		return nil, err
 	}
 
-	log.Printf("ConfigWatcher initialized, monitoring %s", feedsDir)
+	slog.Info("ConfigWatcher initialized", "monitoring_dir", feedsDir)
 	return cw, nil
 }
 
@@ -82,12 +82,12 @@ func (cw *ConfigWatcher) GetConfigs() map[string]*config.FeedConfig {
 
 // Start begins watching for file system changes
 func (cw *ConfigWatcher) Start(ctx context.Context) error {
-	log.Printf("Starting configuration watcher for directory: %s", cw.feedsDir)
+	slog.Info("Starting configuration watcher", "directory", cw.feedsDir)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("ConfigWatcher stopping...")
+			slog.Info("ConfigWatcher stopping")
 			return ctx.Err()
 
 		case event, ok := <-cw.watcher.Events:
@@ -100,14 +100,14 @@ func (cw *ConfigWatcher) Start(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			log.Printf("ConfigWatcher error: %v", err)
+			slog.Error("ConfigWatcher error", "error", err)
 		}
 	}
 }
 
 // Stop closes the file watcher
 func (cw *ConfigWatcher) Stop() error {
-	log.Printf("Stopping configuration watcher...")
+	slog.Info("Stopping configuration watcher")
 
 	// Cancel any pending debounce timers
 	cw.debounceMutex.Lock()
@@ -130,7 +130,7 @@ func (cw *ConfigWatcher) handleFileEvent(event fsnotify.Event) {
 	// Get relative path for logging
 	relPath, _ := filepath.Rel(cw.feedsDir, event.Name)
 
-	log.Printf("Config file event: %s -> %s", event.Op.String(), relPath)
+	slog.Debug("Config file event", "operation", event.Op.String(), "file", relPath)
 
 	// Debounce rapid changes to the same file
 	cw.debounceMutex.Lock()
@@ -166,24 +166,24 @@ func (cw *ConfigWatcher) reloadConfiguration(filePath string, op fsnotify.Op) {
 	}
 
 	// Handle file creation/modification with robust error handling
-	log.Printf("Reloading configuration: %s", relPath)
+	slog.Info("Reloading configuration", "file", relPath)
 
 	// Validate that the file exists before attempting to load
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
-			log.Printf("Configuration file no longer exists, treating as deletion: %s", relPath)
+			slog.Info("Configuration file no longer exists, treating as deletion", "file", relPath)
 			cw.handleConfigDeletion(filePath, relPath)
 			return
 		}
-		log.Printf("Error accessing configuration file %s: %v", relPath, err)
+		slog.Error("Error accessing configuration file", "file", relPath, "error", err)
 		return
 	}
 
 	// Load the specific configuration file with comprehensive error handling
 	newConfig, err := cw.loader.Load(filePath)
 	if err != nil {
-		log.Printf("Error reloading configuration %s: %v", relPath, err)
-		log.Printf("Configuration file %s will be skipped until the error is resolved", relPath)
+		slog.Error("Error reloading configuration", "file", relPath, "error", err)
+		slog.Warn("Configuration file will be skipped until error is resolved", "file", relPath)
 		return
 	}
 
@@ -201,21 +201,21 @@ func (cw *ConfigWatcher) reloadConfiguration(filePath string, op fsnotify.Op) {
 	for _, handler := range cw.updateHandlers {
 		if err := handler.OnConfigUpdate(filePath, newConfig, false); err != nil {
 			handlerErrors = append(handlerErrors, err)
-			log.Printf("Error notifying config update handler: %v", err)
+			slog.Error("Error notifying config update handler", "error", err)
 		}
 	}
 
 	// Report overall success or failure
 	if len(handlerErrors) > 0 {
-		log.Printf("Configuration reload completed with %d handler errors: %s", len(handlerErrors), relPath)
+		slog.Warn("Configuration reload completed with handler errors", "error_count", len(handlerErrors), "file", relPath)
 	} else {
-		log.Printf("Configuration reload completed successfully: %s", relPath)
+		slog.Info("Configuration reload completed successfully", "file", relPath)
 	}
 }
 
 // handleConfigDeletion handles configuration file deletion
 func (cw *ConfigWatcher) handleConfigDeletion(filePath, relPath string) {
-	log.Printf("Configuration file deleted: %s", relPath)
+	slog.Info("Configuration file deleted", "file", relPath)
 
 	// Remove from configs map
 	cw.configsMutex.Lock()
@@ -226,26 +226,26 @@ func (cw *ConfigWatcher) handleConfigDeletion(filePath, relPath string) {
 	cw.configsMutex.Unlock()
 
 	if !existed {
-		log.Printf("Deleted configuration was not loaded: %s", relPath)
+		slog.Info("Deleted configuration was not loaded", "file", relPath)
 		return
 	}
 
-	log.Printf("Removed configuration: %s (ID: %s)", relPath, deletedConfig.Feed.ID)
+	slog.Info("Removed configuration", "file", relPath, "feed_id", deletedConfig.Feed.ID)
 
 	// Notify all registered handlers about the deletion
 	handlerErrors := make([]error, 0)
 	for _, handler := range cw.updateHandlers {
 		if err := handler.OnConfigUpdate(filePath, deletedConfig, true); err != nil {
 			handlerErrors = append(handlerErrors, err)
-			log.Printf("Error notifying config deletion handler: %v", err)
+			slog.Error("Error notifying config deletion handler", "error", err)
 		}
 	}
 
 	// Report overall success or failure
 	if len(handlerErrors) > 0 {
-		log.Printf("Configuration deletion handling completed with %d handler errors: %s", len(handlerErrors), relPath)
+		slog.Warn("Configuration deletion handling completed with handler errors", "error_count", len(handlerErrors), "file", relPath)
 	} else {
-		log.Printf("Configuration deletion handling completed successfully: %s", relPath)
+		slog.Info("Configuration deletion handling completed successfully", "file", relPath)
 	}
 }
 
@@ -254,28 +254,28 @@ func (cw *ConfigWatcher) logConfigChange(filePath string, oldConfig, newConfig *
 	relPath, _ := filepath.Rel(cw.feedsDir, filePath)
 
 	if !existed {
-		log.Printf("Added configuration: %s (ID: %s)", relPath, newConfig.Feed.ID)
+		slog.Info("Added configuration", "file", relPath, "feed_id", newConfig.Feed.ID)
 		return
 	}
 
 	// Check what changed
 	if oldConfig.Feed.URL != newConfig.Feed.URL {
-		log.Printf("Updated feed URL in %s: %s -> %s", relPath, oldConfig.Feed.URL, newConfig.Feed.URL)
+		slog.Info("Updated feed URL", "file", relPath, "old_url", oldConfig.Feed.URL, "new_url", newConfig.Feed.URL)
 	}
 	if oldConfig.Settings.Enabled != newConfig.Settings.Enabled {
 		status := "disabled"
 		if newConfig.Settings.Enabled {
 			status = "enabled"
 		}
-		log.Printf("Updated feed status in %s: %s", relPath, status)
+		slog.Info("Updated feed status", "file", relPath, "status", status)
 	}
 	if len(oldConfig.Filters) != len(newConfig.Filters) {
-		log.Printf("Updated filters in %s: %d -> %d filters", relPath, len(oldConfig.Filters), len(newConfig.Filters))
+		slog.Info("Updated filters", "file", relPath, "old_count", len(oldConfig.Filters), "new_count", len(newConfig.Filters))
 	}
 	if oldConfig.Settings.RefreshInterval != newConfig.Settings.RefreshInterval {
-		log.Printf("Updated refresh interval in %s: %ds -> %ds", relPath, oldConfig.Settings.RefreshInterval, newConfig.Settings.RefreshInterval)
+		slog.Info("Updated refresh interval", "file", relPath, "old_interval", oldConfig.Settings.RefreshInterval, "new_interval", newConfig.Settings.RefreshInterval)
 	}
 	if oldConfig.Settings.MaxItems != newConfig.Settings.MaxItems {
-		log.Printf("Updated max items in %s: %d -> %d", relPath, oldConfig.Settings.MaxItems, newConfig.Settings.MaxItems)
+		slog.Info("Updated max items", "file", relPath, "old_max", oldConfig.Settings.MaxItems, "new_max", newConfig.Settings.MaxItems)
 	}
 }

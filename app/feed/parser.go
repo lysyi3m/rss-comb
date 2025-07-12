@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -50,7 +50,7 @@ func (p *Parser) Parse(data []byte) (*Metadata, []Item, error) {
 		items = append(items, normalized)
 	}
 
-	log.Printf("Parsed feed '%s' with %d items", metadata.Title, len(items))
+	slog.Debug("Feed parsed", "title", metadata.Title, "items_count", len(items))
 	return metadata, items, nil
 }
 

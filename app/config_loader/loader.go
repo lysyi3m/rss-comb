@@ -2,7 +2,7 @@ package config_loader
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -49,7 +49,7 @@ func (l *Loader) LoadAll() (map[string]*config.FeedConfig, error) {
 		feedIDs[cfg.Feed.ID] = file
 
 		configs[file] = cfg
-		log.Printf("Loaded configuration from %s (ID: %s)", file, cfg.Feed.ID)
+		slog.Debug("Configuration loaded", "file", file, "feed_id", cfg.Feed.ID)
 	}
 
 	return configs, nil

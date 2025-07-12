@@ -2,7 +2,7 @@ package api
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -74,9 +74,9 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 			api.GET("/feeds/:id/details", handler.APIGetFeedDetailsByID)
 			api.POST("/feeds/:id/refilter", handler.APIRefilterFeedByID)
 		}
-		log.Printf("API endpoints enabled with authentication")
+		slog.Info("API endpoints enabled with authentication")
 	} else {
-		log.Printf("API endpoints disabled (API_ACCESS_KEY not set)")
+		slog.Info("API endpoints disabled", "reason", "API_ACCESS_KEY not set")
 	}
 
 	// Root endpoint with basic information
