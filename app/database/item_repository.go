@@ -7,26 +7,22 @@ import (
 	"github.com/lib/pq"
 )
 
-// Compile-time interface compliance checks
 var _ ItemReader = (*ItemRepository)(nil)
 var _ ItemWriter = (*ItemRepository)(nil)
 var _ ItemDuplicateChecker = (*ItemRepository)(nil)
 
-// ItemRepository handles database operations for feed items
 type ItemRepository struct {
 	db *DB
 }
 
-// NewItemRepository creates a new item repository
 func NewItemRepository(db *DB) *ItemRepository {
 	return &ItemRepository{db: db}
 }
 
-// CheckDuplicate checks if an item with the given content hash already exists within the same feed
 func (r *ItemRepository) CheckDuplicate(contentHash, feedID string) (bool, *string, error) {
 	var duplicateID sql.NullString
 	
-	// Check for duplicates within the same feed
+	// Scope duplicate check to feed to allow same content across different feeds
 	query := `SELECT id FROM feed_items WHERE feed_id = $1 AND content_hash = $2 LIMIT 1`
 	err := r.db.QueryRow(query, feedID, contentHash).Scan(&duplicateID)
 	if err == sql.ErrNoRows {
@@ -40,7 +36,6 @@ func (r *ItemRepository) CheckDuplicate(contentHash, feedID string) (bool, *stri
 	return true, &id, nil
 }
 
-// StoreItem stores a normalized item in the database
 func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
 	_, err := r.db.Exec(`
 		INSERT INTO feed_items (
@@ -68,7 +63,6 @@ func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
 	return nil
 }
 
-// GetVisibleItems returns non-filtered items for a feed
 func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
@@ -111,7 +105,6 @@ func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, erro
 	return items, nil
 }
 
-// GetItemCount returns the total number of items for a feed
 func (r *ItemRepository) GetItemCount(feedID string) (int, error) {
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM feed_items WHERE feed_id = $1", feedID).Scan(&count)
@@ -121,7 +114,6 @@ func (r *ItemRepository) GetItemCount(feedID string) (int, error) {
 	return count, nil
 }
 
-// GetItemStats returns statistics about items for a feed
 func (r *ItemRepository) GetItemStats(feedID string) (total, visible, filtered int, err error) {
 	err = r.db.QueryRow(`
 		SELECT 
@@ -140,7 +132,6 @@ func (r *ItemRepository) GetItemStats(feedID string) (total, visible, filtered i
 }
 
 
-// GetAllItems returns all items for a feed (including filtered ones)
 func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
@@ -181,7 +172,6 @@ func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
 	return items, nil
 }
 
-// UpdateItemFilterStatus updates the filter status of an item
 func (r *ItemRepository) UpdateItemFilterStatus(itemID string, isFiltered bool, filterReason string) error {
 	_, err := r.db.Exec(`
 		UPDATE feed_items 

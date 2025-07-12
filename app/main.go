@@ -23,22 +23,17 @@ import (
 )
 
 func main() {
-	// Load configuration from environment variables and command-line flags
 	appConfig := loadConfig()
 	if appConfig == nil {
-		// Help was shown or parsing failed, exit gracefully
 		return
 	}
 
-	// Initialize logging with appropriate level
 	logger.Initialize(appConfig.Debug)
 
-	// Apply timezone configuration now that logger is available
+	// Apply timezone after logger initialization to ensure proper error reporting
 	applyTimezoneConfig(appConfig.Timezone)
 
 	slog.Info("Starting RSS Comb server", "version", version.GetVersion())
-
-	// Database connection
 	db, err := database.NewConnection(
 		appConfig.DBHost, appConfig.DBPort, appConfig.DBUser,
 		appConfig.DBPassword, appConfig.DBName)
@@ -49,7 +44,7 @@ func main() {
 	defer db.Close()
 	slog.Info("Database connected successfully")
 
-	// Run database migrations unless disabled
+	// Migrations run automatically unless explicitly disabled for faster startup
 	if !appConfig.DisableMigrate {
 		if err := database.RunMigrations(db); err != nil {
 			slog.Error("Database migration failed", "error", err)
@@ -67,7 +62,6 @@ func main() {
 	}
 
 
-	// Initialize configuration loading
 	configLoader := config_loader.NewLoader(appConfig.FeedsDir)
 	configs, err := configLoader.LoadAll()
 	if err != nil {
@@ -76,18 +70,16 @@ func main() {
 	}
 	slog.Info("Configuration loaded", "feeds", len(configs), "directory", appConfig.FeedsDir)
 
-	// Initialize configuration watcher
 	configWatcher, err := config_watcher.NewConfigWatcher(configLoader, appConfig.FeedsDir)
 	if err != nil {
 		slog.Error("Config watcher initialization failed", "error", err)
 		os.Exit(1)
 	}
 
-	// Initialize repositories
 	feedRepo := database.NewFeedRepository(db)
 	itemRepo := database.NewItemRepository(db)
 
-	// Register feeds in database
+	// Sync configuration files with database state
 	registeredCount := 0
 	urlChangedCount := 0
 	for configFile, cfg := range configs {
@@ -107,27 +99,24 @@ func main() {
 	}
 	slog.Info("Feed registration completed", "registered", registeredCount, "total", len(configs), "url_changes", urlChangedCount)
 
-	// Initialize core components
 	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, appConfig.UserAgent, appConfig.Port)
 
-	// Initialize and start task scheduler
 	slog.Info("Starting task scheduler", "workers", appConfig.WorkerCount, "interval", fmt.Sprintf("%ds", appConfig.SchedulerInterval))
 	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo, configs,
 		time.Duration(appConfig.SchedulerInterval)*time.Second, appConfig.WorkerCount)
 	taskScheduler.Start()
 	defer taskScheduler.Stop()
 
-	// Initialize HTTP server
 	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
 
-	// Register components with config watcher for hot-reload
+	// Enable hot-reload by registering handlers for configuration changes
 	databaseSyncHandler := config_sync.NewDatabaseSyncHandler(feedRepo, appConfig.FeedsDir)
 	configWatcher.AddUpdateHandler(databaseSyncHandler)
 	configWatcher.AddUpdateHandler(taskScheduler)
 	configWatcher.AddUpdateHandler(apiHandler)
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 
-	// Create HTTP server with timeouts
+	// Production-ready timeouts prevent resource exhaustion
 	httpServer := &http.Server{
 		Addr:         ":" + appConfig.Port,
 		Handler:      server,

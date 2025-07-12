@@ -338,6 +338,14 @@ go test -v ./app/database
 - Follow Go naming conventions and documentation standards
 - Use interfaces for testability
 
+### Code Comments Policy
+- Write self-explanatory code that minimizes the need for comments
+- Remove obvious comments that simply restate what the code does
+- Use comments to explain "why" something is done, not "what" is done
+- Focus comments on complex logic, non-obvious decisions, and important context
+- Keep comments up-to-date with code changes - outdated comments are worse than no comments
+- Avoid empty or useless comments that don't add value
+
 ### Database Guidelines
 - Use transactions for multi-table operations
 - Implement proper connection pooling
