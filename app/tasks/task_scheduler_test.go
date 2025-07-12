@@ -101,10 +101,6 @@ func (m *MockProcessor) ReapplyFilters(feedID string, feedConfig *config.FeedCon
 	return 0, 0, nil
 }
 
-func (m *MockProcessor) OnConfigUpdate(filePath string, config interface{}, isDelete bool) error {
-	// Mock implementation - do nothing
-	return nil
-}
 
 // Helper function to create test configs
 func createTestConfigs() map[string]*config.FeedConfig {

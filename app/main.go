@@ -112,8 +112,8 @@ func main() {
 	// Enable hot-reload by registering handlers for configuration changes
 	databaseSyncHandler := config_sync.NewDatabaseSyncHandler(feedRepo, appConfig.FeedsDir)
 	configWatcher.AddUpdateHandler(databaseSyncHandler)
-	configWatcher.AddUpdateHandler(taskScheduler)
-	configWatcher.AddUpdateHandler(apiHandler)
+	configWatcher.AddUpdateHandler(taskScheduler.GetConfigHandler())
+	configWatcher.AddUpdateHandler(apiHandler.GetConfigHandler())
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 
 	// Production-ready timeouts prevent resource exhaustion

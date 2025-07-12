@@ -261,8 +261,9 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// OnConfigUpdate implements the ConfigUpdateHandler interface
-func (h *Handler) OnConfigUpdate(filePath string, config *config.FeedConfig, isDelete bool) error {
-	return h.configCache.OnConfigUpdate(filePath, config, isDelete)
+// GetConfigHandler returns the config cache handler for direct registration with config watcher
+func (h *Handler) GetConfigHandler() *config_sync.ConfigCacheHandler {
+	return h.configCache
 }
+
 

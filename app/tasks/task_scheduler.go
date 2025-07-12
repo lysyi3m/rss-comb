@@ -291,7 +291,8 @@ func (s *TaskScheduler) Health() map[string]interface{} {
 	return health
 }
 
-// OnConfigUpdate implements the ConfigUpdateHandler interface
-func (s *TaskScheduler) OnConfigUpdate(filePath string, cfg *config.FeedConfig, isDelete bool) error {
-	return s.configCache.OnConfigUpdate(filePath, cfg, isDelete)
+// GetConfigHandler returns the config cache handler for direct registration with config watcher
+func (s *TaskScheduler) GetConfigHandler() *config_sync.ConfigCacheHandler {
+	return s.configCache
 }
+
