@@ -101,19 +101,23 @@ func main() {
 
 	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, appConfig.UserAgent, appConfig.Port)
 
+	// Create config cache handlers for hot-reload
+	taskSchedulerConfigCache := config_sync.NewConfigCacheHandler("Task scheduler", configs)
+	apiConfigCache := config_sync.NewConfigCacheHandler("API handler", configs)
+
 	slog.Info("Starting task scheduler", "workers", appConfig.WorkerCount, "interval", fmt.Sprintf("%ds", appConfig.SchedulerInterval))
-	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo, configs,
+	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo, taskSchedulerConfigCache,
 		time.Duration(appConfig.SchedulerInterval)*time.Second, appConfig.WorkerCount)
 	taskScheduler.Start()
 	defer taskScheduler.Stop()
-
-	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
+	
+	apiHandler := api.NewHandler(feedRepo, itemRepo, apiConfigCache, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
 
 	// Enable hot-reload by registering handlers for configuration changes
 	databaseSyncHandler := config_sync.NewDatabaseSyncHandler(feedRepo, appConfig.FeedsDir)
 	configWatcher.AddUpdateHandler(databaseSyncHandler)
-	configWatcher.AddUpdateHandler(taskScheduler.GetConfigHandler())
-	configWatcher.AddUpdateHandler(apiHandler.GetConfigHandler())
+	configWatcher.AddUpdateHandler(taskSchedulerConfigCache)
+	configWatcher.AddUpdateHandler(apiConfigCache)
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 
 	// Production-ready timeouts prevent resource exhaustion

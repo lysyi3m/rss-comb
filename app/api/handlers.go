@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
@@ -17,13 +16,13 @@ import (
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedReader, ir database.ItemReader,
-	configs map[string]*config.FeedConfig, processor tasks.ProcessorInterface,
+	configCache *config_sync.ConfigCacheHandler, processor tasks.ProcessorInterface,
 	taskScheduler tasks.TaskSchedulerInterface, port string, userAgent string) *Handler {
 	return &Handler{
 		feedRepo:    fr,
 		itemRepo:    ir,
 		generator:   feed.NewGenerator(port),
-		configCache: config_sync.NewConfigCacheHandler("API handler", configs),
+		configCache: configCache,
 		processor:   processor,
 		scheduler:   taskScheduler,
 		userAgent:   userAgent,
@@ -261,9 +260,5 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// GetConfigHandler returns the config cache handler for direct registration with config watcher
-func (h *Handler) GetConfigHandler() *config_sync.ConfigCacheHandler {
-	return h.configCache
-}
 
 

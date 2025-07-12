@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"github.com/lysyi3m/rss-comb/app/config"
-	"github.com/lysyi3m/rss-comb/app/config_sync"
 )
 
 // ProcessorInterface defines the interface for feed processing operations.
@@ -32,5 +31,4 @@ type TaskSchedulerInterface interface {
 	EnqueueTask(task Task) error
 	GetStats() TaskStats
 	Health() map[string]interface{}
-	GetConfigHandler() *config_sync.ConfigCacheHandler
 }

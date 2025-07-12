@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
@@ -134,8 +135,10 @@ func (e *testError) Error() string {
 func TestNewTaskScheduler(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
+	configs := createTestConfigs()
+	configCache := config_sync.NewConfigCacheHandler("Test", configs)
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 2)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 2)
 
 	if scheduler == nil {
 		t.Fatal("Expected scheduler to be created")
@@ -156,7 +159,9 @@ func TestTaskSchedulerGetStats(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 3)
+	configs := createTestConfigs()
+	configCache := config_sync.NewConfigCacheHandler("Test", configs)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 3)
 
 	stats := scheduler.GetStats()
 
@@ -181,7 +186,9 @@ func TestTaskSchedulerHealth(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 2)
+	configs := createTestConfigs()
+	configCache := config_sync.NewConfigCacheHandler("Test", configs)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 2)
 
 	health := scheduler.Health()
 
@@ -214,7 +221,9 @@ func TestTaskSchedulerHealthWithHighErrorRate(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 2)
+	configs := createTestConfigs()
+	configCache := config_sync.NewConfigCacheHandler("Test", configs)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 2)
 
 	// Cannot test high error rate scenarios with interface
 	// as we don't have access to modify internal statistics.
@@ -239,7 +248,9 @@ func TestTaskSchedulerExecuteTask(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 1)
+	configs := createTestConfigs()
+	configCache := config_sync.NewConfigCacheHandler("Test", configs)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 1)
 
 	// Test successful task execution via EnqueueTask
 	task := NewProcessFeedTask("test-id", createTestConfigs()["test.yml"], mockProcessor)
@@ -273,7 +284,9 @@ func TestTaskSchedulerLifecycle(t *testing.T) {
 	}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), 100*time.Millisecond, 1)
+	configs := createTestConfigs()
+	configCache := config_sync.NewConfigCacheHandler("Test", configs)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, 100*time.Millisecond, 1)
 
 	// Start scheduler
 	scheduler.Start()
@@ -294,7 +307,9 @@ func TestEnqueueTask(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 1)
+	configs := createTestConfigs()
+	configCache := config_sync.NewConfigCacheHandler("Test", configs)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 1)
 
 	// Test successful enqueue
 	task := NewProcessFeedTask("test-id", createTestConfigs()["test.yml"], mockProcessor)
@@ -380,7 +395,9 @@ func TestTaskStats(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 1)
+	configs := createTestConfigs()
+	configCache := config_sync.NewConfigCacheHandler("Test", configs)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 1)
 
 	// Execute different types of tasks via EnqueueTask
 	processTask := NewProcessFeedTask("feed-1", createTestConfigs()["test.yml"], mockProcessor)

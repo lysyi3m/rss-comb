@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 )
@@ -42,13 +41,13 @@ type TaskStats struct {
 
 // NewTaskScheduler creates a new generic task scheduler
 func NewTaskScheduler(processor ProcessorInterface, feedRepo database.FeedScheduler,
-	configs map[string]*config.FeedConfig, interval time.Duration, workerCount int) TaskSchedulerInterface {
+	configCache *config_sync.ConfigCacheHandler, interval time.Duration, workerCount int) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	return &TaskScheduler{
 		processor:   processor,
 		feedRepo:    feedRepo,
-		configCache: config_sync.NewConfigCacheHandler("Task scheduler", configs),
+		configCache: configCache,
 		interval:    interval,
 		workerCount: workerCount,
 		ctx:         ctx,
@@ -291,8 +290,5 @@ func (s *TaskScheduler) Health() map[string]interface{} {
 	return health
 }
 
-// GetConfigHandler returns the config cache handler for direct registration with config watcher
-func (s *TaskScheduler) GetConfigHandler() *config_sync.ConfigCacheHandler {
-	return s.configCache
-}
+
 
