@@ -1,4 +1,4 @@
-.PHONY: db-up db-down db-logs test build run clean
+.PHONY: db-up db-down db-logs test build run clean stop-all cleanup-all
 
 # Database commands
 db-up:
@@ -27,3 +27,20 @@ run: db-up
 clean:
 	rm -rf bin/
 	docker-compose -p rss-comb-dev down -v
+
+# Stop development RSS Comb processes (not production containers)
+stop-all:
+	@echo "Stopping development RSS Comb processes..."
+	@-pkill -f "go run.*main.go" 2>/dev/null
+	@-pkill -f "/home/.*/.cache/go-build.*/main" 2>/dev/null
+	@-pkill -f "bin/rss-comb" 2>/dev/null
+	@echo "Development RSS Comb processes stopped"
+
+# Complete cleanup: stop processes, remove containers, clean build artifacts
+cleanup-all: stop-all
+	@echo "Performing complete cleanup..."
+	docker-compose -p rss-comb-dev down -v --remove-orphans
+	rm -rf bin/
+	go clean -cache
+	go clean -modcache || true
+	@echo "Complete cleanup finished - all processes stopped, containers removed, caches cleared"

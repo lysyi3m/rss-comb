@@ -207,7 +207,7 @@ rss-comb/
 2. **Local verification**: `make run` then test endpoints
 3. **Docker verification**: `docker build -f Dockerfile -t rss-comb:latest .` then test locally
 4. **Commit changes**: Only when explicitly requested
-5. **Cleanup**: `make clean`
+5. **MANDATORY cleanup**: `make cleanup-all` (prevents interference with production instances)
 
 ### All operations should use Makefile:
 - **Development**: `make db-up`, `make run`, `make db-down`
@@ -224,7 +224,19 @@ make clean
 
 # Stop development database
 make db-down
+
+# Stop ALL RSS Comb processes (including stray development builds)
+make stop-all
+
+# Complete cleanup: processes + containers + build caches
+make cleanup-all
 ```
+
+**IMPORTANT: Always clean up after development work to prevent side effects:**
+- Stray development processes can interfere with production instances
+- Multiple instances may cause port conflicts and database connection issues
+- Development processes often use different credentials that can generate error logs
+- Use `make cleanup-all` before switching between development and production work
 
 ## Configuration
 
