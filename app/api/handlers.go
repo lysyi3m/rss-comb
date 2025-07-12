@@ -17,7 +17,7 @@ import (
 
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedReader, ir database.ItemReader,
-	configs map[string]*config.FeedConfig, processor feed.ProcessorInterface,
+	configs map[string]*config.FeedConfig, processor tasks.ProcessorInterface,
 	taskScheduler tasks.TaskSchedulerInterface, port string, userAgent string) *Handler {
 	return &Handler{
 		feedRepo:    fr,

@@ -51,16 +51,6 @@ type FeedScheduler interface {
 	UpdateNextFetch(feedID string, nextFetch time.Time) error
 }
 
-// FeedRepositoryInterface combines all feed repository operations.
-// This interface is kept for backward compatibility and components that need all operations.
-// Use specific interfaces (FeedReader, FeedWriter, FeedScheduler) when possible for better separation of concerns.
-type FeedRepositoryInterface interface {
-	FeedReader
-	FeedWriter
-	FeedScheduler
-}
-
-
 // ItemReader defines read operations for feed items.
 // Used by components that need to display or serve feed items, such as API handlers.
 // This interface provides read-only access to feed item data.
@@ -86,11 +76,3 @@ type ItemDuplicateChecker interface {
 	CheckDuplicate(contentHash, feedID string) (bool, *string, error)
 }
 
-// ItemRepositoryInterface combines all item repository operations.
-// This interface is kept for backward compatibility and components that need all operations.
-// Use specific interfaces (ItemReader, ItemWriter, ItemDuplicateChecker) when possible for better separation of concerns.
-type ItemRepositoryInterface interface {
-	ItemReader
-	ItemWriter
-	ItemDuplicateChecker
-}

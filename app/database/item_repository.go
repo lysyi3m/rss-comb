@@ -8,7 +8,6 @@ import (
 )
 
 // Compile-time interface compliance checks
-var _ ItemRepositoryInterface = (*ItemRepository)(nil)
 var _ ItemReader = (*ItemRepository)(nil)
 var _ ItemWriter = (*ItemRepository)(nil)
 var _ ItemDuplicateChecker = (*ItemRepository)(nil)

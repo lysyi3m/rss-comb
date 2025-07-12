@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/lysyi3m/rss-comb/app/config"
-	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
 // ProcessFeedTask represents a task to process a feed
@@ -14,11 +13,11 @@ type ProcessFeedTask struct {
 	BaseTask
 	FeedID     string
 	FeedConfig *config.FeedConfig
-	processor  feed.ProcessorInterface
+	processor  ProcessorInterface
 }
 
 // NewProcessFeedTask creates a new process feed task
-func NewProcessFeedTask(feedID string, feedConfig *config.FeedConfig, processor feed.ProcessorInterface) *ProcessFeedTask {
+func NewProcessFeedTask(feedID string, feedConfig *config.FeedConfig, processor ProcessorInterface) *ProcessFeedTask {
 	description := fmt.Sprintf("Process feed %s (%s)", feedID, feedConfig.Feed.Title)
 	
 	return &ProcessFeedTask{

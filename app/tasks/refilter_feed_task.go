@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/lysyi3m/rss-comb/app/config"
-	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
 // RefilterFeedTask represents a task to reapply filters to a feed
@@ -14,11 +13,11 @@ type RefilterFeedTask struct {
 	BaseTask
 	FeedID     string
 	FeedConfig *config.FeedConfig
-	processor  feed.ProcessorInterface
+	processor  ProcessorInterface
 }
 
 // NewRefilterFeedTask creates a new refilter feed task
-func NewRefilterFeedTask(feedID string, feedConfig *config.FeedConfig, processor feed.ProcessorInterface) *RefilterFeedTask {
+func NewRefilterFeedTask(feedID string, feedConfig *config.FeedConfig, processor ProcessorInterface) *RefilterFeedTask {
 	description := fmt.Sprintf("Refilter feed %s (%s)", feedID, feedConfig.Feed.Title)
 	
 	return &RefilterFeedTask{

@@ -8,17 +8,16 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
-	"github.com/lysyi3m/rss-comb/app/database"
 )
 
 // DatabaseSyncHandler handles synchronizing configuration changes with the database
 type DatabaseSyncHandler struct {
-	feedRepo database.FeedRepositoryInterface
+	feedRepo FeedSyncRepository
 	feedsDir string
 }
 
 // NewDatabaseSyncHandler creates a new database sync handler
-func NewDatabaseSyncHandler(feedRepo database.FeedRepositoryInterface, feedsDir string) *DatabaseSyncHandler {
+func NewDatabaseSyncHandler(feedRepo FeedSyncRepository, feedsDir string) *DatabaseSyncHandler {
 	return &DatabaseSyncHandler{
 		feedRepo: feedRepo,
 		feedsDir: feedsDir,

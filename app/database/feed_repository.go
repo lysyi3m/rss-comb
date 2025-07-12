@@ -7,7 +7,6 @@ import (
 )
 
 // Compile-time interface compliance checks
-var _ FeedRepositoryInterface = (*FeedRepository)(nil)
 var _ FeedReader = (*FeedRepository)(nil)
 var _ FeedWriter = (*FeedRepository)(nil)
 var _ FeedScheduler = (*FeedRepository)(nil)

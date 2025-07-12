@@ -12,12 +12,9 @@ import (
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
-// Compile-time interface compliance checks
-var _ ProcessorInterface = (*Processor)(nil)
-
 
 // NewProcessor creates a new feed processor
-func NewProcessor(fr database.FeedRepositoryInterface, ir database.ItemRepositoryInterface, 
+func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface, 
 	userAgent string, port string) *Processor {
 	return &Processor{
 		parser:      NewParser(),

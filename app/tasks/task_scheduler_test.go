@@ -7,7 +7,6 @@ import (
 
 	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/database"
-	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
 // MockFeedRepository implements a simple mock for testing
@@ -76,7 +75,7 @@ type MockProcessor struct {
 }
 
 // Ensure MockProcessor implements ProcessorInterface interface
-var _ feed.ProcessorInterface = (*MockProcessor)(nil)
+var _ ProcessorInterface = (*MockProcessor)(nil)
 
 func (m *MockProcessor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) error {
 	m.processedFeeds = append(m.processedFeeds, feedID)

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -12,8 +11,8 @@ import (
 type Processor struct {
 	parser      *Parser
 	generator   *Generator
-	feedRepo    database.FeedRepositoryInterface
-	itemRepo    database.ItemRepositoryInterface
+	feedRepo    FeedRepositoryInterface
+	itemRepo    ItemRepositoryInterface
 	client      *http.Client
 	userAgent   string
 }

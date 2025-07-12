@@ -10,7 +10,6 @@ import (
 	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
-	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
 // Compile-time interface compliance checks
@@ -18,7 +17,7 @@ var _ TaskSchedulerInterface = (*TaskScheduler)(nil)
 
 // TaskScheduler manages the execution of tasks using a generic task queue
 type TaskScheduler struct {
-	processor    feed.ProcessorInterface
+	processor    ProcessorInterface
 	feedRepo     database.FeedScheduler
 	configCache  *config_sync.ConfigCacheHandler
 	interval     time.Duration
@@ -42,7 +41,7 @@ type TaskStats struct {
 }
 
 // NewTaskScheduler creates a new generic task scheduler
-func NewTaskScheduler(processor feed.ProcessorInterface, feedRepo database.FeedScheduler,
+func NewTaskScheduler(processor ProcessorInterface, feedRepo database.FeedScheduler,
 	configs map[string]*config.FeedConfig, interval time.Duration, workerCount int) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
 	
