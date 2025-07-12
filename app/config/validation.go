@@ -10,26 +10,30 @@ func ValidateConfig(config *FeedConfig) error {
 		return fmt.Errorf("config is nil")
 	}
 
-	// Validate feed information
-	if config.Feed.ID == "" {
-		return fmt.Errorf("feed ID is required")
+	// Validate feed information - check required string fields
+	requiredFeedFields := map[string]string{
+		"feed ID":    config.Feed.ID,
+		"feed URL":   config.Feed.URL,
+		"feed title": config.Feed.Title,
 	}
-	if config.Feed.URL == "" {
-		return fmt.Errorf("feed URL is required")
-	}
-	if config.Feed.Title == "" {
-		return fmt.Errorf("feed title is required")
+	
+	for fieldName, fieldValue := range requiredFeedFields {
+		if fieldValue == "" {
+			return fmt.Errorf("%s is required", fieldName)
+		}
 	}
 
-	// Validate settings
-	if config.Settings.RefreshInterval < 0 {
-		return fmt.Errorf("refresh interval must be non-negative")
+	// Validate settings - check non-negative integer fields
+	nonNegativeFields := map[string]int{
+		"refresh interval": config.Settings.RefreshInterval,
+		"max items":        config.Settings.MaxItems,
+		"timeout":          config.Settings.Timeout,
 	}
-	if config.Settings.MaxItems < 0 {
-		return fmt.Errorf("max items must be non-negative")
-	}
-	if config.Settings.Timeout < 0 {
-		return fmt.Errorf("timeout must be non-negative")
+	
+	for fieldName, fieldValue := range nonNegativeFields {
+		if fieldValue < 0 {
+			return fmt.Errorf("%s must be non-negative", fieldName)
+		}
 	}
 
 	// Validate filter fields
