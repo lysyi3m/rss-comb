@@ -116,11 +116,11 @@ func main() {
 	}
 
 	// Initialize core components
-	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, configs, appConfig.UserAgent, appConfig.Port)
+	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, appConfig.UserAgent, appConfig.Port)
 
 	// Initialize and start task scheduler
 	log.Printf("Starting background task scheduler with %d workers...", appConfig.WorkerCount)
-	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo,
+	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo, configs,
 		time.Duration(appConfig.SchedulerInterval)*time.Second, appConfig.WorkerCount)
 	taskScheduler.Start()
 	defer taskScheduler.Stop()
@@ -132,7 +132,7 @@ func main() {
 	// Register components with config watcher for hot-reload
 	databaseSyncHandler := config_sync.NewDatabaseSyncHandler(feedRepo, appConfig.FeedsDir)
 	configWatcher.AddUpdateHandler(databaseSyncHandler)
-	configWatcher.AddUpdateHandler(feedProcessor)
+	configWatcher.AddUpdateHandler(taskScheduler)
 	configWatcher.AddUpdateHandler(apiHandler)
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 

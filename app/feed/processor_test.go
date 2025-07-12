@@ -231,15 +231,14 @@ func TestGetFieldValue(t *testing.T) {
 func TestNewProcessor(t *testing.T) {
 	// This is a simple test to ensure NewProcessor doesn't panic
 	// In a real scenario, you'd pass actual instances
-	configs := make(map[string]*config.FeedConfig)
-	processor := NewProcessor(nil, nil, configs, fmt.Sprintf("RSS Comb/%s", version.GetVersion()), "8080")
+	processor := NewProcessor(nil, nil, fmt.Sprintf("RSS Comb/%s", version.GetVersion()), "8080")
 
 	if processor == nil {
 		t.Fatal("Expected processor to be created")
 	}
 
-	if processor.configCache == nil {
-		t.Error("Expected configCache to be initialized")
+	if processor.parser == nil {
+		t.Error("Expected parser to be initialized")
 	}
 
 	if processor.client == nil {
@@ -254,18 +253,11 @@ func TestNewProcessor(t *testing.T) {
 
 
 func TestGetStats(t *testing.T) {
-	configs := map[string]*config.FeedConfig{
-		"feed1.yml": {},
-		"feed2.yml": {},
-	}
-	processor := NewProcessor(nil, nil, configs, fmt.Sprintf("RSS Comb/%s", version.GetVersion()), "8080")
+	processor := NewProcessor(nil, nil, fmt.Sprintf("RSS Comb/%s", version.GetVersion()), "8080")
 
 	stats := processor.GetStats()
 
-	if stats["loaded_configs"] != 2 {
-		t.Errorf("Expected loaded_configs=2, got %v", stats["loaded_configs"])
-	}
-
+	// configCache is no longer part of Processor, so we remove that test
 	if stats["client_timeout"] == "" {
 		t.Error("Expected client_timeout to be set")
 	}

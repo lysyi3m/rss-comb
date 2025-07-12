@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 )
@@ -77,7 +78,7 @@ type MockProcessor struct {
 // Ensure MockProcessor implements ProcessorInterface interface
 var _ feed.ProcessorInterface = (*MockProcessor)(nil)
 
-func (m *MockProcessor) ProcessFeed(feedID, configFile string) error {
+func (m *MockProcessor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) error {
 	m.processedFeeds = append(m.processedFeeds, feedID)
 	if m.shouldError {
 		return &testError{"mock error"}
@@ -85,12 +86,15 @@ func (m *MockProcessor) ProcessFeed(feedID, configFile string) error {
 	return nil
 }
 
-func (m *MockProcessor) IsFeedEnabled(configFile string) bool {
+func (m *MockProcessor) IsFeedEnabled(feedConfig *config.FeedConfig) bool {
 	// Mock implementation - return true for all feeds except those with "disabled" in the name
+	if feedConfig == nil {
+		return false
+	}
 	return true
 }
 
-func (m *MockProcessor) ReapplyFilters(feedID, configFile string) (int, int, error) {
+func (m *MockProcessor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig) (int, int, error) {
 	// Mock implementation - return 0 updated items, 0 errors
 	if m.shouldError {
 		return 0, 1, &testError{"mock reapply error"}
@@ -101,6 +105,22 @@ func (m *MockProcessor) ReapplyFilters(feedID, configFile string) (int, int, err
 func (m *MockProcessor) OnConfigUpdate(filePath string, config interface{}, isDelete bool) error {
 	// Mock implementation - do nothing
 	return nil
+}
+
+// Helper function to create test configs
+func createTestConfigs() map[string]*config.FeedConfig {
+	return map[string]*config.FeedConfig{
+		"test.yml": {
+			Feed: config.FeedInfo{
+				ID:    "test-feed",
+				Title: "Test Feed",
+				URL:   "https://example.com/feed.xml",
+			},
+			Settings: config.FeedSettings{
+				Enabled: true,
+			},
+		},
+	}
 }
 
 func (m *MockProcessor) GetStats() map[string]interface{} {
@@ -120,7 +140,7 @@ func TestNewTaskScheduler(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 2)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 2)
 
 	if scheduler == nil {
 		t.Fatal("Expected scheduler to be created")
@@ -141,7 +161,7 @@ func TestTaskSchedulerGetStats(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 3)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 3)
 
 	stats := scheduler.GetStats()
 
@@ -166,7 +186,7 @@ func TestTaskSchedulerHealth(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 2)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 2)
 
 	health := scheduler.Health()
 
@@ -199,7 +219,7 @@ func TestTaskSchedulerHealthWithHighErrorRate(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 2)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 2)
 
 	// Cannot test high error rate scenarios with interface
 	// as we don't have access to modify internal statistics.
@@ -224,10 +244,10 @@ func TestTaskSchedulerExecuteTask(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 1)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 1)
 
 	// Test successful task execution via EnqueueTask
-	task := NewProcessFeedTask("test-id", "test.yml", mockProcessor)
+	task := NewProcessFeedTask("test-id", createTestConfigs()["test.yml"], mockProcessor)
 	err := scheduler.EnqueueTask(task)
 	if err != nil {
 		t.Errorf("Expected no error enqueuing task, got %v", err)
@@ -238,7 +258,7 @@ func TestTaskSchedulerExecuteTask(t *testing.T) {
 	
 	// Test error processing
 	mockProcessor.shouldError = true
-	task2 := NewProcessFeedTask("test-id-2", "test2.yml", mockProcessor)
+	task2 := NewProcessFeedTask("test-id-2", createTestConfigs()["test.yml"], mockProcessor)
 	err = scheduler.EnqueueTask(task2)
 	if err != nil {
 		t.Errorf("Expected no error enqueuing task, got %v", err)
@@ -258,7 +278,7 @@ func TestTaskSchedulerLifecycle(t *testing.T) {
 	}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, 100*time.Millisecond, 1)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), 100*time.Millisecond, 1)
 
 	// Start scheduler
 	scheduler.Start()
@@ -279,10 +299,10 @@ func TestEnqueueTask(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 1)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 1)
 
 	// Test successful enqueue
-	task := NewProcessFeedTask("test-id", "test.yml", mockProcessor)
+	task := NewProcessFeedTask("test-id", createTestConfigs()["test.yml"], mockProcessor)
 	err := scheduler.EnqueueTask(task)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -297,7 +317,7 @@ func TestEnqueueTask(t *testing.T) {
 func TestRefilterFeedTask(t *testing.T) {
 	mockProcessor := &MockProcessor{}
 
-	task := NewRefilterFeedTask("test-id", "test.yml", mockProcessor)
+	task := NewRefilterFeedTask("test-id", createTestConfigs()["test.yml"], mockProcessor)
 
 	if task.GetType() != TaskTypeRefilterFeed {
 		t.Errorf("Expected task type %s, got %s", TaskTypeRefilterFeed, task.GetType())
@@ -311,8 +331,8 @@ func TestRefilterFeedTask(t *testing.T) {
 		t.Errorf("Expected feed ID 'test-id', got '%s'", task.GetFeedID())
 	}
 
-	if task.GetConfigFile() != "test.yml" {
-		t.Errorf("Expected config file 'test.yml', got '%s'", task.GetConfigFile())
+	if task.GetFeedConfig().Feed.ID != "test-feed" {
+		t.Errorf("Expected feed config ID 'test-feed', got '%s'", task.GetFeedConfig().Feed.ID)
 	}
 
 	// Test execution
@@ -326,7 +346,7 @@ func TestRefilterFeedTask(t *testing.T) {
 func TestProcessFeedTask(t *testing.T) {
 	mockProcessor := &MockProcessor{}
 
-	task := NewProcessFeedTask("test-id", "test.yml", mockProcessor)
+	task := NewProcessFeedTask("test-id", createTestConfigs()["test.yml"], mockProcessor)
 
 	if task.GetType() != TaskTypeProcessFeed {
 		t.Errorf("Expected task type %s, got %s", TaskTypeProcessFeed, task.GetType())
@@ -340,8 +360,8 @@ func TestProcessFeedTask(t *testing.T) {
 		t.Errorf("Expected feed ID 'test-id', got '%s'", task.GetFeedID())
 	}
 
-	if task.GetConfigFile() != "test.yml" {
-		t.Errorf("Expected config file 'test.yml', got '%s'", task.GetConfigFile())
+	if task.GetFeedConfig().Feed.ID != "test-feed" {
+		t.Errorf("Expected feed config ID 'test-feed', got '%s'", task.GetFeedConfig().Feed.ID)
 	}
 
 	// Test execution
@@ -365,11 +385,11 @@ func TestTaskStats(t *testing.T) {
 	mockRepo := &MockFeedRepository{}
 	mockProcessor := &MockProcessor{}
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, time.Second, 1)
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, createTestConfigs(), time.Second, 1)
 
 	// Execute different types of tasks via EnqueueTask
-	processTask := NewProcessFeedTask("feed-1", "test.yml", mockProcessor)
-	refilterTask := NewRefilterFeedTask("feed-2", "test.yml", mockProcessor)
+	processTask := NewProcessFeedTask("feed-1", createTestConfigs()["test.yml"], mockProcessor)
+	refilterTask := NewRefilterFeedTask("feed-2", createTestConfigs()["test.yml"], mockProcessor)
 
 	scheduler.EnqueueTask(processTask)
 	scheduler.EnqueueTask(refilterTask)

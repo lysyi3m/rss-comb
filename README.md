@@ -7,18 +7,20 @@
 
 RSS Comb is a high-performance Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, deduplication, and content filtering capabilities through YAML-based configuration files.
 
-## ✨ Features
+The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, and optimizing configuration management.
 
-- **🔄 Feed Normalization**: Converts RSS 1.0, RSS 2.0, and Atom feeds to standardized RSS 2.0 format
-- **🔍 Content Deduplication**: Eliminates duplicate items based on content hashing
-- **🎯 Flexible Filtering**: Configurable content filtering using include/exclude rules
-- **⚡ Background Processing**: Automated feed updates with configurable refresh intervals
-- **📊 Statistics & Monitoring**: Built-in stats endpoint and comprehensive logging
-- **🔒 API Authentication**: Secure API endpoints with configurable access keys
-- **🌐 Multi-format Support**: Handles various RSS/Atom feed formats seamlessly
-- **🐳 Docker Ready**: Fully containerized with optimized multi-stage builds
+## Features
 
-## 🚀 Quick Start
+- **Feed Normalization**: Converts RSS 1.0, RSS 2.0, and Atom feeds to standardized RSS 2.0 format
+- **Content Deduplication**: Eliminates duplicate items based on content hashing
+- **Flexible Filtering**: Configurable content filtering using include/exclude rules
+- **Background Processing**: Automated feed updates with configurable refresh intervals
+- **Statistics & Monitoring**: Built-in stats endpoint and comprehensive logging
+- **API Authentication**: Secure API endpoints with configurable access keys
+- **Multi-format Support**: Handles various RSS/Atom feed formats seamlessly
+- **Docker Ready**: Fully containerized with optimized multi-stage builds
+
+## Quick Start
 
 ### Using Docker (Recommended)
 
@@ -91,7 +93,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
    make run
    ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -147,7 +149,7 @@ filters:
 - Refresh intervals should be at least 30 minutes to respect source servers
 - Filters support `title`, `description`, and `content` fields
 
-## 🔌 API Endpoints
+## API Endpoints
 
 ### Public Endpoints
 
@@ -178,7 +180,7 @@ curl -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds
 curl -X POST -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds/tech-news/refilter
 ```
 
-## 🛠️ Development
+## Development
 
 ### Available Commands
 
@@ -220,7 +222,7 @@ Database migrations are embedded in the application binary and run automatically
 DISABLE_MIGRATE=true make run
 ```
 
-## 🚢 Deployment
+## Deployment
 
 ### Production Deployment
 
@@ -258,7 +260,7 @@ RSS Comb uses automated CI/CD with GitHub Actions:
 - **Health checks** built-in
 - **Optimized layer caching** for faster builds
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -283,15 +285,15 @@ RSS Comb uses automated CI/CD with GitHub Actions:
 - **Logs**: Application logs include detailed processing information
 - **Database**: Monitor connection pool and query performance
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-## 🔗 Links
+## Links
 
 - [GitHub Repository](https://github.com/lysyi3m/rss-comb)
 - [Docker Images](https://github.com/lysyi3m/rss-comb/pkgs/container/rss-comb)
@@ -299,4 +301,4 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ---
 
-**Built with ❤️ in Go**
+**Built with Go**

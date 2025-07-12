@@ -208,7 +208,7 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	}
 
 	// Find configuration by feed ID
-	feedConfig, configFile, found := h.configCache.GetConfigAndFileByFeedID(feedID)
+	feedConfig, _, found := h.configCache.GetConfigAndFileByFeedID(feedID)
 	if !found {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not configured"})
 		return
@@ -228,7 +228,7 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 	}
 
 	// Create and enqueue RefilterFeedTask
-	task := tasks.NewRefilterFeedTask(feed.ID, configFile, h.processor)
+	task := tasks.NewRefilterFeedTask(feed.ID, feedConfig, h.processor)
 	err = h.scheduler.EnqueueTask(task)
 	if err != nil {
 		log.Printf("Error enqueueing refilter task for feed %s: %v", feedID, err)

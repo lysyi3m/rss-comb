@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
@@ -12,18 +13,18 @@ import (
 type ProcessFeedTask struct {
 	BaseTask
 	FeedID     string
-	ConfigFile string
+	FeedConfig *config.FeedConfig
 	processor  feed.ProcessorInterface
 }
 
 // NewProcessFeedTask creates a new process feed task
-func NewProcessFeedTask(feedID, configFile string, processor feed.ProcessorInterface) *ProcessFeedTask {
-	description := fmt.Sprintf("Process feed %s from config %s", feedID, configFile)
+func NewProcessFeedTask(feedID string, feedConfig *config.FeedConfig, processor feed.ProcessorInterface) *ProcessFeedTask {
+	description := fmt.Sprintf("Process feed %s (%s)", feedID, feedConfig.Feed.Title)
 	
 	return &ProcessFeedTask{
 		BaseTask:   NewBaseTask(feedID, TaskTypeProcessFeed, PriorityNormal, description),
 		FeedID:     feedID,
-		ConfigFile: configFile,
+		FeedConfig: feedConfig,
 		processor:  processor,
 	}
 }
@@ -40,7 +41,7 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	}
 	
 	// Process the feed
-	err := t.processor.ProcessFeed(t.FeedID, t.ConfigFile)
+	err := t.processor.ProcessFeed(t.FeedID, t.FeedConfig)
 	if err != nil {
 		log.Printf("ProcessFeedTask failed for feed %s: %v", t.FeedID, err)
 		return fmt.Errorf("failed to process feed %s: %w", t.FeedID, err)
@@ -55,7 +56,7 @@ func (t *ProcessFeedTask) GetFeedID() string {
 	return t.FeedID
 }
 
-// GetConfigFile returns the config file for this task
-func (t *ProcessFeedTask) GetConfigFile() string {
-	return t.ConfigFile
+// GetFeedConfig returns the feed config for this task
+func (t *ProcessFeedTask) GetFeedConfig() *config.FeedConfig {
+	return t.FeedConfig
 }

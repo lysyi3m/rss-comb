@@ -1,17 +1,19 @@
 package feed
 
 import (
+	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
 // ProcessorInterface defines the interface for feed processing operations.
 // Used by task scheduler and API handlers to process feeds and manage filtering.
 // This interface provides the core feed processing functionality including fetching,
-// parsing, filtering, and storing feed items.
+// parsing, filtering, and storing feed items. Configuration is injected per operation
+// for clean dependency management and improved testability.
 type ProcessorInterface interface {
-	ProcessFeed(feedID, configFile string) error
-	IsFeedEnabled(configFile string) bool
-	ReapplyFilters(feedID, configFile string) (int, int, error)
+	ProcessFeed(feedID string, feedConfig *config.FeedConfig) error
+	IsFeedEnabled(feedConfig *config.FeedConfig) bool
+	ReapplyFilters(feedID string, feedConfig *config.FeedConfig) (int, int, error)
 }
 
 // ParserInterface defines the interface for feed parsing operations.

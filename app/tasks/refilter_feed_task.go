@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
@@ -12,18 +13,18 @@ import (
 type RefilterFeedTask struct {
 	BaseTask
 	FeedID     string
-	ConfigFile string
+	FeedConfig *config.FeedConfig
 	processor  feed.ProcessorInterface
 }
 
 // NewRefilterFeedTask creates a new refilter feed task
-func NewRefilterFeedTask(feedID, configFile string, processor feed.ProcessorInterface) *RefilterFeedTask {
-	description := fmt.Sprintf("Refilter feed %s from config %s", feedID, configFile)
+func NewRefilterFeedTask(feedID string, feedConfig *config.FeedConfig, processor feed.ProcessorInterface) *RefilterFeedTask {
+	description := fmt.Sprintf("Refilter feed %s (%s)", feedID, feedConfig.Feed.Title)
 	
 	return &RefilterFeedTask{
 		BaseTask:   NewBaseTask(feedID, TaskTypeRefilterFeed, PriorityHigh, description),
 		FeedID:     feedID,
-		ConfigFile: configFile,
+		FeedConfig: feedConfig,
 		processor:  processor,
 	}
 }
@@ -40,7 +41,7 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 	}
 	
 	// Reapply filters
-	updatedCount, errorCount, err := t.processor.ReapplyFilters(t.FeedID, t.ConfigFile)
+	updatedCount, errorCount, err := t.processor.ReapplyFilters(t.FeedID, t.FeedConfig)
 	if err != nil {
 		log.Printf("RefilterFeedTask failed for feed %s: %v", t.FeedID, err)
 		return fmt.Errorf("failed to refilter feed %s: %w", t.FeedID, err)
@@ -57,7 +58,7 @@ func (t *RefilterFeedTask) GetFeedID() string {
 	return t.FeedID
 }
 
-// GetConfigFile returns the config file for this task
-func (t *RefilterFeedTask) GetConfigFile() string {
-	return t.ConfigFile
+// GetFeedConfig returns the feed config for this task
+func (t *RefilterFeedTask) GetFeedConfig() *config.FeedConfig {
+	return t.FeedConfig
 }

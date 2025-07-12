@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RSS Comb is a Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, deduplication, and content filtering capabilities through YAML-based configuration files.
 
+The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, and optimizing configuration management.
+
 ## Development Environment
 
 ### Prerequisites
@@ -93,41 +95,39 @@ rss-comb/
    - Validation and default value handling
    - Hot-reload capability for configuration changes
 
-3. **Feed Processing Engine** (`app/feed/`)
-   - HTTP feed fetching with timeout and retry logic
-   - Content filtering based on configurable rules
-   - Deduplication using content hashing
+3. **Feed Processing System** (`app/feed/`)
+   - **Processor**: HTTP feed fetching, content filtering, and deduplication coordination
+   - **Parser**: Universal RSS/Atom feed parsing using gofeed and normalization
+   - **Generator**: RSS 2.0 XML output generation for API responses
+   - Clean separation of concerns with focused interfaces
 
-4. **Parser** (`app/parser/`)
-   - Universal RSS/Atom feed parsing using gofeed
-   - Normalization of different feed formats
-   - Content hash generation for deduplication
-
-5. **Database Layer** (`app/database/`)
+4. **Database Layer** (`app/database/`)
    - PostgreSQL with UUID primary keys
    - Separate repositories for feeds and items
    - Optimized queries with proper indexing
    - Embedded migrations with automatic execution on startup
 
-6. **Task Scheduling System** (`app/tasks/`)
+5. **Task Scheduling System** (`app/tasks/`)
    - Generic task queue with priority support
    - Worker pool for concurrent task execution
-   - Automatic feed processing and manual refiltering tasks
+   - Configuration management and resolution for processing tasks
    - Database-driven scheduling with next_fetch timestamps
    - Graceful shutdown handling
 
-7. **HTTP API** (`app/api/`)
+6. **HTTP API** (`app/api/`)
    - RESTful endpoints for feed access
-   - RSS 2.0 output generation
+   - RSS 2.0 output generation via feed system
    - Direct database queries for real-time data
 
 ### Data Flow
 
 1. Feed configurations loaded from `feeds/*.yml`
 2. Feeds registered in database with metadata
-3. Task scheduler processes feeds based on refresh intervals and handles manual refiltering
-4. Items parsed, filtered, and deduplicated before storage
-5. HTTP API serves processed feeds directly from database
+3. Task scheduler resolves configurations and creates processing tasks
+4. Processor receives specific configuration and processes individual feeds
+5. Parser normalizes RSS/Atom data, Generator creates output XML
+6. Items filtered, deduplicated, and stored in database
+7. HTTP API serves processed feeds directly from database
 
 ### Database Schema
 
@@ -149,6 +149,14 @@ rss-comb/
 - Key relationships: feeds.id → feed_items.feed_id
 - Indexes: feed_id, published_at, content_hash
 
+### Feed Processing Layer (`app/feed/`)
+- `processor.go`: Main feed processing orchestration and business logic
+- `parser.go`: RSS/Atom parsing and content normalization
+- `generator.go`: RSS 2.0 XML output generation for API responses
+- `interfaces.go`: Feed processing interface definitions
+- `types.go`: Feed data structures and models
+- Clean interfaces with dependency injection for configuration
+
 ### Repository Layer (`app/database/`)
 - `connection.go`: PostgreSQL connection management
 - `feed_repository.go`: CRUD operations for feeds
@@ -158,11 +166,18 @@ rss-comb/
 - `migrations.go`: Embedded migration management
 - `migrations/`: SQL migration files
 
-### Configuration Loading (`app/config/`)
-- `loader.go`: Configuration loading logic
-- `loader_test.go`: Tests for configuration loading
-- `types.go`: Configuration structs and types
-- Watches `feeds/*.yml` files for changes
+### Task Management Layer (`app/tasks/`)
+- `task_scheduler.go`: Main task scheduling and worker pool management
+- `process_feed_task.go`: Individual feed processing task implementation
+- `refilter_feed_task.go`: Feed item refiltering task implementation
+- `interfaces.go`: Task system interface definitions
+- Configuration resolution and task creation coordination
+
+### Configuration System (`app/config/`)
+- `types.go`: Configuration structs and validation
+- `validation.go`: Configuration validation logic
+- Hot-reload capability via config watchers
+- YAML-based feed configuration management
 
 ## Environment Guide
 

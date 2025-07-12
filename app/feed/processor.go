@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
-	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
@@ -19,13 +18,12 @@ var _ ProcessorInterface = (*Processor)(nil)
 
 // NewProcessor creates a new feed processor
 func NewProcessor(fr database.FeedRepositoryInterface, ir database.ItemRepositoryInterface, 
-	configs map[string]*config.FeedConfig, userAgent string, port string) *Processor {
+	userAgent string, port string) *Processor {
 	return &Processor{
 		parser:      NewParser(),
 		generator:   NewGenerator(port),
 		feedRepo:    fr,
 		itemRepo:    ir,
-		configCache: config_sync.NewConfigCacheHandler("Feed processor", configs),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
@@ -41,11 +39,7 @@ func NewProcessor(fr database.FeedRepositoryInterface, ir database.ItemRepositor
 }
 
 // ProcessFeed processes a single feed
-func (p *Processor) ProcessFeed(feedID, configFile string) error {
-	feedConfig, ok := p.configCache.GetConfig(configFile)
-	if !ok {
-		return fmt.Errorf("configuration not found: %s", configFile)
-	}
+func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) error {
 
 	if !feedConfig.Settings.Enabled {
 		log.Printf("Feed %s is disabled, skipping", feedConfig.Feed.Title)
@@ -227,9 +221,8 @@ func (p *Processor) getFieldValue(item Item, field string) string {
 
 
 // IsFeedEnabled checks if a feed is enabled in its configuration
-func (p *Processor) IsFeedEnabled(configFile string) bool {
-	feedConfig, ok := p.configCache.GetConfig(configFile)
-	if !ok {
+func (p *Processor) IsFeedEnabled(feedConfig *config.FeedConfig) bool {
+	if feedConfig == nil {
 		return false // Configuration not found, treat as disabled
 	}
 	return feedConfig.Settings.Enabled
@@ -238,23 +231,14 @@ func (p *Processor) IsFeedEnabled(configFile string) bool {
 // GetStats returns processing statistics
 func (p *Processor) GetStats() map[string]interface{} {
 	return map[string]interface{}{
-		"loaded_configs": p.configCache.GetConfigCount(),
 		"client_timeout": p.client.Timeout.String(),
 	}
 }
 
-// OnConfigUpdate implements the ConfigUpdateHandler interface
-func (p *Processor) OnConfigUpdate(filePath string, config *config.FeedConfig, isDelete bool) error {
-	return p.configCache.OnConfigUpdate(filePath, config, isDelete)
-}
 
 
 // ReapplyFilters re-applies filters to all items of a specific feed
-func (p *Processor) ReapplyFilters(feedID, configFile string) (int, int, error) {
-	feedConfig, ok := p.configCache.GetConfig(configFile)
-	if !ok {
-		return 0, 0, fmt.Errorf("configuration not found: %s", configFile)
-	}
+func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig) (int, int, error) {
 
 	log.Printf("Re-applying filters for feed: %s", feedConfig.Feed.Title)
 

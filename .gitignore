@@ -2,6 +2,7 @@
 bin/
 dist/
 *.exe
+rss-comb
 
 # Environment files
 .env

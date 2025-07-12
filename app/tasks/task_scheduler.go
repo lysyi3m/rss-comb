@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 )
@@ -18,6 +20,7 @@ var _ TaskSchedulerInterface = (*TaskScheduler)(nil)
 type TaskScheduler struct {
 	processor    feed.ProcessorInterface
 	feedRepo     database.FeedScheduler
+	configCache  *config_sync.ConfigCacheHandler
 	interval     time.Duration
 	workerCount  int
 	ctx          context.Context
@@ -40,12 +43,13 @@ type TaskStats struct {
 
 // NewTaskScheduler creates a new generic task scheduler
 func NewTaskScheduler(processor feed.ProcessorInterface, feedRepo database.FeedScheduler,
-	interval time.Duration, workerCount int) TaskSchedulerInterface {
+	configs map[string]*config.FeedConfig, interval time.Duration, workerCount int) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	return &TaskScheduler{
 		processor:   processor,
 		feedRepo:    feedRepo,
+		configCache: config_sync.NewConfigCacheHandler("Task scheduler", configs),
 		interval:    interval,
 		workerCount: workerCount,
 		ctx:         ctx,
@@ -145,7 +149,8 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 	// Filter out disabled feeds before logging and processing
 	enabledFeeds := make([]database.Feed, 0, len(feeds))
 	for _, feed := range feeds {
-		if s.processor.IsFeedEnabled(feed.ConfigFile) {
+		feedConfig, ok := s.configCache.GetConfig(feed.ConfigFile)
+		if ok && s.processor.IsFeedEnabled(feedConfig) {
 			enabledFeeds = append(enabledFeeds, feed)
 		}
 	}
@@ -161,7 +166,13 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 
 	// Create and enqueue ProcessFeedTasks for enabled feeds
 	for _, feed := range enabledFeeds {
-		task := NewProcessFeedTask(feed.ID, feed.ConfigFile, s.processor)
+		feedConfig, ok := s.configCache.GetConfig(feed.ConfigFile)
+		if !ok {
+			log.Printf("Warning: Configuration not found for feed %s, skipping", feed.ID)
+			continue
+		}
+		
+		task := NewProcessFeedTask(feed.ID, feedConfig, s.processor)
 		
 		select {
 		case s.taskQueue <- task:
@@ -279,4 +290,9 @@ func (s *TaskScheduler) Health() map[string]interface{} {
 	}
 
 	return health
+}
+
+// OnConfigUpdate implements the ConfigUpdateHandler interface
+func (s *TaskScheduler) OnConfigUpdate(filePath string, cfg *config.FeedConfig, isDelete bool) error {
+	return s.configCache.OnConfigUpdate(filePath, cfg, isDelete)
 }

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/mmcdole/gofeed"
 )
@@ -15,7 +14,6 @@ type Processor struct {
 	generator   *Generator
 	feedRepo    database.FeedRepositoryInterface
 	itemRepo    database.ItemRepositoryInterface
-	configCache *config_sync.ConfigCacheHandler
 	client      *http.Client
 	userAgent   string
 }
