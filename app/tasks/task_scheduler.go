@@ -3,7 +3,7 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -64,7 +64,7 @@ func NewTaskScheduler(processor feed.ProcessorInterface, feedRepo database.FeedS
 
 // Start begins the scheduler operation
 func (s *TaskScheduler) Start() {
-	log.Printf("Starting task scheduler with %d workers, interval: %v", s.workerCount, s.interval)
+	slog.Debug("Task scheduler starting", "workers", s.workerCount, "interval", s.interval)
 
 	// Start worker pool
 	for i := 0; i < s.workerCount; i++ {
@@ -76,12 +76,12 @@ func (s *TaskScheduler) Start() {
 	s.wg.Add(1)
 	go s.schedulerLoop()
 
-	log.Println("Task scheduler started successfully")
+	slog.Debug("Task scheduler started")
 }
 
 // Stop gracefully stops the scheduler
 func (s *TaskScheduler) Stop() {
-	log.Println("Stopping task scheduler...")
+	slog.Debug("Task scheduler stopping")
 	s.cancel()
 	
 	// Wait for all goroutines to finish first
@@ -90,14 +90,14 @@ func (s *TaskScheduler) Stop() {
 	// Close the task queue after all goroutines have stopped
 	close(s.taskQueue)
 	
-	log.Println("Task scheduler stopped")
+	slog.Debug("Task scheduler stopped")
 }
 
 // EnqueueTask adds a task to the queue
 func (s *TaskScheduler) EnqueueTask(task Task) error {
 	select {
 	case s.taskQueue <- task:
-		log.Printf("Enqueued task: %s (%s)", task.GetDescription(), task.GetType())
+		slog.Debug("Task enqueued", "description", task.GetDescription(), "type", task.GetType())
 		s.mu.Lock()
 		s.stats.QueueSize = len(s.taskQueue)
 		s.mu.Unlock()
@@ -122,7 +122,7 @@ func (s *TaskScheduler) schedulerLoop() {
 	for {
 		select {
 		case <-s.ctx.Done():
-			log.Println("Scheduler loop stopping...")
+			slog.Debug("Scheduler loop stopping")
 			return
 		case <-ticker.C:
 			s.enqueueDueFeeds()
@@ -134,7 +134,7 @@ func (s *TaskScheduler) schedulerLoop() {
 func (s *TaskScheduler) enqueueDueFeeds() {
 	feeds, err := s.feedRepo.GetFeedsDueForRefresh()
 	if err != nil {
-		log.Printf("Error getting feeds due for refresh: %v", err)
+		slog.Error("Failed to get feeds for refresh", "error", err)
 		s.mu.Lock()
 		s.stats.TotalErrors++
 		s.mu.Unlock()
@@ -142,7 +142,7 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 	}
 
 	if len(feeds) == 0 {
-		log.Printf("No feeds due for processing")
+		slog.Debug("No feeds due for processing")
 		return
 	}
 
@@ -157,18 +157,18 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 
 	if len(enabledFeeds) == 0 {
 		if len(feeds) > 0 {
-			log.Printf("No enabled feeds to process (%d feeds are disabled in config)", len(feeds))
+			slog.Debug("All feeds disabled", "total", len(feeds))
 		}
 		return
 	}
 
-	log.Printf("Found %d enabled feeds due for processing", len(enabledFeeds))
+	slog.Debug("Feeds due for processing", "count", len(enabledFeeds))
 
 	// Create and enqueue ProcessFeedTasks for enabled feeds
 	for _, feed := range enabledFeeds {
 		feedConfig, ok := s.configCache.GetConfig(feed.ConfigFile)
 		if !ok {
-			log.Printf("Warning: Configuration not found for feed %s, skipping", feed.ID)
+			slog.Warn("Feed configuration not found, skipping", "feed_id", feed.ID)
 			continue
 		}
 		
@@ -176,11 +176,11 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 		
 		select {
 		case s.taskQueue <- task:
-			log.Printf("Enqueued ProcessFeedTask: %s", feed.Title)
+			slog.Debug("ProcessFeedTask enqueued", "title", feed.Title)
 		case <-s.ctx.Done():
 			return
 		default:
-			log.Printf("Warning: task queue full, skipping feed: %s", feed.Title)
+			slog.Warn("Task queue full, skipping feed", "title", feed.Title)
 		}
 	}
 
@@ -193,20 +193,20 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 // worker processes tasks from the task queue
 func (s *TaskScheduler) worker(id int) {
 	defer s.wg.Done()
-	log.Printf("Worker %d started", id)
+	slog.Debug("Worker started", "worker_id", id)
 
 	for {
 		select {
 		case task, ok := <-s.taskQueue:
 			if !ok {
-				log.Printf("Worker %d: task queue closed, stopping", id)
+				slog.Debug("Worker stopping - queue closed", "worker_id", id)
 				return
 			}
 
 			s.executeTask(id, task)
 
 		case <-s.ctx.Done():
-			log.Printf("Worker %d: context cancelled, stopping", id)
+			slog.Debug("Worker stopping - context cancelled", "worker_id", id)
 			return
 		}
 	}
@@ -214,7 +214,7 @@ func (s *TaskScheduler) worker(id int) {
 
 // executeTask executes a single task
 func (s *TaskScheduler) executeTask(workerID int, task Task) {
-	log.Printf("Worker %d executing task: %s", workerID, task.GetDescription())
+	slog.Debug("Worker executing task", "worker_id", workerID, "task", task.GetDescription())
 	start := time.Now()
 
 	// Execute the task with a timeout context
@@ -236,9 +236,9 @@ func (s *TaskScheduler) executeTask(workerID int, task Task) {
 
 	if err != nil {
 		s.stats.TotalErrors++
-		log.Printf("Worker %d error executing task %s: %v", workerID, task.GetDescription(), err)
+		slog.Error("Worker task execution failed", "worker_id", workerID, "task", task.GetDescription(), "error", err)
 	} else {
-		log.Printf("Worker %d successfully executed task %s in %v", workerID, task.GetDescription(), duration)
+		slog.Debug("Worker task completed", "worker_id", workerID, "task", task.GetDescription(), "duration", duration.String())
 	}
 }
 

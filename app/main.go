@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,12 +17,12 @@ import (
 	"github.com/lysyi3m/rss-comb/app/config_watcher"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
+	"github.com/lysyi3m/rss-comb/app/logger"
 	"github.com/lysyi3m/rss-comb/app/tasks"
+	"github.com/lysyi3m/rss-comb/app/version"
 )
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
 	// Load configuration from environment variables and command-line flags
 	appConfig := loadConfig()
 	if appConfig == nil {
@@ -30,61 +30,57 @@ func main() {
 		return
 	}
 
-	// Set timezone from configuration
-	if appConfig.Timezone != "" {
-		if loc, err := time.LoadLocation(appConfig.Timezone); err != nil {
-			log.Printf("Warning: Invalid timezone '%s': %v. Using system default.", appConfig.Timezone, err)
-		} else {
-			time.Local = loc
-			log.Printf("Timezone set to: %s", appConfig.Timezone)
-		}
-	}
+	// Initialize logging with appropriate level
+	logger.Initialize(appConfig.Debug)
 
-	log.Println("Starting RSS Comb server...")
+	// Apply timezone configuration now that logger is available
+	applyTimezoneConfig(appConfig.Timezone)
+
+	slog.Info("Starting RSS Comb server", "version", version.GetVersion())
 
 	// Database connection
-	log.Println("Connecting to database...")
 	db, err := database.NewConnection(
 		appConfig.DBHost, appConfig.DBPort, appConfig.DBUser,
 		appConfig.DBPassword, appConfig.DBName)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		slog.Error("Database connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
-	log.Printf("Connected to database successfully")
+	slog.Info("Database connected successfully")
 
 	// Run database migrations unless disabled
 	if !appConfig.DisableMigrate {
-		log.Println("Running database migrations...")
 		if err := database.RunMigrations(db); err != nil {
-			log.Fatal("Failed to run database migrations:", err)
+			slog.Error("Database migration failed", "error", err)
+			os.Exit(1)
 		}
 
 		version, dirty, err := database.GetMigrationVersion(db)
 		if err != nil {
-			log.Printf("Warning: Failed to get migration version: %v", err)
+			slog.Warn("Failed to get migration version", "error", err)
 		} else {
-			log.Printf("Database migrations completed successfully (version: %d, dirty: %v)", version, dirty)
+			slog.Info("Database migrations completed", "version", version, "dirty", dirty)
 		}
 	} else {
-		log.Println("Auto-migration is disabled, skipping database migrations")
+		slog.Debug("Auto-migration disabled")
 	}
 
 
 	// Initialize configuration loading
-	log.Printf("Initializing configuration loader for %s...", appConfig.FeedsDir)
 	configLoader := config_loader.NewLoader(appConfig.FeedsDir)
 	configs, err := configLoader.LoadAll()
 	if err != nil {
-		log.Fatal("Failed to load configurations:", err)
+		slog.Error("Configuration loading failed", "directory", appConfig.FeedsDir, "error", err)
+		os.Exit(1)
 	}
-	log.Printf("Loaded %d feed configurations", len(configs))
+	slog.Info("Configuration loaded", "feeds", len(configs), "directory", appConfig.FeedsDir)
 
 	// Initialize configuration watcher
-	log.Printf("Initializing configuration watcher...")
 	configWatcher, err := config_watcher.NewConfigWatcher(configLoader, appConfig.FeedsDir)
 	if err != nil {
-		log.Fatal("Failed to initialize config watcher:", err)
+		slog.Error("Config watcher initialization failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Initialize repositories
@@ -92,41 +88,36 @@ func main() {
 	itemRepo := database.NewItemRepository(db)
 
 	// Register feeds in database
-	log.Println("Registering feeds in database...")
 	registeredCount := 0
 	urlChangedCount := 0
 	for configFile, cfg := range configs {
-		dbID, urlChanged, err := feedRepo.UpsertFeedWithChangeDetection(configFile, cfg.Feed.ID, cfg.Feed.URL, cfg.Feed.Title)
+		_, urlChanged, err := feedRepo.UpsertFeedWithChangeDetection(configFile, cfg.Feed.ID, cfg.Feed.URL, cfg.Feed.Title)
 		if err != nil {
-			log.Printf("Warning: Failed to register feed %s: %v", configFile, err)
+			slog.Warn("Feed registration failed", "file", configFile, "error", err)
 			continue
 		}
 
 		if urlChanged {
-			log.Printf("Feed URL updated: %s (ID: %s, DB ID: %s, New URL: %s)", cfg.Feed.Title, cfg.Feed.ID, dbID, cfg.Feed.URL)
+			slog.Info("Feed URL updated", "title", cfg.Feed.Title, "id", cfg.Feed.ID, "url", cfg.Feed.URL)
 			urlChangedCount++
 		} else {
-			log.Printf("Registered feed: %s (ID: %s, DB ID: %s, URL: %s)", cfg.Feed.Title, cfg.Feed.ID, dbID, cfg.Feed.URL)
+			slog.Debug("Feed registered", "title", cfg.Feed.Title, "id", cfg.Feed.ID, "url", cfg.Feed.URL)
 		}
 		registeredCount++
 	}
-	log.Printf("Successfully registered %d/%d feeds", registeredCount, len(configs))
-	if urlChangedCount > 0 {
-		log.Printf("Updated URLs for %d feeds", urlChangedCount)
-	}
+	slog.Info("Feed registration completed", "registered", registeredCount, "total", len(configs), "url_changes", urlChangedCount)
 
 	// Initialize core components
 	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, appConfig.UserAgent, appConfig.Port)
 
 	// Initialize and start task scheduler
-	log.Printf("Starting background task scheduler with %d workers...", appConfig.WorkerCount)
+	slog.Info("Starting task scheduler", "workers", appConfig.WorkerCount, "interval", fmt.Sprintf("%ds", appConfig.SchedulerInterval))
 	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo, configs,
 		time.Duration(appConfig.SchedulerInterval)*time.Second, appConfig.WorkerCount)
 	taskScheduler.Start()
 	defer taskScheduler.Stop()
 
 	// Initialize HTTP server
-	log.Println("Initializing HTTP server...")
 	apiHandler := api.NewHandler(feedRepo, itemRepo, configs, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
 
 	// Register components with config watcher for hot-reload
@@ -149,7 +140,7 @@ func main() {
 	configWatcherCtx, configWatcherCancel := context.WithCancel(context.Background())
 	go func() {
 		if err := configWatcher.Start(configWatcherCtx); err != nil && err != context.Canceled {
-			log.Printf("Config watcher error: %v", err)
+			slog.Error("Config watcher error", "error", err)
 		}
 	}()
 	defer func() {
@@ -160,19 +151,6 @@ func main() {
 	// Start HTTP server in a goroutine
 	serverErrChan := make(chan error, 1)
 	go func() {
-		log.Printf("Starting HTTP server on port %s", appConfig.Port)
-		log.Printf("API endpoints available:")
-		log.Printf("  Feed:       http://localhost:%s/feeds/<id>", appConfig.Port)
-		log.Printf("  Health: http://localhost:%s/health", appConfig.Port)
-
-		if appConfig.APIAccessKey != "" {
-			log.Printf("  List feeds:    http://localhost:%s/api/feeds (requires API key)", appConfig.Port)
-			log.Printf("  Feed details:  http://localhost:%s/api/feeds/<id>/details (requires API key)", appConfig.Port)
-			log.Printf("  Refilter:      http://localhost:%s/api/feeds/<id>/refilter (POST, requires API key)", appConfig.Port)
-		} else {
-			log.Printf("  API endpoints: DISABLED (API_ACCESS_KEY not set)")
-		}
-
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverErrChan <- fmt.Errorf("HTTP server error: %w", err)
 		}
@@ -182,18 +160,17 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	log.Println("RSS Comb server started successfully!")
-	log.Println("Press Ctrl+C to shutdown gracefully...")
+	slog.Info("Server started successfully", "port", appConfig.Port, "api_enabled", appConfig.APIAccessKey != "")
 
 	select {
 	case sig := <-sigChan:
-		log.Printf("Received signal: %v", sig)
+		slog.Info("Shutdown signal received", "signal", sig)
 	case err := <-serverErrChan:
-		log.Printf("Server error: %v", err)
+		slog.Error("Server error occurred", "error", err)
 	}
 
 	// Graceful shutdown
-	log.Println("Shutting down server gracefully...")
+	slog.Info("Starting graceful shutdown")
 
 	// Create shutdown context with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -201,15 +178,15 @@ func main() {
 
 	// Shutdown HTTP server
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("HTTP server shutdown error: %v", err)
+		slog.Error("HTTP server shutdown error", "error", err)
 	} else {
-		log.Println("HTTP server stopped")
+		slog.Debug("HTTP server stopped")
 	}
 
 	// Task scheduler is stopped via defer
-	log.Println("Background task scheduler stopped")
+	slog.Debug("Background task scheduler stopped")
 
-	log.Println("RSS Comb server shutdown complete")
+	slog.Info("Server shutdown complete")
 }
 
 // AppConfig holds all application configuration with support for environment variables and command-line flags
@@ -232,6 +209,7 @@ type AppConfig struct {
 	// Application metadata
 	UserAgent string `long:"user-agent" env:"USER_AGENT" default:"RSS Comb/1.0" description:"User agent string for HTTP requests"`
 	Timezone  string `long:"timezone" env:"TZ" default:"UTC" description:"Timezone for timestamps (e.g., UTC, America/New_York)"`
+	Debug     bool   `long:"debug" env:"DEBUG" description:"Enable debug logging"`
 }
 
 // loadConfig loads configuration from environment variables and command-line flags
@@ -249,11 +227,22 @@ func loadConfig() *AppConfig {
 				return nil
 			}
 		}
-		log.Fatalf("Failed to parse configuration: %v", err)
+		// Can't use slog here since logger isn't initialized yet
+		fmt.Printf("Error: Failed to parse configuration: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Additional validation can be added here if needed
-	log.Printf("Configuration loaded successfully")
-
 	return &appConfig
+}
+
+// applyTimezoneConfig applies timezone configuration after logger is initialized
+func applyTimezoneConfig(timezone string) {
+	if timezone != "" {
+		if loc, err := time.LoadLocation(timezone); err != nil {
+			slog.Warn("Invalid timezone, using system default", "timezone", timezone, "error", err)
+		} else {
+			time.Local = loc
+			slog.Debug("Timezone configured", "timezone", timezone)
+		}
+	}
 }

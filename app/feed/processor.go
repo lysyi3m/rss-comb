@@ -3,7 +3,7 @@ package feed
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -42,11 +42,11 @@ func NewProcessor(fr database.FeedRepositoryInterface, ir database.ItemRepositor
 func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) error {
 
 	if !feedConfig.Settings.Enabled {
-		log.Printf("Feed %s is disabled, skipping", feedConfig.Feed.Title)
+		slog.Debug("Feed disabled, skipping", "title", feedConfig.Feed.Title)
 		return nil
 	}
 
-	log.Printf("Processing feed: %s (%s)", feedConfig.Feed.Title, feedConfig.Feed.URL)
+	slog.Debug("Processing feed", "title", feedConfig.Feed.Title, "url", feedConfig.Feed.URL)
 	startTime := time.Now()
 
 	// Fetch feed data
@@ -71,7 +71,7 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 	for i, item := range items {
 		// Stop if we've reached the max items limit
 		if processedCount >= feedConfig.Settings.MaxItems {
-			log.Printf("Reached max items limit (%d) for feed %s", feedConfig.Settings.MaxItems, feedConfig.Feed.Title)
+			slog.Debug("Max items limit reached", "limit", feedConfig.Settings.MaxItems, "title", feedConfig.Feed.Title)
 			break
 		}
 
@@ -79,7 +79,7 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 		if feedConfig.Settings.Deduplication {
 			isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID)
 			if err != nil {
-				log.Printf("Warning: failed to check duplicate for item %d: %v", i, err)
+				slog.Warn("Failed to check duplicate", "item_index", i, "error", err)
 			} else if isDup {
 				skippedCount++
 				// Skip storing duplicates
@@ -93,13 +93,13 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 			item.IsFiltered = true
 			item.FilterReason = reason
 			filteredCount++
-			log.Printf("Item %d filtered: %s", i, reason)
+			slog.Debug("Item filtered", "item_index", i, "reason", reason)
 		}
 
 		// Store item (duplicates already skipped)
 		dbItem := p.convertToDBItem(item)
 		if err := p.itemRepo.StoreItem(feedID, dbItem); err != nil {
-			log.Printf("Warning: failed to store item %d: %v", i, err)
+			slog.Warn("Failed to store item", "item_index", i, "error", err)
 			continue
 		}
 
@@ -114,8 +114,13 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 
 	duration := time.Since(startTime)
 	newItems := processedCount - filteredCount
-	log.Printf("Processed feed %s: %d items (%d new, %d skipped duplicates, %d filtered) in %v",
-		feedConfig.Feed.Title, len(items), newItems, skippedCount, filteredCount, duration)
+	slog.Info("Feed processed",
+		"title", feedConfig.Feed.Title,
+		"total", len(items),
+		"new", newItems,
+		"duplicates", skippedCount,
+		"filtered", filteredCount,
+		"duration", duration.String())
 
 	return nil
 }
@@ -149,7 +154,7 @@ func (p *Processor) fetchFeed(url string, settings config.FeedSettings) ([]byte,
 	// Check content type
 	contentType := resp.Header.Get("Content-Type")
 	if contentType != "" && !strings.Contains(contentType, "xml") && !strings.Contains(contentType, "rss") {
-		log.Printf("Warning: unexpected content type: %s", contentType)
+		slog.Warn("Unexpected content type", "content_type", contentType)
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -240,7 +245,7 @@ func (p *Processor) GetStats() map[string]interface{} {
 // ReapplyFilters re-applies filters to all items of a specific feed
 func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig) (int, int, error) {
 
-	log.Printf("Re-applying filters for feed: %s", feedConfig.Feed.Title)
+	slog.Debug("Re-applying filters", "title", feedConfig.Feed.Title)
 
 	// Get all items for the feed
 	items, err := p.itemRepo.GetAllItems(feedID)
@@ -249,11 +254,11 @@ func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig)
 	}
 
 	if len(items) == 0 {
-		log.Printf("No items found for feed %s", feedConfig.Feed.Title)
+		slog.Debug("No items to re-filter", "title", feedConfig.Feed.Title)
 		return 0, 0, nil
 	}
 
-	log.Printf("Found %d items to re-filter for feed %s", len(items), feedConfig.Feed.Title)
+	slog.Debug("Starting re-filter process", "items", len(items), "title", feedConfig.Feed.Title)
 
 	updatedCount := 0
 	errorCount := 0
@@ -277,22 +282,24 @@ func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig)
 		if shouldFilter != item.IsFiltered || reason != item.FilterReason {
 			err := p.itemRepo.UpdateItemFilterStatus(item.ID, shouldFilter, reason)
 			if err != nil {
-				log.Printf("Failed to update filter status for item %s: %v", item.ID, err)
+				slog.Warn("Failed to update filter status", "item_id", item.ID, "error", err)
 				errorCount++
 				continue
 			}
 			updatedCount++
 			
 			if shouldFilter && !item.IsFiltered {
-				log.Printf("Item '%s' newly filtered: %s", item.Title, reason)
+				slog.Debug("Item newly filtered", "title", item.Title, "reason", reason)
 			} else if !shouldFilter && item.IsFiltered {
-				log.Printf("Item '%s' unfiltered (now visible)", item.Title)
+				slog.Debug("Item unfiltered", "title", item.Title)
 			}
 		}
 	}
 
-	log.Printf("Re-applied filters for feed %s: %d items updated, %d errors", 
-		feedConfig.Feed.Title, updatedCount, errorCount)
+	slog.Info("Re-filter completed",
+		"title", feedConfig.Feed.Title,
+		"updated", updatedCount,
+		"errors", errorCount)
 
 	return updatedCount, errorCount, nil
 }
