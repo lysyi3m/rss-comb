@@ -71,7 +71,7 @@ The application features a clean, modular architecture with clear separation of 
    ```
 
 3. **Access your feeds**:
-   - Statistics: `http://localhost:8080/stats`
+   - Health check: `http://localhost:8080/health`
    - Feed example: `http://localhost:8080/feeds/your-feed-id`
 
 ### Development Setup
@@ -154,7 +154,7 @@ filters:
 ### Public Endpoints
 
 - **`GET /feeds/<id>`** - Get processed RSS feed by feed ID
-- **`GET /stats`** - Application statistics and health check
+- **`GET /health`** - Application health check and statistics
 
 ### Authenticated Endpoints
 
@@ -167,8 +167,8 @@ Require `X-API-Key` header or `Authorization: Bearer <token>`:
 ### Example API Usage
 
 ```bash
-# Get feed statistics
-curl http://localhost:8080/stats
+# Get health check and statistics
+curl http://localhost:8080/health
 
 # Access processed feed
 curl http://localhost:8080/feeds/tech-news
@@ -195,8 +195,9 @@ make build          # Build the application
 make run            # Run with auto-database startup
 make test           # Run all tests
 
-# Docker
-make docker-build   # Build Docker image
+# Cleanup (important to prevent conflicts)
+make stop-all       # Stop development processes
+make cleanup-all    # Complete cleanup: processes + containers + caches
 make clean          # Clean project-specific artifacts, containers, and volumes
 ```
 
@@ -281,7 +282,7 @@ RSS Comb uses automated CI/CD with GitHub Actions:
 
 ### Monitoring
 
-- **Health check**: `GET /stats` should return 200 OK
+- **Health check**: `GET /health` should return 200 OK
 - **Logs**: Application logs include detailed processing information
 - **Database**: Monitor connection pool and query performance
 

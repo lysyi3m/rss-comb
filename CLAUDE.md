@@ -121,13 +121,14 @@ rss-comb/
 
 ### Data Flow
 
-1. Feed configurations loaded from `feeds/*.yml`
-2. Feeds registered in database with metadata
-3. Task scheduler resolves configurations and creates processing tasks
-4. Processor receives specific configuration and processes individual feeds
-5. Parser normalizes RSS/Atom data, Generator creates output XML
-6. Items filtered, deduplicated, and stored in database
-7. HTTP API serves processed feeds directly from database
+1. **Configuration Loading**: `config_loader` loads and validates YAML files from `feeds/*.yml`
+2. **Database Sync**: `config_sync` registers feeds in database, detecting URL changes
+3. **Hot-Reload**: `config_watcher` monitors file changes and triggers updates
+4. **Task Scheduling**: `tasks` scheduler queues feed processing based on `next_fetch` timestamps
+5. **Feed Processing**: `feed/processor` fetches, parses, filters, and deduplicates items
+6. **Storage**: Items stored with filter status and content hashes for deduplication
+7. **API Access**: `api/handlers` serve processed feeds and management endpoints
+8. **Real-time Updates**: Configuration changes immediately update scheduling and processing
 
 ### Database Schema
 
@@ -144,27 +145,27 @@ rss-comb/
 ## Detailed Architecture
 
 ### Database Schema Details
-- **feeds table**: metadata, processing status, timestamps
-- **feed_items table**: normalized items with content hashing
-- Key relationships: feeds.id → feed_items.feed_id
-- Indexes: feed_id, published_at, content_hash
+- **feeds table**: id, feed_url, title, link, image_url, language, enabled, last_fetched, last_success, next_fetch
+- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, author_name, author_email, categories, is_filtered, filter_reason, content_hash, created_at
+- **Key relationships**: feeds.id → feed_items.feed_id (UUID primary keys)
+- **Indexes**: feed_id, published_at, content_hash for optimized queries
+- **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
 
 ### Feed Processing Layer (`app/feed/`)
 - `processor.go`: Main feed processing orchestration and business logic
-- `parser.go`: RSS/Atom parsing and content normalization
+- `parser.go`: RSS/Atom parsing and content normalization using gofeed
 - `generator.go`: RSS 2.0 XML output generation for API responses
-- `interfaces.go`: Feed processing interface definitions
 - `types.go`: Feed data structures and models
-- Clean interfaces with dependency injection for configuration
+- Consolidated from separate parser/generator packages for better cohesion
 
 ### Repository Layer (`app/database/`)
-- `connection.go`: PostgreSQL connection management
-- `feed_repository.go`: CRUD operations for feeds
-- `item_repository.go`: CRUD operations for feed items
-- `interfaces.go`: Database interface definitions
-- `models.go`: Database model structs
-- `migrations.go`: Embedded migration management
-- `migrations/`: SQL migration files
+- `connection.go`: PostgreSQL connection management with pooling
+- `feed_repository.go`: Feed operations implementing FeedReader, FeedWriter, FeedScheduler
+- `item_repository.go`: Item operations implementing ItemReader, ItemWriter, ItemDuplicateChecker
+- `models.go`: Database model structs (Feed, FeedItem, Item)
+- `migrations.go`: Embedded migration management with 10 migration files
+- `migrations/`: SQL files (001-010) handling schema evolution
+- Interface segregation principle: separate interfaces for different responsibilities
 
 ### Task Management Layer (`app/tasks/`)
 - `task_scheduler.go`: Main task scheduling and worker pool management
