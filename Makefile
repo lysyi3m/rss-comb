@@ -2,13 +2,13 @@
 
 # Database commands
 db-up:
-	docker-compose up -d db
+	docker-compose -p rss-comb-dev up -d db
 
 db-down:
-	docker-compose down
+	docker-compose -p rss-comb-dev down
 
 db-logs:
-	docker-compose logs -f db
+	docker-compose -p rss-comb-dev logs -f db
 
 # Development commands
 test:
@@ -26,4 +26,4 @@ run: db-up
 
 clean:
 	rm -rf bin/
-	docker-compose down -v
+	docker-compose -p rss-comb-dev down -v
