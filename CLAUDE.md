@@ -251,7 +251,7 @@ feed:
 settings:
   enabled: true
   refresh_interval: 1800  # 30 minutes (recommended)
-  max_items: 50
+  max_items: 50              # Limits RSS output items (all items stored in database)
   timeout: 30            # seconds
 
 filters:
@@ -389,7 +389,7 @@ go test -v ./app/database
 - Review filter configuration for over-filtering
 - Deduplication is always enabled and automatic
 - Examine `is_filtered` and `is_duplicate` flags in database
-- Verify `max_items` setting
+- Verify `max_items` setting (limits RSS output, not database storage)
 
 ### Feed URL Changes
 - Feed URLs can be updated directly in configuration files (`.yml`)

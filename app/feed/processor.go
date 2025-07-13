@@ -59,11 +59,6 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 	}
 	processedCount, skippedCount, filteredCount := 0, 0, 0
 	for i, item := range items {
-		// Early termination prevents memory bloat with large feeds
-		if processedCount >= feedConfig.Settings.MaxItems {
-			slog.Debug("Max items limit reached", "limit", feedConfig.Settings.MaxItems, "title", feedConfig.Feed.Title)
-			break
-		}
 
 		// Skip duplicate storage to avoid database bloat and improve performance
 		isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID)
