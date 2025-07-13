@@ -17,7 +17,6 @@ const (
 type TaskPriority int
 
 const (
-	PriorityLow    TaskPriority = 1
 	PriorityNormal TaskPriority = 5
 	PriorityHigh   TaskPriority = 10
 )

@@ -5,8 +5,6 @@ import (
 	"os"
 )
 
-var Logger *slog.Logger
-
 // Initialize sets up the global logger with appropriate configuration
 func Initialize(debug bool) {
 	var level slog.Level
@@ -28,7 +26,7 @@ func Initialize(debug bool) {
 	}
 
 	handler := slog.NewTextHandler(os.Stdout, opts)
-	Logger = slog.New(handler)
-	slog.SetDefault(Logger)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
 }
 
