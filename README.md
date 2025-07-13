@@ -5,14 +5,14 @@
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-RSS Comb is a high-performance Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, deduplication, and content filtering capabilities through YAML-based configuration files.
+RSS Comb is a high-performance Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, and content filtering capabilities through YAML-based configuration files.
 
-The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, and optimizing configuration management.
+The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing.
 
 ## Features
 
 - **Feed Normalization**: Converts RSS 1.0, RSS 2.0, and Atom feeds to standardized RSS 2.0 format
-- **Content Deduplication**: Eliminates duplicate items based on content hashing
+- **Automatic Deduplication**: Automatically eliminates duplicate items based on content hashing
 - **Flexible Filtering**: Configurable content filtering using include/exclude rules
 - **Background Processing**: Automated feed updates with configurable refresh intervals
 - **Statistics & Monitoring**: Built-in stats endpoint and comprehensive logging
@@ -125,9 +125,8 @@ feed:
 
 settings:
   enabled: true
-  deduplication: true
   refresh_interval: 1800       # 30 minutes (recommended)
-  max_items: 50
+  max_items: 50                # Limits RSS output items (all items stored in database)
   timeout: 30                  # seconds
 
 filters:
@@ -147,7 +146,9 @@ filters:
 - The `id` field is used in URLs: `/feeds/<id>`
 - Feed IDs must be unique and URL-safe
 - Refresh intervals should be at least 30 minutes to respect source servers
-- Filters support `title`, `description`, and `content` fields
+- `max_items` limits RSS output only - all feed items are stored in database
+- Deduplication is automatic and always enabled
+- Filters support `title`, `description`, `content`, `author`, `link`, and `categories` fields
 
 ## API Endpoints
 
@@ -272,8 +273,9 @@ RSS Comb uses automated CI/CD with GitHub Actions:
 
 **Missing feed items:**
 - Review filter configuration for over-filtering
-- Check `max_items` setting
+- Check `max_items` setting (limits RSS output, not database storage)
 - Examine `is_filtered` flags in database
+- Deduplication is always enabled automatically
 
 **Database connection issues:**
 - Verify database credentials
