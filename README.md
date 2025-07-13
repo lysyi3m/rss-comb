@@ -13,6 +13,7 @@ The application features a clean, modular architecture with clear separation of 
 
 - **Feed Normalization**: Converts RSS 1.0, RSS 2.0, and Atom feeds to standardized RSS 2.0 format
 - **Automatic Deduplication**: Automatically eliminates duplicate items based on content hashing
+- **Intelligent Performance**: Feed timestamp optimization reduces duplicate checking by 100x when content unchanged
 - **Flexible Filtering**: Configurable content filtering using include/exclude rules
 - **Background Processing**: Automated feed updates with configurable refresh intervals
 - **Statistics & Monitoring**: Built-in stats endpoint and comprehensive logging

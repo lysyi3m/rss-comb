@@ -76,6 +76,21 @@ func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL
 	return nil
 }
 
+// UpdateFeedTimestamp updates the feed's own updated timestamp from RSS/Atom
+func (r *FeedRepository) UpdateFeedTimestamp(feedID string, feedUpdatedAt *time.Time) error {
+	_, err := r.db.Exec(`
+		UPDATE feeds
+		SET feed_updated_at = $2, updated_at = NOW()
+		WHERE id = $1
+	`, feedID, feedUpdatedAt)
+
+	if err != nil {
+		return fmt.Errorf("failed to update feed timestamp: %w", err)
+	}
+
+	return nil
+}
+
 // UpdateNextFetch updates the next fetch time for a feed
 func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) error {
 	_, err := r.db.Exec(`
@@ -95,7 +110,7 @@ func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) err
 func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
+		       last_fetched, last_success, next_fetch, feed_updated_at, enabled, created_at, updated_at
 		FROM feeds
 		WHERE enabled = true
 		  AND (next_fetch IS NULL OR next_fetch <= NOW())
@@ -112,7 +127,7 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 		var feed Feed
 		err := rows.Scan(
 			&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
-			&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
+			&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.FeedUpdatedAt, &feed.Enabled,
 			&feed.CreatedAt, &feed.UpdatedAt,
 		)
 		if err != nil {
@@ -135,12 +150,12 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
 		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
+		       last_fetched, last_success, next_fetch, feed_updated_at, enabled, created_at, updated_at
 		FROM feeds
 		WHERE feed_id = $1
 	`, feedID).Scan(
 		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
-		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
+		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.FeedUpdatedAt, &feed.Enabled,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
 
