@@ -22,7 +22,6 @@ feed:
 
 settings:
   enabled: true
-  deduplication: true
   refresh_interval: 1800
   max_items: 25
   timeout: 15

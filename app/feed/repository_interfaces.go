@@ -15,7 +15,7 @@ type FeedRepositoryInterface interface {
 
 // ItemRepositoryInterface combines item repository operations needed by the feed package.
 // Defined here as the feed package is the primary consumer of this interface.
-// Used by feed processor for comprehensive item management including reads, writes, and deduplication.
+// Used by feed processor for comprehensive item management including reads, writes, and automatic deduplication.
 type ItemRepositoryInterface interface {
 	database.ItemReader
 	database.ItemWriter

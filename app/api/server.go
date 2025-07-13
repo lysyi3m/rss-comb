@@ -96,7 +96,7 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 		c.JSON(200, gin.H{
 			"service":     "RSS Comb",
 			"version":     version.GetVersion(),
-			"description": "RSS/Atom feed proxy with normalization, deduplication, and filtering",
+			"description": "RSS/Atom feed proxy with normalization, automatic deduplication, and filtering",
 			"endpoints":   endpoints,
 			"api_status":  map[string]interface{}{
 				"enabled": apiAccessKey != "",

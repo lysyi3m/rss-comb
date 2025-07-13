@@ -168,7 +168,6 @@ func (h *Handler) APIGetFeedDetailsByID(c *gin.Context) {
 		"refresh_interval": feedConfig.Settings.GetRefreshInterval().String(),
 		"timeout":          feedConfig.Settings.GetTimeout().String(),
 		"user_agent":       h.userAgent,
-		"deduplication":    feedConfig.Settings.Deduplication,
 		"filters":          feedConfig.Filters,
 	}
 

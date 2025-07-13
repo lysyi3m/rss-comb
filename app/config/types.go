@@ -21,7 +21,6 @@ type FeedInfo struct {
 // FeedSettings contains feed processing settings
 type FeedSettings struct {
 	Enabled         bool `yaml:"enabled"`
-	Deduplication   bool `yaml:"deduplication"`
 	RefreshInterval int  `yaml:"refresh_interval"` // seconds
 	MaxItems        int  `yaml:"max_items"`
 	Timeout         int  `yaml:"timeout"` // seconds

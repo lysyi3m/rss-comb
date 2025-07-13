@@ -68,7 +68,7 @@ type ItemWriter interface {
 
 // ItemDuplicateChecker defines duplicate checking operations for feed items.
 // Used by components that need to check for duplicate content before storage.
-// This interface provides specialized deduplication functionality within a feed.
+// This interface provides automatic deduplication functionality within a feed.
 type ItemDuplicateChecker interface {
 	CheckDuplicate(contentHash, feedID string) (bool, *string, error)
 }

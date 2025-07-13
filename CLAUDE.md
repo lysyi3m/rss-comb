@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RSS Comb is a Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, deduplication, and content filtering capabilities through YAML-based configuration files.
+RSS Comb is a Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, and content filtering capabilities through YAML-based configuration files.
 
 The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, and optimizing configuration management.
 
@@ -96,7 +96,7 @@ rss-comb/
    - Hot-reload capability for configuration changes
 
 3. **Feed Processing System** (`app/feed/`)
-   - **Processor**: HTTP feed fetching, content filtering, and deduplication coordination
+   - **Processor**: HTTP feed fetching, content filtering, and automatic deduplication
    - **Parser**: Universal RSS/Atom feed parsing using gofeed and normalization
    - **Generator**: RSS 2.0 XML output generation for API responses
    - Clean separation of concerns with focused interfaces
@@ -250,7 +250,6 @@ feed:
 
 settings:
   enabled: true
-  deduplication: true
   refresh_interval: 1800  # 30 minutes (recommended)
   max_items: 50
   timeout: 30            # seconds
@@ -388,7 +387,7 @@ go test -v ./app/database
 
 ### Missing Items
 - Review filter configuration for over-filtering
-- Check deduplication settings
+- Deduplication is always enabled and automatic
 - Examine `is_filtered` and `is_duplicate` flags in database
 - Verify `max_items` setting
 

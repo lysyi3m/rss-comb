@@ -66,14 +66,12 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 		}
 
 		// Skip duplicate storage to avoid database bloat and improve performance
-		if feedConfig.Settings.Deduplication {
-			isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID)
-			if err != nil {
-				slog.Warn("Failed to check duplicate", "item_index", i, "error", err)
-			} else if isDup {
-				skippedCount++
-				continue
-			}
+		isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID)
+		if err != nil {
+			slog.Warn("Failed to check duplicate", "item_index", i, "error", err)
+		} else if isDup {
+			skippedCount++
+			continue
 		}
 
 		filtered, reason := p.applyFilters(item, feedConfig.Filters)
