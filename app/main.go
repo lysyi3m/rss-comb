@@ -17,7 +17,6 @@ import (
 	"github.com/lysyi3m/rss-comb/app/config_watcher"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
-	"github.com/lysyi3m/rss-comb/app/logger"
 	"github.com/lysyi3m/rss-comb/app/tasks"
 	"github.com/lysyi3m/rss-comb/app/version"
 )
@@ -28,7 +27,7 @@ func main() {
 		return
 	}
 
-	logger.Initialize(appConfig.Debug)
+	initializeLogger(appConfig.Debug)
 
 	// Apply timezone after logger initialization to ensure proper error reporting
 	applyTimezoneConfig(appConfig.Timezone)
@@ -238,4 +237,29 @@ func applyTimezoneConfig(timezone string) {
 			slog.Debug("Timezone configured", "timezone", timezone)
 		}
 	}
+}
+
+// initializeLogger sets up the global logger with appropriate configuration
+func initializeLogger(debug bool) {
+	var level slog.Level
+	if debug {
+		level = slog.LevelDebug
+	} else {
+		level = slog.LevelInfo
+	}
+
+	opts := &slog.HandlerOptions{
+		Level: level,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			// Simplify time format for better readability
+			if a.Key == slog.TimeKey {
+				return slog.String("time", a.Value.Time().Format("2006-01-02 15:04:05"))
+			}
+			return a
+		},
+	}
+
+	handler := slog.NewTextHandler(os.Stdout, opts)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
 }
