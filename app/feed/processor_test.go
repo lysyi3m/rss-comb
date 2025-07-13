@@ -252,13 +252,5 @@ func TestNewProcessor(t *testing.T) {
 }
 
 
-func TestGetStats(t *testing.T) {
-	processor := NewProcessor(nil, nil, fmt.Sprintf("RSS Comb/%s", version.GetVersion()), "8080")
-
-	stats := processor.GetStats()
-
-	// configCache is no longer part of Processor, so we remove that test
-	if stats["client_timeout"] == "" {
-		t.Error("Expected client_timeout to be set")
-	}
-}
+// TestGetStats - removed since GetStats() method was identified as dead code
+// The method only returned HTTP client timeout which is not meaningful runtime statistics

@@ -214,11 +214,6 @@ func (p *Processor) IsFeedEnabled(feedConfig *config.FeedConfig) bool {
 	return feedConfig.Settings.Enabled
 }
 
-func (p *Processor) GetStats() map[string]interface{} {
-	return map[string]interface{}{
-		"client_timeout": p.client.Timeout.String(),
-	}
-}
 
 
 
