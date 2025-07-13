@@ -27,8 +27,6 @@ type FeedItem struct {
 // This interface provides access to feed metadata and counts without write permissions.
 type FeedReader interface {
 	GetFeedByID(feedID string) (*Feed, error)
-	GetFeedByConfigFile(configFile string) (*Feed, error)
-	GetFeedByURL(feedURL string) (*Feed, error)
 	GetFeedCount() (int, error)
 	GetEnabledFeedCount() (int, error)
 }
@@ -37,7 +35,6 @@ type FeedReader interface {
 // Used by components that need to create, update, or modify feed records.
 // This interface provides full write access to feed metadata and configuration.
 type FeedWriter interface {
-	UpsertFeed(configFile, feedID, feedURL, feedTitle string) (string, error)
 	UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedTitle string) (string, bool, error)
 	UpdateFeedMetadata(feedID string, link string, imageURL string, language string) error
 	SetFeedEnabled(feedID string, enabled bool) error

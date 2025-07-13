@@ -67,18 +67,6 @@ func (cw *ConfigWatcher) AddUpdateHandler(handler ConfigUpdateHandler) {
 	cw.updateHandlers = append(cw.updateHandlers, handler)
 }
 
-// GetConfigs returns a thread-safe copy of the current configurations
-func (cw *ConfigWatcher) GetConfigs() map[string]*config.FeedConfig {
-	cw.configsMutex.RLock()
-	defer cw.configsMutex.RUnlock()
-
-	// Create a copy of the configs map
-	configsCopy := make(map[string]*config.FeedConfig, len(cw.configs))
-	for k, v := range cw.configs {
-		configsCopy[k] = v
-	}
-	return configsCopy
-}
 
 // Start begins watching for file system changes
 func (cw *ConfigWatcher) Start(ctx context.Context) error {

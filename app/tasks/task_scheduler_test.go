@@ -119,10 +119,6 @@ func createTestConfigs() map[string]*config.FeedConfig {
 	}
 }
 
-func (m *MockProcessor) GetStats() map[string]interface{} {
-	// Mock implementation - return empty stats
-	return make(map[string]interface{})
-}
 
 type testError struct {
 	msg string
@@ -145,103 +141,17 @@ func TestNewTaskScheduler(t *testing.T) {
 	}
 
 	// Test that the scheduler implements the interface properly
-	stats := scheduler.GetStats()
-	if stats.TotalProcessed != 0 {
-		t.Errorf("Expected initial total processed 0, got %d", stats.TotalProcessed)
-	}
-
-	if stats.CurrentWorkers != 2 {
-		t.Errorf("Expected current workers 2, got %d", stats.CurrentWorkers)
-	}
+	// The scheduler should be created successfully without any errors
 }
 
-func TestTaskSchedulerGetStats(t *testing.T) {
-	mockRepo := &MockFeedRepository{}
-	mockProcessor := &MockProcessor{}
+// TestTaskSchedulerGetStats - removed since GetStats() method no longer exists
+// Statistics tracking was identified as dead code and removed
 
-	configs := createTestConfigs()
-	configCache := config_sync.NewConfigCacheHandler("Test", configs)
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 3)
+// TestTaskSchedulerHealth - removed since Health() method no longer exists
+// Health monitoring was identified as dead code and removed
 
-	stats := scheduler.GetStats()
-
-	if stats.CurrentWorkers != 3 {
-		t.Errorf("Expected current workers 3, got %d", stats.CurrentWorkers)
-	}
-
-	if stats.TotalProcessed != 0 {
-		t.Errorf("Expected total processed 0, got %d", stats.TotalProcessed)
-	}
-
-	if stats.TotalErrors != 0 {
-		t.Errorf("Expected total errors 0, got %d", stats.TotalErrors)
-	}
-
-	if stats.QueueSize != 0 {
-		t.Errorf("Expected queue size 0, got %d", stats.QueueSize)
-	}
-}
-
-func TestTaskSchedulerHealth(t *testing.T) {
-	mockRepo := &MockFeedRepository{}
-	mockProcessor := &MockProcessor{}
-
-	configs := createTestConfigs()
-	configCache := config_sync.NewConfigCacheHandler("Test", configs)
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 2)
-
-	health := scheduler.Health()
-
-	if health["status"] != "healthy" {
-		t.Errorf("Expected status 'healthy', got %v", health["status"])
-	}
-
-	if health["workers"] != 2 {
-		t.Errorf("Expected workers 2, got %v", health["workers"])
-	}
-
-	if health["queue_size"] != 0 {
-		t.Errorf("Expected queue size 0, got %v", health["queue_size"])
-	}
-
-	if health["total_processed"] != int64(0) {
-		t.Errorf("Expected total processed 0, got %v", health["total_processed"])
-	}
-
-	if health["total_errors"] != int64(0) {
-		t.Errorf("Expected total errors 0, got %v", health["total_errors"])
-	}
-
-	// Note: We cannot test error rate scenarios with the interface since
-	// we don't have access to modify internal statistics directly.
-	// This is actually a good thing for encapsulation.
-}
-
-func TestTaskSchedulerHealthWithHighErrorRate(t *testing.T) {
-	mockRepo := &MockFeedRepository{}
-	mockProcessor := &MockProcessor{}
-
-	configs := createTestConfigs()
-	configCache := config_sync.NewConfigCacheHandler("Test", configs)
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 2)
-
-	// Cannot test high error rate scenarios with interface
-	// as we don't have access to modify internal statistics.
-	// This is actually better encapsulation.
-	
-	health := scheduler.Health()
-
-	// Just test that Health() returns expected fields
-	if health["status"] == nil {
-		t.Error("Expected health status to be set")
-	}
-	
-	// error_rate is only set when TotalProcessed > 0
-	// Since we start with no processed tasks, it won't be set
-	if health["total_processed"] == nil {
-		t.Error("Expected total_processed to be set")
-	}
-}
+// TestTaskSchedulerHealthWithHighErrorRate - removed since Health() method no longer exists
+// High error rate monitoring was identified as dead code and removed
 
 
 func TestTaskSchedulerExecuteTask(t *testing.T) {
@@ -318,10 +228,8 @@ func TestEnqueueTask(t *testing.T) {
 		t.Errorf("Expected no error, got %v", err)
 	}
 
-	stats := scheduler.GetStats()
-	if stats.QueueSize != 1 {
-		t.Errorf("Expected queue size 1, got %d", stats.QueueSize)
-	}
+	// Task should be enqueued successfully without errors
+	// Statistics tracking was removed as dead code
 }
 
 func TestRefilterFeedTask(t *testing.T) {
@@ -391,30 +299,5 @@ func TestProcessFeedTask(t *testing.T) {
 	}
 }
 
-func TestTaskStats(t *testing.T) {
-	mockRepo := &MockFeedRepository{}
-	mockProcessor := &MockProcessor{}
-
-	configs := createTestConfigs()
-	configCache := config_sync.NewConfigCacheHandler("Test", configs)
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 1)
-
-	// Execute different types of tasks via EnqueueTask
-	processTask := NewProcessFeedTask("feed-1", createTestConfigs()["test.yml"], mockProcessor)
-	refilterTask := NewRefilterFeedTask("feed-2", createTestConfigs()["test.yml"], mockProcessor)
-
-	scheduler.EnqueueTask(processTask)
-	scheduler.EnqueueTask(refilterTask)
-
-	stats := scheduler.GetStats()
-
-	// Since we can't directly execute tasks with the interface,
-	// we just verify the basic stats structure is working
-	if stats.TaskCounts == nil {
-		t.Error("Expected task counts to be initialized")
-	}
-
-	if stats.TotalProcessed < 0 {
-		t.Error("Expected total processed to be non-negative")
-	}
-}
+// TestTaskStats - removed since statistics tracking was identified as dead code
+// All stats-related functionality has been eliminated from TaskScheduler

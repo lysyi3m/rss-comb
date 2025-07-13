@@ -21,38 +21,6 @@ func NewFeedRepository(db *DB) *FeedRepository {
 	return &FeedRepository{db: db}
 }
 
-// UpsertFeed inserts or updates a feed configuration
-func (r *FeedRepository) UpsertFeed(configFile, feedID, feedURL, feedTitle string) (string, error) {
-	// First try to get existing feed by feed_id
-	existingFeed, err := r.GetFeedByID(feedID)
-	if err != nil {
-		return "", fmt.Errorf("failed to check existing feed: %w", err)
-	}
-
-	var dbID string
-	if existingFeed != nil {
-		// Update existing feed
-		err = r.db.QueryRow(`
-			UPDATE feeds 
-			SET config_file = $2, feed_url = $3, title = $4, updated_at = NOW()
-			WHERE feed_id = $1
-			RETURNING id
-		`, feedID, configFile, feedURL, feedTitle).Scan(&dbID)
-	} else {
-		// Insert new feed
-		err = r.db.QueryRow(`
-			INSERT INTO feeds (config_file, feed_id, feed_url, title)
-			VALUES ($1, $2, $3, $4)
-			RETURNING id
-		`, configFile, feedID, feedURL, feedTitle).Scan(&dbID)
-	}
-
-	if err != nil {
-		return "", fmt.Errorf("failed to upsert feed: %w", err)
-	}
-
-	return dbID, nil
-}
 
 // UpsertFeedWithChangeDetection inserts or updates a feed configuration with change detection
 func (r *FeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedTitle string) (string, bool, error) {
@@ -160,53 +128,7 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 	return feeds, nil
 }
 
-// GetFeedByConfigFile retrieves a feed by its configuration file path
-func (r *FeedRepository) GetFeedByConfigFile(configFile string) (*Feed, error) {
-	var feed Feed
-	err := r.db.QueryRow(`
-		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
-		FROM feeds
-		WHERE config_file = $1
-	`, configFile).Scan(
-		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
-		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
-		&feed.CreatedAt, &feed.UpdatedAt,
-	)
 
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get feed by config file: %w", err)
-	}
-
-	return &feed, nil
-}
-
-// GetFeedByURL retrieves a feed by its URL
-func (r *FeedRepository) GetFeedByURL(feedURL string) (*Feed, error) {
-	var feed Feed
-	err := r.db.QueryRow(`
-		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, enabled, created_at, updated_at
-		FROM feeds
-		WHERE feed_url = $1
-	`, feedURL).Scan(
-		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
-		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.Enabled,
-		&feed.CreatedAt, &feed.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get feed by URL: %w", err)
-	}
-
-	return &feed, nil
-}
 
 // GetFeedByID retrieves a feed by its configuration feed ID
 func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {

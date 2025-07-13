@@ -32,33 +32,3 @@ func Initialize(debug bool) {
 	slog.SetDefault(Logger)
 }
 
-// Feed-specific logging helpers for common patterns
-func FeedProcessed(title string, newItems, duplicates, filtered int, duration string) {
-	Logger.Info("Feed processed",
-		"feed", title,
-		"new", newItems,
-		"duplicates", duplicates,
-		"filtered", filtered,
-		"duration", duration)
-}
-
-func FeedError(title, operation string, err error) {
-	Logger.Error("Feed operation failed",
-		"feed", title,
-		"operation", operation,
-		"error", err)
-}
-
-func TaskCompleted(taskType, feedID string, duration string) {
-	Logger.Debug("Task completed",
-		"type", taskType,
-		"feed_id", feedID,
-		"duration", duration)
-}
-
-func ConfigChange(action, file, feedID string) {
-	Logger.Info("Configuration changed",
-		"action", action,
-		"file", file,
-		"feed_id", feedID)
-}

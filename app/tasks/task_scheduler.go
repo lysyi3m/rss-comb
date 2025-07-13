@@ -25,19 +25,8 @@ type TaskScheduler struct {
 	cancel       context.CancelFunc
 	wg           sync.WaitGroup
 	taskQueue    chan Task
-	stats        *TaskStats
-	mu           sync.RWMutex
 }
 
-// TaskStats holds scheduler statistics
-type TaskStats struct {
-	TotalProcessed     int64
-	TotalErrors        int64
-	CurrentWorkers     int
-	QueueSize          int
-	LastProcessedAt    *time.Time
-	TaskCounts         map[TaskType]int64
-}
 
 // NewTaskScheduler creates a new generic task scheduler
 func NewTaskScheduler(processor ProcessorInterface, feedRepo database.FeedScheduler,
@@ -53,10 +42,6 @@ func NewTaskScheduler(processor ProcessorInterface, feedRepo database.FeedSchedu
 		ctx:         ctx,
 		cancel:      cancel,
 		taskQueue:   make(chan Task, 100), // Buffer of 100 tasks
-		stats: &TaskStats{
-			CurrentWorkers: workerCount,
-			TaskCounts:     make(map[TaskType]int64),
-		},
 	}
 }
 
@@ -96,9 +81,6 @@ func (s *TaskScheduler) EnqueueTask(task Task) error {
 	select {
 	case s.taskQueue <- task:
 		slog.Debug("Task enqueued", "description", task.GetDescription(), "type", task.GetType())
-		s.mu.Lock()
-		s.stats.QueueSize = len(s.taskQueue)
-		s.mu.Unlock()
 		return nil
 	case <-s.ctx.Done():
 		return s.ctx.Err()
@@ -133,9 +115,6 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 	feeds, err := s.feedRepo.GetFeedsDueForRefresh()
 	if err != nil {
 		slog.Error("Failed to get feeds for refresh", "error", err)
-		s.mu.Lock()
-		s.stats.TotalErrors++
-		s.mu.Unlock()
 		return
 	}
 
@@ -182,10 +161,6 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 		}
 	}
 
-	// Update queue size stat
-	s.mu.Lock()
-	s.stats.QueueSize = len(s.taskQueue)
-	s.mu.Unlock()
 }
 
 // worker processes tasks from the task queue
@@ -222,18 +197,7 @@ func (s *TaskScheduler) executeTask(workerID int, task Task) {
 	err := task.Execute(taskCtx)
 	duration := time.Since(start)
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Update statistics
-	s.stats.TotalProcessed++
-	s.stats.TaskCounts[task.GetType()]++
-	now := time.Now()
-	s.stats.LastProcessedAt = &now
-	s.stats.QueueSize = len(s.taskQueue)
-
 	if err != nil {
-		s.stats.TotalErrors++
 		slog.Error("Worker task execution failed", "worker_id", workerID, "task", task.GetDescription(), "error", err)
 	} else {
 		slog.Debug("Worker task completed", "worker_id", workerID, "task", task.GetDescription(), "duration", duration.String())
@@ -241,54 +205,6 @@ func (s *TaskScheduler) executeTask(workerID int, task Task) {
 }
 
 
-// GetStats returns current scheduler statistics
-func (s *TaskScheduler) GetStats() TaskStats {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	statsCopy := *s.stats
-	statsCopy.QueueSize = len(s.taskQueue)
-	
-	// Copy the task counts map
-	statsCopy.TaskCounts = make(map[TaskType]int64)
-	for k, v := range s.stats.TaskCounts {
-		statsCopy.TaskCounts[k] = v
-	}
-	
-	return statsCopy
-}
-
-// Health returns the health status of the scheduler
-func (s *TaskScheduler) Health() map[string]interface{} {
-	stats := s.GetStats()
-	
-	health := map[string]interface{}{
-		"status":              "healthy",
-		"workers":             stats.CurrentWorkers,
-		"queue_size":          stats.QueueSize,
-		"total_processed":     stats.TotalProcessed,
-		"total_errors":        stats.TotalErrors,
-		"task_counts":         stats.TaskCounts,
-	}
-
-	if stats.LastProcessedAt != nil {
-		health["last_processed_at"] = stats.LastProcessedAt.Format(time.RFC3339)
-		health["last_processed_ago"] = time.Since(*stats.LastProcessedAt).String()
-	}
-
-	// Determine health status based on error rate
-	if stats.TotalProcessed > 0 {
-		errorRate := float64(stats.TotalErrors) / float64(stats.TotalProcessed)
-		if errorRate > 0.5 {
-			health["status"] = "unhealthy"
-		} else if errorRate > 0.1 {
-			health["status"] = "degraded"
-		}
-		health["error_rate"] = errorRate
-	}
-
-	return health
-}
 
 
 

@@ -29,6 +29,4 @@ type TaskSchedulerInterface interface {
 	Start()
 	Stop()
 	EnqueueTask(task Task) error
-	GetStats() TaskStats
-	Health() map[string]interface{}
 }

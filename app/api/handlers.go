@@ -123,7 +123,7 @@ func (h *Handler) APIListFeeds(c *gin.Context) {
 		}
 
 		// Get feed from database if available
-		if feed, err := h.feedRepo.GetFeedByURL(config.Feed.URL); err == nil && feed != nil {
+		if feed, err := h.feedRepo.GetFeedByID(config.Feed.ID); err == nil && feed != nil {
 			feedInfo["last_fetched"] = feed.LastFetched
 			feedInfo["last_success"] = feed.LastSuccess
 			feedInfo["next_fetch"] = feed.NextFetch
