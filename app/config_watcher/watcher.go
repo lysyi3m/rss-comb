@@ -245,24 +245,29 @@ func (cw *ConfigWatcher) logConfigChange(filePath string, oldConfig, newConfig *
 		return
 	}
 
-	// Check what changed
+	// Log summary of changes
+	var changes []string
 	if oldConfig.Feed.URL != newConfig.Feed.URL {
-		slog.Info("Updated feed URL", "file", relPath, "old_url", oldConfig.Feed.URL, "new_url", newConfig.Feed.URL)
+		changes = append(changes, "URL")
 	}
 	if oldConfig.Settings.Enabled != newConfig.Settings.Enabled {
-		status := "disabled"
 		if newConfig.Settings.Enabled {
-			status = "enabled"
+			changes = append(changes, "enabled")
+		} else {
+			changes = append(changes, "disabled")
 		}
-		slog.Info("Updated feed status", "file", relPath, "status", status)
 	}
 	if len(oldConfig.Filters) != len(newConfig.Filters) {
-		slog.Info("Updated filters", "file", relPath, "old_count", len(oldConfig.Filters), "new_count", len(newConfig.Filters))
+		changes = append(changes, "filters")
 	}
 	if oldConfig.Settings.RefreshInterval != newConfig.Settings.RefreshInterval {
-		slog.Info("Updated refresh interval", "file", relPath, "old_interval", oldConfig.Settings.RefreshInterval, "new_interval", newConfig.Settings.RefreshInterval)
+		changes = append(changes, "refresh interval")
 	}
 	if oldConfig.Settings.MaxItems != newConfig.Settings.MaxItems {
-		slog.Info("Updated max items", "file", relPath, "old_max", oldConfig.Settings.MaxItems, "new_max", newConfig.Settings.MaxItems)
+		changes = append(changes, "max items")
+	}
+	
+	if len(changes) > 0 {
+		slog.Info("Configuration updated", "file", relPath, "changes", strings.Join(changes, ", "))
 	}
 }
