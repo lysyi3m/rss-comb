@@ -41,7 +41,7 @@ func ValidateConfig(config *FeedConfig) error {
 		"title":       true,
 		"description": true,
 		"content":     true,
-		"author":      true,
+		"authors":     true,
 		"link":        true,
 		"categories":  true,
 	}

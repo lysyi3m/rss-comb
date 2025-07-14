@@ -118,7 +118,7 @@ func TestValidateConfigFilterFields(t *testing.T) {
 	}
 
 	// Test all valid filter fields
-	validFields := []string{"title", "description", "content", "author", "link", "categories"}
+	validFields := []string{"title", "description", "content", "authors", "link", "categories"}
 	for _, field := range validFields {
 		config.Filters = []Filter{
 			{
