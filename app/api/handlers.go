@@ -245,7 +245,6 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 		"task": gin.H{
 			"id":          task.GetID(),
 			"type":        task.GetType(),
-			"priority":    task.GetPriority(),
 			"description": task.GetDescription(),
 			"created_at":  task.GetCreatedAt().Format(time.RFC3339),
 		},

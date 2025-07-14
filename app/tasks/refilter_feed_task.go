@@ -21,7 +21,7 @@ func NewRefilterFeedTask(feedID string, feedConfig *config.FeedConfig, processor
 	description := fmt.Sprintf("Refilter feed %s (%s)", feedID, feedConfig.Feed.Title)
 	
 	return &RefilterFeedTask{
-		BaseTask:   NewBaseTask(feedID, TaskTypeRefilterFeed, PriorityHigh, description),
+		BaseTask:   NewBaseTask(feedID, TaskTypeRefilterFeed, description),
 		FeedID:     feedID,
 		FeedConfig: feedConfig,
 		processor:  processor,

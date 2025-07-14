@@ -19,7 +19,7 @@ func NewProcessFeedTask(feedID string, feedConfig *config.FeedConfig, processor 
 	description := fmt.Sprintf("Process feed %s (%s)", feedID, feedConfig.Feed.Title)
 	
 	return &ProcessFeedTask{
-		BaseTask:   NewBaseTask(feedID, TaskTypeProcessFeed, PriorityNormal, description),
+		BaseTask:   NewBaseTask(feedID, TaskTypeProcessFeed, description),
 		FeedID:     feedID,
 		FeedConfig: feedConfig,
 		processor:  processor,

@@ -109,7 +109,7 @@ rss-comb/
    - Embedded migrations with automatic execution on startup
 
 5. **Task Scheduling System** (`app/tasks/`)
-   - Generic task queue with priority support
+   - Generic FIFO task queue for simple processing order
    - Worker pool for concurrent task execution
    - Configuration management and resolution for processing tasks
    - Database-driven scheduling with next_fetch timestamps
@@ -433,6 +433,6 @@ go test -v ./app/database
 - Requires X-API-Key header or Authorization: Bearer token
 
 #### `POST /api/feeds/<id>/refilter`
-- Enqueues a high-priority task to re-apply filters to all items for a specific feed by ID
+- Enqueues a task to re-apply filters to all items for a specific feed by ID
 - Returns immediately with task information (non-blocking)
 - Requires X-API-Key header or Authorization: Bearer token

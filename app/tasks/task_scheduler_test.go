@@ -238,10 +238,6 @@ func TestRefilterFeedTask(t *testing.T) {
 		t.Errorf("Expected task type %s, got %s", TaskTypeRefilterFeed, task.GetType())
 	}
 
-	if task.GetPriority() != PriorityHigh {
-		t.Errorf("Expected priority %d, got %d", PriorityHigh, task.GetPriority())
-	}
-
 	if task.GetFeedID() != "test-id" {
 		t.Errorf("Expected feed ID 'test-id', got '%s'", task.GetFeedID())
 	}
@@ -265,10 +261,6 @@ func TestProcessFeedTask(t *testing.T) {
 
 	if task.GetType() != TaskTypeProcessFeed {
 		t.Errorf("Expected task type %s, got %s", TaskTypeProcessFeed, task.GetType())
-	}
-
-	if task.GetPriority() != PriorityNormal {
-		t.Errorf("Expected priority %d, got %d", PriorityNormal, task.GetPriority())
 	}
 
 	if task.GetFeedID() != "test-id" {
