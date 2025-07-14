@@ -141,6 +141,11 @@ filters:
   - field: "description"
     excludes:
       - "clickbait"
+  - field: "authors"
+    includes:
+      - "john doe"
+    excludes:
+      - "spammer"
 ```
 
 **Key Configuration Notes:**
@@ -149,7 +154,7 @@ filters:
 - Refresh intervals should be at least 30 minutes to respect source servers
 - `max_items` limits RSS output only - all feed items are stored in database
 - Deduplication is automatic and always enabled
-- Filters support `title`, `description`, `content`, `author`, `link`, and `categories` fields
+- Filters support `title`, `description`, `content`, `authors`, `link`, and `categories` fields
 
 ## API Endpoints
 

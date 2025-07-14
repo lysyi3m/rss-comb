@@ -148,7 +148,7 @@ rss-comb/
 
 ### Database Schema Details
 - **feeds table**: id, feed_url, title, link, image_url, language, enabled, last_fetched, last_success, next_fetch
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, author_name, author_email, categories, is_filtered, filter_reason, content_hash, created_at
+- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, filter_reason, content_hash, created_at
 - **Key relationships**: feeds.id → feed_items.feed_id (UUID primary keys)
 - **Indexes**: feed_id, published_at, content_hash for optimized queries
 - **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
@@ -261,6 +261,9 @@ filters:
   - field: "title"
     includes: ["keyword"]
     excludes: ["spam"]
+  - field: "authors"
+    includes: ["john doe"]
+    excludes: ["spammer"]
 ```
 
 **Important Notes:**
@@ -269,6 +272,7 @@ filters:
 - IDs should be URL-safe (alphanumeric, hyphens, underscores)
 - Feed URLs can be updated in configuration files at any time - the system automatically detects and applies URL changes
 - Feeds with query parameters are fully supported since routing is based on feed IDs, not URLs
+- Authors field contains formatted strings like "email (name)" or "name" when email is not available
 
 ### Environment Variables
 All configuration options support both environment variables and command-line flags:
