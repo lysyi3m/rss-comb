@@ -37,6 +37,18 @@ func (r *ItemRepository) CheckDuplicate(contentHash, feedID string) (bool, *stri
 }
 
 func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
+	// Ensure authors is never nil to prevent NULL constraint violations
+	authors := item.Authors
+	if authors == nil {
+		authors = []string{}
+	}
+	
+	// Ensure categories is never nil to prevent potential issues
+	categories := item.Categories
+	if categories == nil {
+		categories = []string{}
+	}
+	
 	_, err := r.db.Exec(`
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,
@@ -48,12 +60,14 @@ func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
 			description = EXCLUDED.description,
 			content = EXCLUDED.content,
 			updated_at = EXCLUDED.updated_at,
+			authors = EXCLUDED.authors,
+			categories = EXCLUDED.categories,
 			is_filtered = EXCLUDED.is_filtered,
 			filter_reason = EXCLUDED.filter_reason,
 			content_hash = EXCLUDED.content_hash
 	`, feedID, item.GUID, item.Link, item.Title, item.Description, item.Content,
-		item.PublishedAt, item.UpdatedAt, pq.Array(item.Authors),
-		pq.Array(item.Categories), item.IsFiltered, item.FilterReason,
+		item.PublishedAt, item.UpdatedAt, pq.Array(authors),
+		pq.Array(categories), item.IsFiltered, item.FilterReason,
 		item.ContentHash)
 
 	if err != nil {
