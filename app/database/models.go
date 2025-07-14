@@ -15,12 +15,11 @@ type Feed struct {
 	ImageURL        string
 	Language        string
 	LastFetchedAt   *time.Time
-	LastSuccess     *time.Time
 	NextFetchAt     *time.Time
 	FeedPublishedAt *time.Time // Feed's own pubDate/published from RSS/Atom
 	IsEnabled       bool
 	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	UpdatedAt       time.Time // Tracks last successful processing (replaces last_success)
 }
 
 // Item represents a feed item record in the database

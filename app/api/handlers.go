@@ -81,9 +81,8 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	c.Header("X-Feed-Items", strconv.Itoa(len(items)))
 	c.Header("X-Feed-ID", feedID)
 
-	if feed.LastSuccess != nil {
-		c.Header("X-Last-Updated", feed.LastSuccess.Format(time.RFC3339))
-	}
+	// Use UpdatedAt as it tracks last successful processing
+	c.Header("X-Last-Updated", feed.UpdatedAt.Format(time.RFC3339))
 
 	slog.Debug("Served feed", "feed_id", feedID, "item_count", len(items))
 	c.String(http.StatusOK, rss)
@@ -124,8 +123,8 @@ func (h *Handler) APIListFeeds(c *gin.Context) {
 		// Get feed from database if available
 		if feed, err := h.feedRepo.GetFeedByID(config.Feed.ID); err == nil && feed != nil {
 			feedInfo["last_fetched"] = feed.LastFetchedAt
-			feedInfo["last_success"] = feed.LastSuccess
 			feedInfo["next_fetch"] = feed.NextFetchAt
+			feedInfo["updated_at"] = feed.UpdatedAt
 
 			// Get item count
 			if itemCount, err := h.itemRepo.GetItemCount(feed.ID); err == nil {
@@ -176,7 +175,6 @@ func (h *Handler) APIGetFeedDetailsByID(c *gin.Context) {
 			"id":           feed.ID,
 			"feed_id":      feed.FeedID,
 			"last_fetched": feed.LastFetchedAt,
-			"last_success": feed.LastSuccess,
 			"next_fetch":   feed.NextFetchAt,
 			"enabled":      feed.IsEnabled,
 			"created_at":   feed.CreatedAt,
