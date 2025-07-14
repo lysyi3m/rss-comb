@@ -12,8 +12,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
-
-func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface, 
+func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface,
 	userAgent string, port string) *Processor {
 	return &Processor{
 		parser:      NewParser(),
@@ -35,7 +34,6 @@ func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface,
 }
 
 func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) error {
-
 	if !feedConfig.Settings.Enabled {
 		slog.Debug("Feed disabled, skipping", "title", feedConfig.Feed.Title)
 		return nil
@@ -59,23 +57,23 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 	if err != nil {
 		return fmt.Errorf("failed to get current feed: %w", err)
 	}
-	
+
 	// Check if feed content has changed by comparing published timestamps
 	if currentFeed != nil && currentFeed.FeedPublishedAt != nil && metadata.Published != nil {
 		// If timestamps match exactly, feed content hasn't changed - skip entire processing
 		if currentFeed.FeedPublishedAt.Equal(*metadata.Published) {
 			slog.Debug("Feed published timestamp unchanged, skipping entire feed processing", "title", feedConfig.Feed.Title)
-			
+
 			// Still update next fetch time for scheduling
 			nextFetch := time.Now().UTC().Add(feedConfig.Settings.GetRefreshInterval())
 			if err := p.feedRepo.UpdateNextFetch(feedID, nextFetch); err != nil {
 				return fmt.Errorf("failed to update next fetch time: %w", err)
 			}
-			
+
 			slog.Info("Feed skipped - no changes detected",
 				"title", feedConfig.Feed.Title,
 				"total", len(items))
-			
+
 			return nil
 		}
 	}
@@ -83,10 +81,9 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 	if err := p.feedRepo.UpdateFeedMetadata(feedID, metadata.Link, metadata.ImageURL, metadata.Language, metadata.Published); err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
-	
+
 	processedCount, skippedCount, filteredCount := 0, 0, 0
 	for i, item := range items {
-
 		// Check for duplicates (feed content has changed, so we process normally)
 		isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID)
 		if err != nil {
@@ -226,7 +223,6 @@ func (p *Processor) getFieldValue(item Item, field string) string {
 	}
 }
 
-
 func (p *Processor) IsFeedEnabled(feedConfig *config.FeedConfig) bool {
 	if feedConfig == nil {
 		return false // Fail-safe: missing configuration disables processing
@@ -234,11 +230,7 @@ func (p *Processor) IsFeedEnabled(feedConfig *config.FeedConfig) bool {
 	return feedConfig.Settings.Enabled
 }
 
-
-
-
 func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig) (int, int, error) {
-
 	slog.Debug("Re-applying filters", "title", feedConfig.Feed.Title)
 
 	items, err := p.itemRepo.GetAllItems(feedID)
@@ -269,7 +261,7 @@ func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig)
 		}
 
 		shouldFilter, reason := p.applyFilters(normalizedItem, feedConfig.Filters)
-		
+
 		// Only update database when filter results actually change
 		if shouldFilter != item.IsFiltered || reason != item.FilterReason {
 			err := p.itemRepo.UpdateItemFilterStatus(item.ID, shouldFilter, reason)
@@ -279,7 +271,7 @@ func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig)
 				continue
 			}
 			updatedCount++
-			
+
 			if shouldFilter && !item.IsFiltered {
 				slog.Debug("Item newly filtered", "title", item.Title, "reason", reason)
 			} else if !shouldFilter && item.IsFiltered {

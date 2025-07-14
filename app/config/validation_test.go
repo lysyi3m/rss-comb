@@ -103,7 +103,6 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
-
 func TestValidateConfigFilterFields(t *testing.T) {
 	config := &FeedConfig{
 		Feed: FeedInfo{

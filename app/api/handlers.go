@@ -13,7 +13,6 @@ import (
 	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
-
 // NewHandler creates a new API handler
 func NewHandler(fr database.FeedReader, ir database.ItemReader,
 	configCache *config_sync.ConfigCacheHandler, processor tasks.ProcessorInterface,
@@ -258,6 +257,3 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
-
-
-

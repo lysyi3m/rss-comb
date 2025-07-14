@@ -21,7 +21,6 @@ func NewFeedRepository(db *DB) *FeedRepository {
 	return &FeedRepository{db: db}
 }
 
-
 // UpsertFeedWithChangeDetection inserts or updates a feed configuration with change detection
 func (r *FeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedTitle string) (string, bool, error) {
 	// First try to get existing feed by feed_id
@@ -76,7 +75,6 @@ func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL
 	return nil
 }
 
-
 // UpdateNextFetch updates the next fetch time for a feed
 func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) error {
 	_, err := r.db.Exec(`
@@ -128,8 +126,6 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 
 	return feeds, nil
 }
-
-
 
 // GetFeedByID retrieves a feed by its configuration feed ID
 func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {

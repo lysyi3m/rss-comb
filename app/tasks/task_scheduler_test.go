@@ -102,7 +102,6 @@ func (m *MockProcessor) ReapplyFilters(feedID string, feedConfig *config.FeedCon
 	return 0, 0, nil
 }
 
-
 // Helper function to create test configs
 func createTestConfigs() map[string]*config.FeedConfig {
 	return map[string]*config.FeedConfig{
@@ -118,7 +117,6 @@ func createTestConfigs() map[string]*config.FeedConfig {
 		},
 	}
 }
-
 
 type testError struct {
 	msg string
@@ -152,7 +150,6 @@ func TestNewTaskScheduler(t *testing.T) {
 
 // TestTaskSchedulerHealthWithHighErrorRate - removed since Health() method no longer exists
 // High error rate monitoring was identified as dead code and removed
-
 
 func TestTaskSchedulerExecuteTask(t *testing.T) {
 	mockRepo := &MockFeedRepository{}

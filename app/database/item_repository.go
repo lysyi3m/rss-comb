@@ -131,7 +131,6 @@ func (r *ItemRepository) GetItemStats(feedID string) (total, visible, filtered i
 	return total, visible, filtered, nil
 }
 
-
 func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 

@@ -27,7 +27,6 @@ type TaskScheduler struct {
 	taskQueue    chan Task
 }
 
-
 // NewTaskScheduler creates a new generic task scheduler
 func NewTaskScheduler(processor ProcessorInterface, feedRepo database.FeedScheduler,
 	configCache *config_sync.ConfigCacheHandler, interval time.Duration, workerCount int) TaskSchedulerInterface {
@@ -203,8 +202,3 @@ func (s *TaskScheduler) executeTask(workerID int, task Task) {
 		slog.Debug("Worker task completed", "worker_id", workerID, "task", task.GetDescription(), "duration", duration.String())
 	}
 }
-
-
-
-
-

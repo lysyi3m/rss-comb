@@ -251,6 +251,5 @@ func TestNewProcessor(t *testing.T) {
 	}
 }
 
-
 // TestGetStats - removed since GetStats() method was identified as dead code
 // The method only returned HTTP client timeout which is not meaningful runtime statistics

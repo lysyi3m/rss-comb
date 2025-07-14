@@ -67,7 +67,6 @@ func (cw *ConfigWatcher) AddUpdateHandler(handler ConfigUpdateHandler) {
 	cw.updateHandlers = append(cw.updateHandlers, handler)
 }
 
-
 // Start begins watching for file system changes
 func (cw *ConfigWatcher) Start(ctx context.Context) error {
 	slog.Info("Starting configuration watcher", "directory", cw.feedsDir)
