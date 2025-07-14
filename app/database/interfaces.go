@@ -36,8 +36,7 @@ type FeedReader interface {
 // This interface provides full write access to feed metadata and configuration.
 type FeedWriter interface {
 	UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedTitle string) (string, bool, error)
-	UpdateFeedMetadata(feedID string, link string, imageURL string, language string) error
-	UpdateFeedTimestamp(feedID string, feedPublishedAt *time.Time) error
+	UpdateFeedMetadata(feedID string, link string, imageURL string, language string, feedPublishedAt *time.Time) error
 	SetFeedEnabled(feedID string, enabled bool) error
 }
 

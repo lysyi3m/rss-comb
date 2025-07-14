@@ -61,13 +61,13 @@ func (r *FeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedU
 	return dbID, urlChanged, nil
 }
 
-// UpdateFeedMetadata updates feed metadata after successful parsing
-func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL string, language string) error {
+// UpdateFeedMetadata updates feed metadata including published timestamp after successful parsing
+func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL string, language string, feedPublishedAt *time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
-		SET link = $2, image_url = $3, language = $4, last_success = NOW(), updated_at = NOW()
+		SET link = $2, image_url = $3, language = $4, feed_published_at = $5, last_success = NOW(), updated_at = NOW()
 		WHERE id = $1
-	`, feedID, link, imageURL, language)
+	`, feedID, link, imageURL, language, feedPublishedAt)
 
 	if err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)
@@ -76,20 +76,6 @@ func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL
 	return nil
 }
 
-// UpdateFeedTimestamp updates the feed's own published timestamp from RSS/Atom
-func (r *FeedRepository) UpdateFeedTimestamp(feedID string, feedPublishedAt *time.Time) error {
-	_, err := r.db.Exec(`
-		UPDATE feeds
-		SET feed_published_at = $2, updated_at = NOW()
-		WHERE id = $1
-	`, feedID, feedPublishedAt)
-
-	if err != nil {
-		return fmt.Errorf("failed to update feed timestamp: %w", err)
-	}
-
-	return nil
-}
 
 // UpdateNextFetch updates the next fetch time for a feed
 func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) error {

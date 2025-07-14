@@ -81,13 +81,8 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 		}
 	}
 
-	if err := p.feedRepo.UpdateFeedMetadata(feedID, metadata.Link, metadata.ImageURL, metadata.Language); err != nil {
+	if err := p.feedRepo.UpdateFeedMetadata(feedID, metadata.Link, metadata.ImageURL, metadata.Language, metadata.Published); err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)
-	}
-	
-	// Update feed's own published timestamp
-	if err := p.feedRepo.UpdateFeedTimestamp(feedID, metadata.Published); err != nil {
-		return fmt.Errorf("failed to update feed timestamp: %w", err)
 	}
 	
 	processedCount, skippedCount, filteredCount := 0, 0, 0
