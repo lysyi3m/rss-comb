@@ -43,7 +43,7 @@ func (m *MockFeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, f
 			ConfigFile: configFile,
 			FeedURL:    feedURL,
 			Title:      feedTitle,
-			Enabled:    true,
+			IsEnabled:  true,
 		}
 	}
 	

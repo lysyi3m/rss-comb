@@ -6,21 +6,21 @@ import (
 
 // Feed represents a feed record in the database
 type Feed struct {
-	ID          string     // Database UUID
-	FeedID      string     // Configuration feed ID
-	ConfigFile  string
-	FeedURL     string     // RSS/Atom feed URL from configuration
-	Link        string     // Homepage URL from feed's <link> element (RSS 2.0 spec)
-	Title       string
-	ImageURL    string
-	Language    string
-	LastFetched *time.Time
-	LastSuccess *time.Time
-	NextFetch   *time.Time
+	ID              string     // Database UUID
+	FeedID          string     // Configuration feed ID
+	ConfigFile      string
+	FeedURL         string     // RSS/Atom feed URL from configuration
+	Link            string     // Homepage URL from feed's <link> element (RSS 2.0 spec)
+	Title           string
+	ImageURL        string
+	Language        string
+	LastFetchedAt   *time.Time
+	LastSuccess     *time.Time
+	NextFetchAt     *time.Time
 	FeedPublishedAt *time.Time // Feed's own pubDate/published from RSS/Atom
-	Enabled     bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	IsEnabled       bool
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // Item represents a feed item record in the database

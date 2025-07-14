@@ -123,9 +123,9 @@ func (h *Handler) APIListFeeds(c *gin.Context) {
 
 		// Get feed from database if available
 		if feed, err := h.feedRepo.GetFeedByID(config.Feed.ID); err == nil && feed != nil {
-			feedInfo["last_fetched"] = feed.LastFetched
+			feedInfo["last_fetched"] = feed.LastFetchedAt
 			feedInfo["last_success"] = feed.LastSuccess
-			feedInfo["next_fetch"] = feed.NextFetch
+			feedInfo["next_fetch"] = feed.NextFetchAt
 
 			// Get item count
 			if itemCount, err := h.itemRepo.GetItemCount(feed.ID); err == nil {
@@ -175,10 +175,10 @@ func (h *Handler) APIGetFeedDetailsByID(c *gin.Context) {
 		details["database"] = map[string]interface{}{
 			"id":           feed.ID,
 			"feed_id":      feed.FeedID,
-			"last_fetched": feed.LastFetched,
+			"last_fetched": feed.LastFetchedAt,
 			"last_success": feed.LastSuccess,
-			"next_fetch":   feed.NextFetch,
-			"enabled":      feed.Enabled,
+			"next_fetch":   feed.NextFetchAt,
+			"enabled":      feed.IsEnabled,
 			"created_at":   feed.CreatedAt,
 			"updated_at":   feed.UpdatedAt,
 		}

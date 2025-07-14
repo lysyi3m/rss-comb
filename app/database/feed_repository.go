@@ -79,7 +79,7 @@ func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL
 func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
-		SET next_fetch = $2, last_fetched = NOW(), updated_at = NOW()
+		SET next_fetch_at = $2, last_fetched_at = NOW(), updated_at = NOW()
 		WHERE id = $1
 	`, feedID, nextFetch)
 
@@ -94,11 +94,11 @@ func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) err
 func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, feed_published_at, enabled, created_at, updated_at
+		       last_fetched_at, last_success, next_fetch_at, feed_published_at, is_enabled, created_at, updated_at
 		FROM feeds
-		WHERE enabled = true
-		  AND (next_fetch IS NULL OR next_fetch <= NOW())
-		ORDER BY COALESCE(next_fetch, '1970-01-01'::timestamp)
+		WHERE is_enabled = true
+		  AND (next_fetch_at IS NULL OR next_fetch_at <= NOW())
+		ORDER BY COALESCE(next_fetch_at, '1970-01-01'::timestamp)
 		LIMIT 50
 	`)
 	if err != nil {
@@ -111,7 +111,7 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 		var feed Feed
 		err := rows.Scan(
 			&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
-			&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.FeedPublishedAt, &feed.Enabled,
+			&feed.LastFetchedAt, &feed.LastSuccess, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.IsEnabled,
 			&feed.CreatedAt, &feed.UpdatedAt,
 		)
 		if err != nil {
@@ -132,12 +132,12 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
 		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
-		       last_fetched, last_success, next_fetch, feed_published_at, enabled, created_at, updated_at
+		       last_fetched_at, last_success, next_fetch_at, feed_published_at, is_enabled, created_at, updated_at
 		FROM feeds
 		WHERE feed_id = $1
 	`, feedID).Scan(
 		&feed.ID, &feed.FeedID, &feed.ConfigFile, &feed.FeedURL, &feed.Link, &feed.Title, &feed.ImageURL, &feed.Language,
-		&feed.LastFetched, &feed.LastSuccess, &feed.NextFetch, &feed.FeedPublishedAt, &feed.Enabled,
+		&feed.LastFetchedAt, &feed.LastSuccess, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.IsEnabled,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
 
@@ -155,7 +155,7 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 func (r *FeedRepository) SetFeedEnabled(feedID string, enabled bool) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
-		SET enabled = $2, updated_at = NOW()
+		SET is_enabled = $2, updated_at = NOW()
 		WHERE id = $1
 	`, feedID, enabled)
 
@@ -179,7 +179,7 @@ func (r *FeedRepository) GetFeedCount() (int, error) {
 // GetEnabledFeedCount returns the count of enabled feeds
 func (r *FeedRepository) GetEnabledFeedCount() (int, error) {
 	var count int
-	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds WHERE enabled = true").Scan(&count)
+	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds WHERE is_enabled = true").Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get enabled feed count: %w", err)
 	}
