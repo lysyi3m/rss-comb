@@ -103,8 +103,8 @@ func (g *Generator) writeItem(buf *bytes.Buffer, item database.Item) {
 	}
 
 	// Published date
-	if item.PublishedDate != nil {
-		g.writeElement(buf, "pubDate", item.PublishedDate.Format(time.RFC1123Z), 6)
+	if item.PublishedAt != nil {
+		g.writeElement(buf, "pubDate", item.PublishedAt.Format(time.RFC1123Z), 6)
 	}
 
 	// Author

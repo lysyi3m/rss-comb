@@ -59,9 +59,9 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 	}
 
 	// Check if feed content has changed by comparing published timestamps
-	if currentFeed != nil && currentFeed.FeedPublishedAt != nil && metadata.Published != nil {
+	if currentFeed != nil && currentFeed.FeedPublishedAt != nil && metadata.FeedPublishedAt != nil {
 		// If timestamps match exactly, feed content hasn't changed - skip entire processing
-		if currentFeed.FeedPublishedAt.Equal(*metadata.Published) {
+		if currentFeed.FeedPublishedAt.Equal(*metadata.FeedPublishedAt) {
 			slog.Debug("Feed published timestamp unchanged, skipping entire feed processing", "title", feedConfig.Feed.Title)
 
 			// Still update next fetch time for scheduling
@@ -78,7 +78,7 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 		}
 	}
 
-	if err := p.feedRepo.UpdateFeedMetadata(feedID, metadata.Link, metadata.ImageURL, metadata.Language, metadata.Published); err != nil {
+	if err := p.feedRepo.UpdateFeedMetadata(feedID, metadata.Link, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt); err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
 
@@ -290,18 +290,18 @@ func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig)
 
 func (p *Processor) convertToDBItem(item Item) database.FeedItem {
 	return database.FeedItem{
-		GUID:          item.GUID,
-		Title:         item.Title,
-		Link:          item.Link,
-		Description:   item.Description,
-		Content:       item.Content,
-		PublishedDate: item.PublishedDate,
-		UpdatedDate:   item.UpdatedDate,
-		AuthorName:    item.AuthorName,
-		AuthorEmail:   item.AuthorEmail,
-		Categories:    item.Categories,
-		ContentHash:   item.ContentHash,
-		IsFiltered:    item.IsFiltered,
-		FilterReason:  item.FilterReason,
+		GUID:        item.GUID,
+		Title:       item.Title,
+		Link:        item.Link,
+		Description: item.Description,
+		Content:     item.Content,
+		PublishedAt: item.PublishedAt,
+		UpdatedAt:   item.UpdatedAt,
+		AuthorName:  item.AuthorName,
+		AuthorEmail: item.AuthorEmail,
+		Categories:  item.Categories,
+		ContentHash: item.ContentHash,
+		IsFiltered:  item.IsFiltered,
+		FilterReason: item.FilterReason,
 	}
 }

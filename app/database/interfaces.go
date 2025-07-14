@@ -6,20 +6,20 @@ import (
 
 // FeedItem represents a normalized feed item for database operations
 type FeedItem struct {
-	GUID          string
-	Title         string
-	Link          string
-	Description   string
-	Content       string
-	PublishedDate *time.Time
-	UpdatedDate   *time.Time
-	AuthorName    string
-	AuthorEmail   string
-	Categories    []string
+	GUID        string
+	Title       string
+	Link        string
+	Description string
+	Content     string
+	PublishedAt *time.Time
+	UpdatedAt   *time.Time
+	AuthorName  string
+	AuthorEmail string
+	Categories  []string
 	
-	ContentHash   string
-	IsFiltered    bool
-	FilterReason  string
+	ContentHash  string
+	IsFiltered   bool
+	FilterReason string
 }
 
 // FeedReader defines read operations for feeds.

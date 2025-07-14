@@ -52,7 +52,7 @@ func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
 			filter_reason = EXCLUDED.filter_reason,
 			content_hash = EXCLUDED.content_hash
 	`, feedID, item.GUID, item.Link, item.Title, item.Description, item.Content,
-		item.PublishedDate, item.UpdatedDate, item.AuthorName, item.AuthorEmail,
+		item.PublishedAt, item.UpdatedAt, item.AuthorName, item.AuthorEmail,
 		pq.Array(item.Categories), item.IsFiltered, item.FilterReason,
 		item.ContentHash)
 
@@ -87,7 +87,7 @@ func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, erro
 		var item Item
 		err := rows.Scan(
 			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
-			&item.Description, &item.Content, &item.PublishedDate, &item.UpdatedDate,
+			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
 			&item.AuthorName, &item.AuthorEmail, pq.Array(&item.Categories),
 			&item.IsFiltered, &item.FilterReason,
 			&item.ContentHash, &item.CreatedAt,
@@ -153,7 +153,7 @@ func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
 		var item Item
 		err := rows.Scan(
 			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
-			&item.Description, &item.Content, &item.PublishedDate, &item.UpdatedDate,
+			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
 			&item.AuthorName, &item.AuthorEmail, pq.Array(&item.Categories),
 			&item.IsFiltered, &item.FilterReason,
 			&item.ContentHash, &item.CreatedAt,

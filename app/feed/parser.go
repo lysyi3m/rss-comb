@@ -39,7 +39,7 @@ func (p *Parser) Parse(data []byte) (*Metadata, []Item, error) {
 
 	// Set published timestamp (when feed was last published/updated)
 	if feed.PublishedParsed != nil {
-		metadata.Published = feed.PublishedParsed
+		metadata.FeedPublishedAt = feed.PublishedParsed
 	}
 
 	// Process feed items
@@ -66,12 +66,12 @@ func (p *Parser) normalizeItem(item *gofeed.Item) Item {
 
 	// Set published date
 	if item.PublishedParsed != nil {
-		normalized.PublishedDate = item.PublishedParsed
+		normalized.PublishedAt = item.PublishedParsed
 	}
 
 	// Set updated date
 	if item.UpdatedParsed != nil {
-		normalized.UpdatedDate = item.UpdatedParsed
+		normalized.UpdatedAt = item.UpdatedParsed
 	}
 
 	// Set author information

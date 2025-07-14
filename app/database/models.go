@@ -25,20 +25,20 @@ type Feed struct {
 
 // Item represents a feed item record in the database
 type Item struct {
-	ID            string
-	FeedID        string
-	GUID          string
-	Link          string
-	Title         string
-	Description   string
-	Content       string
-	PublishedDate *time.Time
-	UpdatedDate   *time.Time
-	AuthorName    string
-	AuthorEmail   string
-	Categories    []string
-	IsFiltered    bool
-	FilterReason  string
-	ContentHash   string
-	CreatedAt     time.Time
+	ID          string
+	FeedID      string
+	GUID        string
+	Link        string
+	Title       string
+	Description string
+	Content     string
+	PublishedAt *time.Time
+	UpdatedAt   *time.Time
+	AuthorName  string
+	AuthorEmail string
+	Categories  []string
+	IsFiltered  bool
+	FilterReason string
+	ContentHash string
+	CreatedAt   time.Time
 }

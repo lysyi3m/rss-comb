@@ -29,28 +29,28 @@ type Generator struct {
 
 // Metadata contains metadata about the parsed feed
 type Metadata struct {
-	Title       string
-	Link        string
-	Description string
-	ImageURL    string
-	Language    string
-	Published   *time.Time
+	Title           string
+	Link            string
+	Description     string
+	ImageURL        string
+	Language        string
+	FeedPublishedAt *time.Time
 }
 
 // Item represents a normalized feed item
 type Item struct {
-	GUID          string
-	Title         string
-	Link          string
-	Description   string
-	Content       string
-	PublishedDate *time.Time
-	UpdatedDate   *time.Time
-	AuthorName    string
-	AuthorEmail   string
-	Categories    []string
+	GUID        string
+	Title       string
+	Link        string
+	Description string
+	Content     string
+	PublishedAt *time.Time
+	UpdatedAt   *time.Time
+	AuthorName  string
+	AuthorEmail string
+	Categories  []string
 
-	ContentHash   string
-	IsFiltered    bool
-	FilterReason  string
+	ContentHash  string
+	IsFiltered   bool
+	FilterReason string
 }
