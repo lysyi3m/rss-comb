@@ -74,8 +74,7 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 			
 			slog.Info("Feed skipped - no changes detected",
 				"title", feedConfig.Feed.Title,
-				"total", len(items),
-				"optimized", "skipped_entire_processing")
+				"total", len(items))
 			
 			return nil
 		}
