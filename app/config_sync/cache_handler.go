@@ -39,7 +39,7 @@ func (h *ConfigCacheHandler) OnConfigUpdate(filePath string, cfg *config.FeedCon
 		slog.Info("Configuration removed", "component", h.componentName, "file", filePath, "feed_id", cfg.Feed.ID)
 	} else {
 		h.configs[filePath] = cfg
-		slog.Info("Configuration updated", "component", h.componentName, "file", filePath, "feed_id", cfg.Feed.ID)
+		slog.Debug("Configuration updated", "component", h.componentName, "file", filePath, "feed_id", cfg.Feed.ID)
 	}
 
 	return nil

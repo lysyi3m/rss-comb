@@ -115,9 +115,9 @@ func TestDatabaseSyncHandlerConfigUpsert(t *testing.T) {
 		t.Error("Feed was not registered in mock repository")
 	}
 	
-	// Verify next_fetch was reset for immediate processing
+	// Verify next_fetch was reset to schedule for processing
 	if nextFetch, exists := mockRepo.nextFetches["test-feed-db"]; !exists || !nextFetch.IsZero() {
-		t.Error("Expected next_fetch to be reset to zero time for immediate processing")
+		t.Error("Expected next_fetch to be reset to zero time to schedule for processing")
 	}
 }
 

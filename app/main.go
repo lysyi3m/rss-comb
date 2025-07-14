@@ -41,7 +41,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
-	slog.Info("Database connected successfully")
 
 	// Migrations run automatically unless explicitly disabled for faster startup
 	if !appConfig.DisableMigrate {

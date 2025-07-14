@@ -64,20 +64,20 @@ func (h *DatabaseSyncHandler) handleConfigUpsert(filePath, relPath string, cfg *
 	if urlChanged {
 		slog.Info("Feed updated", "title", cfg.Feed.Title, "feed_id", cfg.Feed.ID, "db_id", dbID, "new_url", cfg.Feed.URL)
 	} else {
-		slog.Info("Feed registered", "title", cfg.Feed.Title, "feed_id", cfg.Feed.ID, "db_id", dbID)
+		slog.Debug("Feed synchronized", "title", cfg.Feed.Title, "feed_id", cfg.Feed.ID, "db_id", dbID)
 	}
 
-	// For immediate processing, we'll reset the next_fetch time to NULL
+	// Schedule for processing by resetting next_fetch time to NULL
 	// which will cause the scheduler to pick it up in the next cycle
 	if cfg.Settings.Enabled {
-		// Reset next_fetch to NULL to trigger immediate processing
+		// Reset next_fetch to NULL to schedule for processing
 		if err := h.feedRepo.UpdateNextFetch(dbID, time.Time{}); err != nil {
-			slog.Warn("Failed to reset next_fetch for immediate processing", "error", err)
+			slog.Warn("Failed to schedule feed for processing", "error", err)
 		} else {
-			slog.Info("Feed scheduled for immediate processing", "title", cfg.Feed.Title)
+			slog.Debug("Feed scheduled for processing", "title", cfg.Feed.Title)
 		}
 	} else {
-		slog.Info("Skipping immediate processing for disabled feed", "title", cfg.Feed.Title)
+		slog.Info("Feed disabled, skipping processing schedule", "title", cfg.Feed.Title)
 	}
 
 	return nil

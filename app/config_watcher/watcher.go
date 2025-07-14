@@ -153,7 +153,7 @@ func (cw *ConfigWatcher) reloadConfiguration(filePath string, op fsnotify.Op) {
 	}
 
 	// Handle file creation/modification with robust error handling
-	slog.Info("Reloading configuration", "file", relPath)
+	slog.Debug("Reloading configuration", "file", relPath)
 
 	// Validate that the file exists before attempting to load
 	if _, err := os.Stat(filePath); err != nil {
