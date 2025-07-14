@@ -37,9 +37,9 @@ func (p *Parser) Parse(data []byte) (*Metadata, []Item, error) {
 		metadata.ImageURL = feed.Image.URL
 	}
 
-	// Set updated timestamp
-	if feed.UpdatedParsed != nil {
-		metadata.Updated = feed.UpdatedParsed
+	// Set published timestamp (when feed was last published/updated)
+	if feed.PublishedParsed != nil {
+		metadata.Published = feed.PublishedParsed
 	}
 
 	// Process feed items

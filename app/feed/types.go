@@ -34,7 +34,7 @@ type Metadata struct {
 	Description string
 	ImageURL    string
 	Language    string
-	Updated     *time.Time
+	Published   *time.Time
 }
 
 // Item represents a normalized feed item

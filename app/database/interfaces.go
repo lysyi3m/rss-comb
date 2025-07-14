@@ -37,7 +37,7 @@ type FeedReader interface {
 type FeedWriter interface {
 	UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedTitle string) (string, bool, error)
 	UpdateFeedMetadata(feedID string, link string, imageURL string, language string) error
-	UpdateFeedTimestamp(feedID string, feedUpdatedAt *time.Time) error
+	UpdateFeedTimestamp(feedID string, feedPublishedAt *time.Time) error
 	SetFeedEnabled(feedID string, enabled bool) error
 }
 

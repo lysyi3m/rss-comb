@@ -60,13 +60,24 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 		return fmt.Errorf("failed to get current feed: %w", err)
 	}
 	
-	// Check if feed content has changed by comparing timestamps
-	feedContentChanged := true
-	if currentFeed != nil && currentFeed.FeedUpdatedAt != nil && metadata.Updated != nil {
-		// If timestamps match, feed content likely hasn't changed
-		feedContentChanged = !currentFeed.FeedUpdatedAt.Equal(*metadata.Updated)
-		if !feedContentChanged {
-			slog.Debug("Feed timestamp unchanged, skipping individual duplicate checks", "title", feedConfig.Feed.Title)
+	// Check if feed content has changed by comparing published timestamps
+	if currentFeed != nil && currentFeed.FeedPublishedAt != nil && metadata.Published != nil {
+		// If timestamps match exactly, feed content hasn't changed - skip entire processing
+		if currentFeed.FeedPublishedAt.Equal(*metadata.Published) {
+			slog.Debug("Feed published timestamp unchanged, skipping entire feed processing", "title", feedConfig.Feed.Title)
+			
+			// Still update next fetch time for scheduling
+			nextFetch := time.Now().UTC().Add(feedConfig.Settings.GetRefreshInterval())
+			if err := p.feedRepo.UpdateNextFetch(feedID, nextFetch); err != nil {
+				return fmt.Errorf("failed to update next fetch time: %w", err)
+			}
+			
+			slog.Info("Feed skipped - no changes detected",
+				"title", feedConfig.Feed.Title,
+				"total", len(items),
+				"optimized", "skipped_entire_processing")
+			
+			return nil
 		}
 	}
 
@@ -74,23 +85,21 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
 	
-	// Update feed's own updated timestamp
-	if err := p.feedRepo.UpdateFeedTimestamp(feedID, metadata.Updated); err != nil {
+	// Update feed's own published timestamp
+	if err := p.feedRepo.UpdateFeedTimestamp(feedID, metadata.Published); err != nil {
 		return fmt.Errorf("failed to update feed timestamp: %w", err)
 	}
 	
 	processedCount, skippedCount, filteredCount := 0, 0, 0
 	for i, item := range items {
 
-		// Optimize duplicate checking: if feed timestamp unchanged, skip expensive per-item checks
-		if feedContentChanged {
-			isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID)
-			if err != nil {
-				slog.Warn("Failed to check duplicate", "item_index", i, "error", err)
-			} else if isDup {
-				skippedCount++
-				continue
-			}
+		// Check for duplicates (feed content has changed, so we process normally)
+		isDup, _, err := p.itemRepo.CheckDuplicate(item.ContentHash, feedID)
+		if err != nil {
+			slog.Warn("Failed to check duplicate", "item_index", i, "error", err)
+		} else if isDup {
+			skippedCount++
+			continue
 		}
 
 		filtered, reason := p.applyFilters(item, feedConfig.Filters)
@@ -118,20 +127,13 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 
 	duration := time.Since(startTime)
 	newItems := processedCount - filteredCount
-	logAttrs := []any{
+	slog.Info("Feed processed",
 		"title", feedConfig.Feed.Title,
 		"total", len(items),
 		"new", newItems,
 		"duplicates", skippedCount,
 		"filtered", filteredCount,
-		"duration", duration.String(),
-	}
-	
-	if !feedContentChanged {
-		logAttrs = append(logAttrs, "optimized", "skipped_duplicate_checks")
-	}
-	
-	slog.Info("Feed processed", logAttrs...)
+		"duration", duration.String())
 
 	return nil
 }

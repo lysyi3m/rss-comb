@@ -71,7 +71,7 @@ func (m *MockFeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time)
 func (m *MockFeedRepository) GetFeedsDueForRefresh() ([]database.Feed, error) { return nil, nil }
 func (m *MockFeedRepository) UpsertFeed(configFile, feedID, feedURL, feedTitle string) (string, error) { return "", nil }
 func (m *MockFeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL string, language string) error { return nil }
-func (m *MockFeedRepository) UpdateFeedTimestamp(feedID string, feedUpdatedAt *time.Time) error { return nil }
+func (m *MockFeedRepository) UpdateFeedTimestamp(feedID string, feedPublishedAt *time.Time) error { return nil }
 func (m *MockFeedRepository) GetFeedByConfigFile(configFile string) (*database.Feed, error) { return nil, nil }
 func (m *MockFeedRepository) GetFeedByURL(feedURL string) (*database.Feed, error) { return nil, nil }
 func (m *MockFeedRepository) GetFeedCount() (int, error) { return 0, nil }

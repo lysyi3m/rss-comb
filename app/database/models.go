@@ -17,7 +17,7 @@ type Feed struct {
 	LastFetched *time.Time
 	LastSuccess *time.Time
 	NextFetch   *time.Time
-	FeedUpdatedAt *time.Time // Feed's own lastBuildDate/updated from RSS/Atom
+	FeedPublishedAt *time.Time // Feed's own pubDate/published from RSS/Atom
 	Enabled     bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
