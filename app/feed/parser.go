@@ -129,6 +129,7 @@ func (p *Parser) formatAuthor(name, email string) string {
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(email)
 	
+	// Only apply email (name) format if both are non-empty after trimming
 	if name != "" && email != "" {
 		return fmt.Sprintf("%s (%s)", email, name)
 	} else if name != "" {
