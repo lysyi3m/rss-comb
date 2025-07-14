@@ -40,9 +40,9 @@ func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
 	_, err := r.db.Exec(`
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,
-			published_at, updated_at, author_name, author_email,
+			published_at, updated_at, authors,
 			categories, is_filtered, filter_reason, content_hash
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
@@ -52,7 +52,7 @@ func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
 			filter_reason = EXCLUDED.filter_reason,
 			content_hash = EXCLUDED.content_hash
 	`, feedID, item.GUID, item.Link, item.Title, item.Description, item.Content,
-		item.PublishedAt, item.UpdatedAt, item.AuthorName, item.AuthorEmail,
+		item.PublishedAt, item.UpdatedAt, pq.Array(item.Authors),
 		pq.Array(item.Categories), item.IsFiltered, item.FilterReason,
 		item.ContentHash)
 
@@ -67,8 +67,8 @@ func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, erro
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
 		       COALESCE(description, ''), COALESCE(content, ''),
-		       published_at, updated_at, COALESCE(author_name, ''), 
-		       COALESCE(author_email, ''), COALESCE(categories, '{}'),
+		       published_at, updated_at, COALESCE(authors, '{}'), 
+		       COALESCE(categories, '{}'),
 		       is_filtered, COALESCE(filter_reason, ''),
 		       content_hash, created_at
 		FROM feed_items
@@ -88,7 +88,7 @@ func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, erro
 		err := rows.Scan(
 			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
 			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
-			&item.AuthorName, &item.AuthorEmail, pq.Array(&item.Categories),
+			pq.Array(&item.Authors), pq.Array(&item.Categories),
 			&item.IsFiltered, &item.FilterReason,
 			&item.ContentHash, &item.CreatedAt,
 		)
@@ -135,8 +135,8 @@ func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
 		       COALESCE(description, ''), COALESCE(content, ''),
-		       published_at, updated_at, COALESCE(author_name, ''), 
-		       COALESCE(author_email, ''), COALESCE(categories, '{}'),
+		       published_at, updated_at, COALESCE(authors, '{}'), 
+		       COALESCE(categories, '{}'),
 		       is_filtered, COALESCE(filter_reason, ''),
 		       content_hash, created_at
 		FROM feed_items
@@ -154,7 +154,7 @@ func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
 		err := rows.Scan(
 			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
 			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
-			&item.AuthorName, &item.AuthorEmail, pq.Array(&item.Categories),
+			pq.Array(&item.Authors), pq.Array(&item.Categories),
 			&item.IsFiltered, &item.FilterReason,
 			&item.ContentHash, &item.CreatedAt,
 		)

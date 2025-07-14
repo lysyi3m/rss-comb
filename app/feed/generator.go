@@ -107,13 +107,9 @@ func (g *Generator) writeItem(buf *bytes.Buffer, item database.Item) {
 		g.writeElement(buf, "pubDate", item.PublishedAt.Format(time.RFC1123Z), 6)
 	}
 
-	// Author
-	if item.AuthorName != "" {
-		author := item.AuthorName
-		if item.AuthorEmail != "" {
-			author = fmt.Sprintf("%s (%s)", item.AuthorEmail, item.AuthorName)
-		}
-		g.writeElement(buf, "author", author, 6)
+	// Authors (use first author for RSS 2.0 compatibility)
+	if len(item.Authors) > 0 && item.Authors[0] != "" {
+		g.writeElement(buf, "author", item.Authors[0], 6)
 	}
 
 	// Categories

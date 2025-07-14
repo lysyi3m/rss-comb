@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -74,11 +75,8 @@ func (p *Parser) normalizeItem(item *gofeed.Item) Item {
 		normalized.UpdatedAt = item.UpdatedParsed
 	}
 
-	// Set author information
-	if item.Author != nil {
-		normalized.AuthorName = item.Author.Name
-		normalized.AuthorEmail = item.Author.Email
-	}
+	// Set author information using modern Authors field with fallback to deprecated Author
+	normalized.Authors = p.extractAuthors(item)
 
 	// Set categories
 	if item.Categories != nil {
@@ -98,6 +96,48 @@ func (p *Parser) generateContentHash(item Item) string {
 
 	hash := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(hash[:])
+}
+
+// extractAuthors extracts authors from gofeed item using modern Authors field with fallback
+func (p *Parser) extractAuthors(item *gofeed.Item) []string {
+	var authors []string
+	
+	// Prefer the modern Authors field
+	if len(item.Authors) > 0 {
+		for _, author := range item.Authors {
+			if author != nil {
+				authorStr := p.formatAuthor(author.Name, author.Email)
+				if authorStr != "" {
+					authors = append(authors, authorStr)
+				}
+			}
+		}
+	} else if item.Author != nil {
+		// Fallback to deprecated Author field if Authors is empty
+		authorStr := p.formatAuthor(item.Author.Name, item.Author.Email)
+		if authorStr != "" {
+			authors = append(authors, authorStr)
+		}
+	}
+	
+	return authors
+}
+
+// formatAuthor formats author name and email into a single string
+// Returns "email (name)" if both are present, otherwise just name or email
+func (p *Parser) formatAuthor(name, email string) string {
+	name = strings.TrimSpace(name)
+	email = strings.TrimSpace(email)
+	
+	if name != "" && email != "" {
+		return fmt.Sprintf("%s (%s)", email, name)
+	} else if name != "" {
+		return name
+	} else if email != "" {
+		return email
+	}
+	
+	return ""
 }
 
 // coalesce returns the first non-empty string from the provided values

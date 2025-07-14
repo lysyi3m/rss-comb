@@ -13,8 +13,7 @@ type FeedItem struct {
 	Content     string
 	PublishedAt *time.Time
 	UpdatedAt   *time.Time
-	AuthorName  string
-	AuthorEmail string
+	Authors     []string // Multiple authors in format "email (name)" or "name"
 	Categories  []string
 	
 	ContentHash  string

@@ -212,8 +212,8 @@ func (p *Processor) getFieldValue(item Item, field string) string {
 		return item.Description
 	case "content":
 		return item.Content
-	case "author":
-		return item.AuthorName
+	case "authors":
+		return strings.Join(item.Authors, " ")
 	case "link":
 		return item.Link
 	case "categories":
@@ -251,13 +251,13 @@ func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig)
 	for _, item := range items {
 		// Reconstruct filter input format from database representation
 		normalizedItem := Item{
-			GUID:         item.GUID,
-			Link:         item.Link,
-			Title:        item.Title,
-			Description:  item.Description,
-			Content:      item.Content,
-			AuthorName:   item.AuthorName,
-			Categories:   item.Categories,
+			GUID:        item.GUID,
+			Link:        item.Link,
+			Title:       item.Title,
+			Description: item.Description,
+			Content:     item.Content,
+			Authors:     item.Authors,
+			Categories:  item.Categories,
 		}
 
 		shouldFilter, reason := p.applyFilters(normalizedItem, feedConfig.Filters)
@@ -297,8 +297,7 @@ func (p *Processor) convertToDBItem(item Item) database.FeedItem {
 		Content:     item.Content,
 		PublishedAt: item.PublishedAt,
 		UpdatedAt:   item.UpdatedAt,
-		AuthorName:  item.AuthorName,
-		AuthorEmail: item.AuthorEmail,
+		Authors:     item.Authors,
 		Categories:  item.Categories,
 		ContentHash: item.ContentHash,
 		IsFiltered:  item.IsFiltered,

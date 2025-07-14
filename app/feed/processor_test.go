@@ -17,7 +17,7 @@ func TestApplyFilters(t *testing.T) {
 		Title:       "Technology News: Latest Updates",
 		Description: "This is a technology article about programming",
 		Content:     "Full content about programming and technology",
-		AuthorName:  "John Doe",
+		Authors:     []string{"John Doe"},
 		Link:        "https://example.com/tech-news",
 		Categories:  []string{"Technology", "Programming", "c++", "1c"},
 	}
@@ -129,14 +129,14 @@ func TestApplyFilters(t *testing.T) {
 			expected: false, // Should not be filtered (categories contains programming)
 		},
 		{
-			name: "Author filter",
+			name: "Authors filter",
 			filters: []config.Filter{
 				{
-					Field:    "author",
+					Field:    "authors",
 					Includes: []string{"john"},
 				},
 			},
-			expected: false, // Should not be filtered (author contains john)
+			expected: false, // Should not be filtered (authors contains john)
 		},
 		{
 			name: "Case insensitive matching",
@@ -200,7 +200,7 @@ func TestGetFieldValue(t *testing.T) {
 		Title:       "Test Title",
 		Description: "Test Description",
 		Content:     "Test Content",
-		AuthorName:  "Test Author",
+		Authors:     []string{"Test Author"},
 		Link:        "https://example.com",
 		Categories:  []string{"cat1", "cat2"},
 	}
@@ -212,7 +212,7 @@ func TestGetFieldValue(t *testing.T) {
 		{"title", "Test Title"},
 		{"description", "Test Description"},
 		{"content", "Test Content"},
-		{"author", "Test Author"},
+		{"authors", "Test Author"},
 		{"link", "https://example.com"},
 		{"categories", "cat1 cat2"},
 		{"invalid", ""},

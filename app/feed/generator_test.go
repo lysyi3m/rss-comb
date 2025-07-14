@@ -35,8 +35,7 @@ func TestGenerateRSS(t *testing.T) {
 			Content:       "Test Item 1 Content",
 			PublishedAt: &publishedTime,
 			UpdatedAt:   &updatedTime,
-			AuthorName:    "Test Author",
-			AuthorEmail:   "test@example.com",
+			Authors:       []string{"test@example.com (Test Author)"},
 			Categories:    []string{"Technology", "Programming"},
 		},
 		{
@@ -209,8 +208,7 @@ func TestGenerateWithMinimalData(t *testing.T) {
 			Content:       "",
 			PublishedAt: nil,
 			UpdatedAt:   nil,
-			AuthorName:    "",
-			AuthorEmail:   "",
+			Authors:       []string{},
 			Categories:    []string{},
 		},
 	}
@@ -265,8 +263,7 @@ func TestGenerateWithSpecialCharacters(t *testing.T) {
 			Link:          "https://example.com/item",
 			Description:   "Description with <em>emphasis</em> & \"quotes\"",
 			Content:       "Content with <strong>bold</strong> & special chars: <>&\"'",
-			AuthorName:    "Author with <brackets>",
-			AuthorEmail:   "test@example.com",
+			Authors:       []string{"test@example.com (Author with <brackets>)"},
 			Categories:    []string{"Category with <brackets>", "Category & Ampersand"},
 		},
 	}
