@@ -72,7 +72,7 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 		{
 			api.GET("/feeds", handler.APIListFeeds)
 			api.GET("/feeds/:id/details", handler.APIGetFeedDetailsByID)
-			api.POST("/feeds/:id/refilter", handler.APIRefilterFeedByID)
+			api.POST("/feeds/:id/reload", handler.APIReloadFeedByID)
 		}
 		slog.Info("API endpoints enabled with authentication")
 	} else {
@@ -90,7 +90,7 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 		if apiAccessKey != "" {
 			endpoints["feeds"] = "/api/feeds (requires X-API-Key header)"
 			endpoints["details"] = "/api/feeds/<id>/details (requires X-API-Key header)"
-			endpoints["refilter"] = "/api/feeds/<id>/refilter (POST, requires X-API-Key header)"
+			endpoints["reload"] = "/api/feeds/<id>/reload (POST, requires X-API-Key header)"
 		}
 
 		c.JSON(200, gin.H{

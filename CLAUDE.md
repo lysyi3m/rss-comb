@@ -93,7 +93,6 @@ rss-comb/
 2. **Configuration System** (`app/config/`)
    - YAML-based feed configuration loading
    - Validation and default value handling
-   - Hot-reload capability for configuration changes
 
 3. **Feed Processing System** (`app/feed/`)
    - **Processor**: HTTP feed fetching, content filtering, and automatic deduplication with intelligent timestamp optimization
@@ -124,12 +123,11 @@ rss-comb/
 
 1. **Configuration Loading**: `config_loader` loads and validates YAML files from `feeds/*.yml`
 2. **Database Sync**: `config_sync` registers feeds in database, detecting URL changes
-3. **Hot-Reload**: `config_watcher` monitors file changes and triggers updates
-4. **Task Scheduling**: `tasks` scheduler queues feed processing based on `next_fetch` timestamps
-5. **Feed Processing**: `feed/processor` fetches, parses, filters, and deduplicates items with timestamp-based optimization
-6. **Storage**: Items stored with filter status and content hashes for deduplication
-7. **API Access**: `api/handlers` serve processed feeds and management endpoints
-8. **Real-time Updates**: Configuration changes immediately update scheduling and processing
+3. **Task Scheduling**: `tasks` scheduler queues feed processing based on `next_fetch` timestamps
+4. **Feed Processing**: `feed/processor` fetches, parses, filters, and deduplicates items with timestamp-based optimization
+5. **Storage**: Items stored with filter status and content hashes for deduplication
+6. **API Access**: `api/handlers` serve processed feeds and management endpoints
+7. **Configuration Reload**: Manual configuration reloading via `/reload` API endpoint
 
 ### Database Schema
 
@@ -173,14 +171,13 @@ rss-comb/
 ### Task Management Layer (`app/tasks/`)
 - `task_scheduler.go`: Main task scheduling and worker pool management
 - `process_feed_task.go`: Individual feed processing task implementation
-- `refilter_feed_task.go`: Feed item refiltering task implementation
+- `refilter_feed_task.go`: Feed item refiltering task implementation (internal task)
 - `interfaces.go`: Task system interface definitions
 - Configuration resolution and task creation coordination
 
 ### Configuration System (`app/config/`)
 - `types.go`: Configuration structs and validation
 - `validation.go`: Configuration validation logic
-- Hot-reload capability via config watchers
 - YAML-based feed configuration management
 
 ## Environment Guide
@@ -432,7 +429,7 @@ go test -v ./app/database
 - Includes configuration, database status, and item statistics
 - Requires X-API-Key header or Authorization: Bearer token
 
-#### `POST /api/feeds/<id>/refilter`
-- Enqueues a task to re-apply filters to all items for a specific feed by ID
+#### `POST /api/feeds/<id>/reload`
+- Reloads the configuration file for the specified feed and re-applies filters to all items
 - Returns immediately with task information (non-blocking)
 - Requires X-API-Key header or Authorization: Bearer token

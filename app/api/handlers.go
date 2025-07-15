@@ -3,10 +3,12 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lysyi3m/rss-comb/app/config_loader"
 	"github.com/lysyi3m/rss-comb/app/config_sync"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
@@ -14,11 +16,12 @@ import (
 )
 
 // NewHandler creates a new API handler
-func NewHandler(fr database.FeedReader, ir database.ItemReader,
+func NewHandler(fr database.FeedReader, fw database.FeedWriter, ir database.ItemReader,
 	configCache *config_sync.ConfigCacheHandler, processor tasks.ProcessorInterface,
 	taskScheduler tasks.TaskSchedulerInterface, port string, userAgent string) *Handler {
 	return &Handler{
 		feedRepo:    fr,
+		feedWriter:  fw,
 		itemRepo:    ir,
 		generator:   feed.NewGenerator(port),
 		configCache: configCache,
@@ -39,7 +42,6 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 	// Find matching configuration by feed ID
 	feedConfig, found := h.configCache.GetConfigByFeedID(feedID)
 	if !found {
-		slog.Warn("Feed not found", "feed_id", feedID)
 		c.Status(http.StatusNotFound)
 		return
 	}
@@ -54,7 +56,6 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 
 	// If feed not found in database, return empty feed
 	if feed == nil {
-		slog.Info("Feed not yet processed", "feed_id", feedID)
 		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Title, feedConfig.Feed.URL))
 		return
@@ -194,22 +195,15 @@ func (h *Handler) APIGetFeedDetailsByID(c *gin.Context) {
 	c.JSON(http.StatusOK, details)
 }
 
-// APIRefilterFeedByID handles the feed refilter endpoint by feed ID
-func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
+// APIReloadFeedByID handles the feed reload endpoint by feed ID
+func (h *Handler) APIReloadFeedByID(c *gin.Context) {
 	feedID := c.Param("id")
 	if feedID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing feed ID parameter"})
 		return
 	}
 
-	// Find configuration by feed ID
-	feedConfig, _, found := h.configCache.GetConfigAndFileByFeedID(feedID)
-	if !found {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not configured"})
-		return
-	}
-
-	// Get feed from database
+	// Get feed from database (includes config file path)
 	feed, err := h.feedRepo.GetFeedByID(feedID)
 	if err != nil {
 		slog.Error("Database error", "operation", "get_feed", "feed_id", feedID, "error", err)
@@ -222,13 +216,45 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 		return
 	}
 
-	// Create and enqueue RefilterFeedTask
-	task := tasks.NewRefilterFeedTask(feed.ID, feedConfig, h.processor)
+	// Reload configuration from file using config file path from database
+	configLoader := config_loader.NewLoader(filepath.Dir(feed.ConfigFile))
+	updatedConfig, err := configLoader.Load(feed.ConfigFile)
+	if err != nil {
+		slog.Error("Error reloading configuration", "config_file", feed.ConfigFile, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to reload configuration",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Sync configuration changes to database (URL, title, enabled status)
+	_, _, err = h.feedWriter.UpsertFeedWithChangeDetection(
+		feed.ConfigFile, updatedConfig.Feed.ID, updatedConfig.Feed.URL, updatedConfig.Feed.Title)
+	if err != nil {
+		slog.Error("Error syncing config to database", "config_file", feed.ConfigFile, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to sync configuration to database",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Update enabled status if needed
+	if err := h.feedWriter.SetFeedEnabled(feed.ID, updatedConfig.Settings.Enabled); err != nil {
+		slog.Warn("Failed to update feed enabled status", "feed_id", feedID, "enabled", updatedConfig.Settings.Enabled, "error", err)
+	}
+
+	// Update the config cache with the reloaded configuration
+	h.configCache.OnConfigUpdate(feed.ConfigFile, updatedConfig, false)
+
+	// Create and enqueue RefilterFeedTask with the updated configuration
+	task := tasks.NewRefilterFeedTask(feed.ID, updatedConfig, h.processor)
 	err = h.scheduler.EnqueueTask(task)
 	if err != nil {
-		slog.Error("Error enqueueing refilter task", "feed_id", feedID, "error", err)
+		slog.Error("Error enqueueing reload task", "feed_id", feedID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to enqueue refilter task",
+			"error": "Failed to enqueue reload task",
 			"details": err.Error(),
 		})
 		return
@@ -236,11 +262,11 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 
 	response := gin.H{
 		"success": true,
-		"message": "Refilter task enqueued successfully",
+		"message": "Configuration reloaded and filter task enqueued successfully",
 		"feed": gin.H{
-			"id":   feedConfig.Feed.ID,
-			"name": feedConfig.Feed.Title,
-			"url":  feedConfig.Feed.URL,
+			"id":   updatedConfig.Feed.ID,
+			"name": updatedConfig.Feed.Title,
+			"url":  updatedConfig.Feed.URL,
 		},
 		"task": gin.H{
 			"id":          task.GetID(),
@@ -248,9 +274,10 @@ func (h *Handler) APIRefilterFeedByID(c *gin.Context) {
 			"description": task.GetDescription(),
 			"created_at":  task.GetCreatedAt().Format(time.RFC3339),
 		},
+		"config_reloaded": true,
 	}
 
-	slog.Info("Successfully enqueued refilter task", "feed_id", feedID)
+	slog.Info("Successfully reloaded configuration and enqueued filter task", "feed_id", feedID, "config_file", feed.ConfigFile)
 
 	c.JSON(http.StatusOK, response)
 }

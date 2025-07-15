@@ -14,7 +14,6 @@ import (
 	"github.com/lysyi3m/rss-comb/app/api"
 	"github.com/lysyi3m/rss-comb/app/config_loader"
 	"github.com/lysyi3m/rss-comb/app/config_sync"
-	"github.com/lysyi3m/rss-comb/app/config_watcher"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/tasks"
@@ -68,11 +67,6 @@ func main() {
 	}
 	slog.Info("Configuration loaded", "feeds", len(configs), "directory", appConfig.FeedsDir)
 
-	configWatcher, err := config_watcher.NewConfigWatcher(configLoader, appConfig.FeedsDir)
-	if err != nil {
-		slog.Error("Config watcher initialization failed", "error", err)
-		os.Exit(1)
-	}
 
 	feedRepo := database.NewFeedRepository(db)
 	itemRepo := database.NewItemRepository(db)
@@ -90,8 +84,6 @@ func main() {
 		if urlChanged {
 			slog.Info("Feed URL updated", "title", cfg.Feed.Title, "id", cfg.Feed.ID, "url", cfg.Feed.URL)
 			urlChangedCount++
-		} else {
-			slog.Debug("Feed registered", "title", cfg.Feed.Title, "id", cfg.Feed.ID, "url", cfg.Feed.URL)
 		}
 		registeredCount++
 	}
@@ -99,7 +91,7 @@ func main() {
 
 	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, appConfig.UserAgent, appConfig.Port)
 
-	// Create config cache handlers for hot-reload
+	// Create config caches
 	taskSchedulerConfigCache := config_sync.NewConfigCacheHandler("Task scheduler", configs)
 	apiConfigCache := config_sync.NewConfigCacheHandler("API handler", configs)
 
@@ -109,13 +101,8 @@ func main() {
 	taskScheduler.Start()
 	defer taskScheduler.Stop()
 	
-	apiHandler := api.NewHandler(feedRepo, itemRepo, apiConfigCache, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
+	apiHandler := api.NewHandler(feedRepo, feedRepo, itemRepo, apiConfigCache, feedProcessor, taskScheduler, appConfig.Port, appConfig.UserAgent)
 
-	// Enable hot-reload by registering handlers for configuration changes
-	databaseSyncHandler := config_sync.NewDatabaseSyncHandler(feedRepo, appConfig.FeedsDir)
-	configWatcher.AddUpdateHandler(databaseSyncHandler)
-	configWatcher.AddUpdateHandler(taskSchedulerConfigCache)
-	configWatcher.AddUpdateHandler(apiConfigCache)
 	server := api.NewServer(apiHandler, appConfig.APIAccessKey)
 
 	// Production-ready timeouts prevent resource exhaustion
@@ -127,17 +114,6 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Start config watcher in a goroutine
-	configWatcherCtx, configWatcherCancel := context.WithCancel(context.Background())
-	go func() {
-		if err := configWatcher.Start(configWatcherCtx); err != nil && err != context.Canceled {
-			slog.Error("Config watcher error", "error", err)
-		}
-	}()
-	defer func() {
-		configWatcherCancel()
-		configWatcher.Stop()
-	}()
 
 	// Start HTTP server in a goroutine
 	serverErrChan := make(chan error, 1)

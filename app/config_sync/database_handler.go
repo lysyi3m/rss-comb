@@ -24,7 +24,7 @@ func NewDatabaseSyncHandler(feedRepo FeedSyncRepository, feedsDir string) *Datab
 	}
 }
 
-// OnConfigUpdate implements the ConfigUpdateHandler interface with comprehensive handling
+// OnConfigUpdate synchronizes configuration changes with the database
 func (h *DatabaseSyncHandler) OnConfigUpdate(filePath string, cfg *config.FeedConfig, isDelete bool) error {
 	relPath, _ := filepath.Rel(h.feedsDir, filePath)
 
@@ -63,8 +63,6 @@ func (h *DatabaseSyncHandler) handleConfigUpsert(filePath, relPath string, cfg *
 	// Log the operation
 	if urlChanged {
 		slog.Info("Feed updated", "title", cfg.Feed.Title, "feed_id", cfg.Feed.ID, "db_id", dbID, "new_url", cfg.Feed.URL)
-	} else {
-		slog.Debug("Feed synchronized", "title", cfg.Feed.Title, "feed_id", cfg.Feed.ID, "db_id", dbID)
 	}
 
 	// Schedule for processing by resetting next_fetch time to NULL
@@ -73,8 +71,6 @@ func (h *DatabaseSyncHandler) handleConfigUpsert(filePath, relPath string, cfg *
 		// Reset next_fetch to NULL to schedule for processing
 		if err := h.feedRepo.UpdateNextFetch(dbID, time.Time{}); err != nil {
 			slog.Warn("Failed to schedule feed for processing", "error", err)
-		} else {
-			slog.Debug("Feed scheduled for processing", "title", cfg.Feed.Title)
 		}
 	} else {
 		slog.Info("Feed disabled, skipping processing schedule", "title", cfg.Feed.Title)

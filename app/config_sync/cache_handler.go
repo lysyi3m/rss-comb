@@ -29,7 +29,7 @@ func NewConfigCacheHandler(componentName string, initialConfigs map[string]*conf
 	}
 }
 
-// OnConfigUpdate implements the ConfigUpdateHandler interface
+// OnConfigUpdate updates the configuration cache
 func (h *ConfigCacheHandler) OnConfigUpdate(filePath string, cfg *config.FeedConfig, isDelete bool) error {
 	h.configsMutex.Lock()
 	defer h.configsMutex.Unlock()
@@ -39,7 +39,6 @@ func (h *ConfigCacheHandler) OnConfigUpdate(filePath string, cfg *config.FeedCon
 		slog.Info("Configuration removed", "component", h.componentName, "file", filePath, "feed_id", cfg.Feed.ID)
 	} else {
 		h.configs[filePath] = cfg
-		slog.Debug("Configuration updated", "component", h.componentName, "file", filePath, "feed_id", cfg.Feed.ID)
 	}
 
 	return nil

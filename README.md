@@ -169,7 +169,7 @@ Require `X-API-Key` header or `Authorization: Bearer <token>`:
 
 - **`GET /api/feeds`** - List all configured feeds with status
 - **`GET /api/feeds/<id>/details`** - Detailed feed information and statistics
-- **`POST /api/feeds/<id>/refilter`** - Re-apply filters to all feed items
+- **`POST /api/feeds/<id>/reload`** - Reload configuration and re-apply filters to all feed items
 
 ### Example API Usage
 
@@ -183,8 +183,8 @@ curl http://localhost:8080/feeds/tech-news
 # List all feeds (with API key)
 curl -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds
 
-# Re-apply filters
-curl -X POST -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds/tech-news/refilter
+# Reload configuration and re-apply filters
+curl -X POST -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds/tech-news/reload
 ```
 
 ## Development

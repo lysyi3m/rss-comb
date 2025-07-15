@@ -9,6 +9,7 @@ import (
 // Handler handles HTTP requests for the RSS API
 type Handler struct {
 	feedRepo     database.FeedReader
+	feedWriter   database.FeedWriter
 	itemRepo     database.ItemReader
 	generator    GeneratorInterface
 	configCache  *config_sync.ConfigCacheHandler

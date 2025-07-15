@@ -3,7 +3,6 @@ module github.com/lysyi3m/rss-comb
 go 1.24
 
 require (
-	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/jessevdk/go-flags v1.6.1
