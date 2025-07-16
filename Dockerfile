@@ -2,11 +2,11 @@
 # Pin to specific golang version with Alpine 3.22
 FROM golang:1.24-alpine3.22 AS builder
 
-# Pin Alpine package versions for build dependencies
+# Install build dependencies (using latest available versions)
 RUN apk add --no-cache \
-    git=2.49.1-r0 \
-    ca-certificates=20241121-r2 \
-    tzdata=2025b-r0
+    git \
+    ca-certificates \
+    tzdata
 
 # Set working directory
 WORKDIR /build
@@ -42,13 +42,13 @@ LABEL org.opencontainers.image.title="RSS Comb" \
       org.opencontainers.image.source="https://github.com/lysyi3m/rss-comb" \
       org.opencontainers.image.documentation="https://github.com/lysyi3m/rss-comb/blob/main/README.md"
 
-# Install only essential runtime dependencies with pinned versions
+# Install only essential runtime dependencies
 # ca-certificates: Required for HTTPS connections to external RSS feeds
 # tzdata: Required for timezone support (TZ environment variable)
 # Note: wget and nc are available via busybox (built into Alpine base image)
 RUN apk add --no-cache \
-    ca-certificates=20241121-r2 \
-    tzdata=2025b-r0
+    ca-certificates \
+    tzdata
 
 # Create non-root user (combine RUN commands for fewer layers)
 RUN addgroup -g 1001 -S appgroup && \

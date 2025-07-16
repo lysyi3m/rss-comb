@@ -416,10 +416,10 @@ go test -v ./app/database
 - Database queries optimized with proper indexing on content_hash and feed_id
 
 ### Docker Optimization
-- **Pinned Dependencies**: All base images and packages use specific versions for reproducible builds
+- **Pinned Base Images**: Base images use specific versions for reproducible builds
 - **Layer Caching**: Dockerfile structured to maximize cache hits (dependencies before source code)
 - **Multi-stage Build**: Separate build and runtime environments for smaller final images
-- **Version Pinning**: All Alpine packages and Go tools use exact versions
+- **Package Management**: Alpine packages use latest available versions for compatibility
 - **Build Context**: .dockerignore excludes unnecessary files for faster context transfer
 - **Cache Strategy**: Default builds use cache; use `--no-cache` only when explicitly needed
 
