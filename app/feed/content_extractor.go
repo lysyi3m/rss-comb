@@ -14,15 +14,17 @@ import (
 
 // ContentExtractor handles extracting full content from article URLs
 type ContentExtractor struct {
-	client *http.Client
+	client    *http.Client
+	userAgent string
 }
 
-// NewContentExtractor creates a new content extractor with the given timeout
-func NewContentExtractor(timeout time.Duration) *ContentExtractor {
+// NewContentExtractor creates a new content extractor with the given timeout and user agent
+func NewContentExtractor(timeout time.Duration, userAgent string) *ContentExtractor {
 	return &ContentExtractor{
 		client: &http.Client{
 			Timeout: timeout,
 		},
+		userAgent: userAgent,
 	}
 }
 
@@ -39,7 +41,7 @@ func (e *ContentExtractor) ExtractContent(ctx context.Context, url string) (stri
 	}
 
 	// Set User-Agent to identify ourselves
-	req.Header.Set("User-Agent", "RSS Comb/1.0 (+https://github.com/lysyi3m/rss-comb)")
+	req.Header.Set("User-Agent", e.userAgent)
 
 	// Make the request
 	resp, err := e.client.Do(req)

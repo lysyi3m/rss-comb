@@ -92,7 +92,7 @@ func main() {
 	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, appConfig.UserAgent, appConfig.Port)
 
 	// Create content extraction service
-	contentExtractionService := feed.NewContentExtractionService(itemRepo)
+	contentExtractionService := feed.NewContentExtractionService(itemRepo, appConfig.UserAgent)
 
 	// Create config caches
 	taskSchedulerConfigCache := config_sync.NewConfigCacheHandler("Task scheduler", configs)
