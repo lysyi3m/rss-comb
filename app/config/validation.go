@@ -25,9 +25,10 @@ func ValidateConfig(config *FeedConfig) error {
 
 	// Validate settings - check non-negative integer fields
 	nonNegativeFields := map[string]int{
-		"refresh interval": config.Settings.RefreshInterval,
-		"max items":        config.Settings.MaxItems,
-		"timeout":          config.Settings.Timeout,
+		"refresh interval":    config.Settings.RefreshInterval,
+		"max items":           config.Settings.MaxItems,
+		"timeout":             config.Settings.Timeout,
+		"extraction timeout":  config.Settings.ExtractionTimeout,
 	}
 	
 	for fieldName, fieldValue := range nonNegativeFields {

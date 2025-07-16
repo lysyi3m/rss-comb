@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/lib/pq"
 )
@@ -10,6 +11,7 @@ import (
 var _ ItemReader = (*ItemRepository)(nil)
 var _ ItemWriter = (*ItemRepository)(nil)
 var _ ItemDuplicateChecker = (*ItemRepository)(nil)
+var _ ItemContentExtractor = (*ItemRepository)(nil)
 
 type ItemRepository struct {
 	db *DB
@@ -194,6 +196,92 @@ func (r *ItemRepository) UpdateItemFilterStatus(itemID string, isFiltered bool, 
 	
 	if err != nil {
 		return fmt.Errorf("failed to update item filter status: %w", err)
+	}
+	
+	return nil
+}
+
+// GetItemsForExtraction returns items that need content extraction (only ID and link)
+func (r *ItemRepository) GetItemsForExtraction(feedID string, limit int) ([]ItemForExtraction, error) {
+	query := `
+		SELECT id, link
+		FROM feed_items 
+		WHERE feed_id = $1 
+		  AND link IS NOT NULL 
+		  AND link != ''
+		  AND is_filtered = false
+		  AND (content_extraction_status = 'pending' OR content_extraction_status IS NULL)
+		  AND extraction_attempts < 3
+		ORDER BY published_at DESC
+		LIMIT $2`
+
+	rows, err := r.db.Query(query, feedID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items for extraction: %w", err)
+	}
+	defer rows.Close()
+
+	var items []ItemForExtraction
+	for rows.Next() {
+		var item ItemForExtraction
+		
+		err := rows.Scan(&item.ID, &item.Link)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan item row: %w", err)
+		}
+		
+		items = append(items, item)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate over rows: %w", err)
+	}
+	
+	return items, nil
+}
+
+// UpdateExtractionStatus updates the content extraction status for an item
+func (r *ItemRepository) UpdateExtractionStatus(itemID string, status string, extractedAt *time.Time, errorMsg string) error {
+	query := `
+		UPDATE feed_items 
+		SET content_extraction_status = $1, 
+			content_extracted_at = $2, 
+			content_extraction_error = $3
+		WHERE id = $4`
+
+	_, err := r.db.Exec(query, status, extractedAt, errorMsg, itemID)
+	if err != nil {
+		return fmt.Errorf("failed to update extraction status: %w", err)
+	}
+	
+	return nil
+}
+
+// IncrementExtractionAttempts increments the extraction attempts counter
+func (r *ItemRepository) IncrementExtractionAttempts(itemID string) error {
+	query := `
+		UPDATE feed_items 
+		SET extraction_attempts = extraction_attempts + 1
+		WHERE id = $1`
+
+	_, err := r.db.Exec(query, itemID)
+	if err != nil {
+		return fmt.Errorf("failed to increment extraction attempts: %w", err)
+	}
+	
+	return nil
+}
+
+// UpdateExtractedContent updates the content field with extracted content
+func (r *ItemRepository) UpdateExtractedContent(itemID string, content string) error {
+	query := `
+		UPDATE feed_items 
+		SET content = $1
+		WHERE id = $2`
+
+	_, err := r.db.Exec(query, content, itemID)
+	if err != nil {
+		return fmt.Errorf("failed to update extracted content: %w", err)
 	}
 	
 	return nil

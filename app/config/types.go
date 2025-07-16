@@ -20,10 +20,12 @@ type FeedInfo struct {
 
 // FeedSettings contains feed processing settings
 type FeedSettings struct {
-	Enabled         bool `yaml:"enabled"`
-	RefreshInterval int  `yaml:"refresh_interval"` // seconds
-	MaxItems        int  `yaml:"max_items"`
-	Timeout         int  `yaml:"timeout"` // seconds
+	Enabled            bool `yaml:"enabled"`
+	RefreshInterval    int  `yaml:"refresh_interval"`    // seconds
+	MaxItems           int  `yaml:"max_items"`
+	Timeout            int  `yaml:"timeout"`             // seconds
+	ExtractContent     bool `yaml:"extract_content"`     // enable content extraction
+	ExtractionTimeout  int  `yaml:"extraction_timeout"`  // seconds
 }
 
 // Filter represents a content filter rule
@@ -47,4 +49,12 @@ func (s *FeedSettings) GetTimeout() time.Duration {
 		return 30 * time.Second // default 30 seconds
 	}
 	return time.Duration(s.Timeout) * time.Second
+}
+
+// GetExtractionTimeout returns the extraction timeout as time.Duration
+func (s *FeedSettings) GetExtractionTimeout() time.Duration {
+	if s.ExtractionTimeout <= 0 {
+		return 10 * time.Second // default 10 seconds
+	}
+	return time.Duration(s.ExtractionTimeout) * time.Second
 }

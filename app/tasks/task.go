@@ -9,8 +9,9 @@ import (
 type TaskType string
 
 const (
-	TaskTypeProcessFeed TaskType = "process_feed"
-	TaskTypeRefilterFeed TaskType = "refilter_feed"
+	TaskTypeProcessFeed    TaskType = "process_feed"
+	TaskTypeRefilterFeed   TaskType = "refilter_feed"
+	TaskTypeExtractContent TaskType = "extract_content"
 )
 
 // Task represents a unit of work that can be executed by the scheduler

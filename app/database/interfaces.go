@@ -72,3 +72,19 @@ type ItemDuplicateChecker interface {
 	CheckDuplicate(contentHash, feedID string) (bool, *string, error)
 }
 
+// ItemForExtraction represents minimal data needed for content extraction
+type ItemForExtraction struct {
+	ID   string
+	Link string
+}
+
+// ItemContentExtractor defines content extraction operations for feed items.
+// Used by components that need to manage content extraction processes.
+// This interface provides access to extraction tracking and status updates.
+type ItemContentExtractor interface {
+	GetItemsForExtraction(feedID string, limit int) ([]ItemForExtraction, error)
+	UpdateExtractionStatus(itemID string, status string, extractedAt *time.Time, error string) error
+	IncrementExtractionAttempts(itemID string) error
+	UpdateExtractedContent(itemID string, content string) error
+}
+

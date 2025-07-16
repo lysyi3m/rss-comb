@@ -102,6 +102,18 @@ func (m *MockProcessor) ReapplyFilters(feedID string, feedConfig *config.FeedCon
 	return 0, 0, nil
 }
 
+// MockContentExtractionInterface implements a simple mock for testing
+type MockContentExtractionInterface struct {
+	shouldError bool
+}
+
+func (m *MockContentExtractionInterface) ExtractContentForFeed(ctx context.Context, feedID string, feedConfig *config.FeedConfig) error {
+	if m.shouldError {
+		return &testError{"mock extraction error"}
+	}
+	return nil
+}
+
 // Helper function to create test configs
 func createTestConfigs() map[string]*config.FeedConfig {
 	return map[string]*config.FeedConfig{
@@ -132,7 +144,8 @@ func TestNewTaskScheduler(t *testing.T) {
 	configs := createTestConfigs()
 	configCache := config_sync.NewConfigCacheHandler("Test", configs)
 
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 2)
+	mockContentExtractor := &MockContentExtractionInterface{}
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, mockContentExtractor, time.Second, 2)
 
 	if scheduler == nil {
 		t.Fatal("Expected scheduler to be created")
@@ -157,7 +170,8 @@ func TestTaskSchedulerExecuteTask(t *testing.T) {
 
 	configs := createTestConfigs()
 	configCache := config_sync.NewConfigCacheHandler("Test", configs)
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 1)
+	mockContentExtractor := &MockContentExtractionInterface{}
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, mockContentExtractor, time.Second, 1)
 
 	// Test successful task execution via EnqueueTask
 	task := NewProcessFeedTask("test-id", createTestConfigs()["test.yml"], mockProcessor)
@@ -193,7 +207,8 @@ func TestTaskSchedulerLifecycle(t *testing.T) {
 
 	configs := createTestConfigs()
 	configCache := config_sync.NewConfigCacheHandler("Test", configs)
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, 100*time.Millisecond, 1)
+	mockContentExtractor := &MockContentExtractionInterface{}
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, mockContentExtractor, 100*time.Millisecond, 1)
 
 	// Start scheduler
 	scheduler.Start()
@@ -216,7 +231,8 @@ func TestEnqueueTask(t *testing.T) {
 
 	configs := createTestConfigs()
 	configCache := config_sync.NewConfigCacheHandler("Test", configs)
-	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, time.Second, 1)
+	mockContentExtractor := &MockContentExtractionInterface{}
+	scheduler := NewTaskScheduler(mockProcessor, mockRepo, configCache, mockContentExtractor, time.Second, 1)
 
 	// Test successful enqueue
 	task := NewProcessFeedTask("test-id", createTestConfigs()["test.yml"], mockProcessor)

@@ -8,6 +8,8 @@ settings:
   refresh_interval: 1800  # 30 minutes
   max_items: 50
   timeout: 30             # seconds
+  extract_content: true   # Enable content extraction
+  extraction_timeout: 15  # 15 seconds timeout for content extraction
 
 filters:
   - field: "title"

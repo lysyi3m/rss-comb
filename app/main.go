@@ -91,12 +91,15 @@ func main() {
 
 	feedProcessor := feed.NewProcessor(feedRepo, itemRepo, appConfig.UserAgent, appConfig.Port)
 
+	// Create content extraction service
+	contentExtractionService := feed.NewContentExtractionService(itemRepo)
+
 	// Create config caches
 	taskSchedulerConfigCache := config_sync.NewConfigCacheHandler("Task scheduler", configs)
 	apiConfigCache := config_sync.NewConfigCacheHandler("API handler", configs)
 
 	slog.Info("Starting task scheduler", "workers", appConfig.WorkerCount, "interval", fmt.Sprintf("%ds", appConfig.SchedulerInterval))
-	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo, taskSchedulerConfigCache,
+	taskScheduler := tasks.NewTaskScheduler(feedProcessor, feedRepo, taskSchedulerConfigCache, contentExtractionService,
 		time.Duration(appConfig.SchedulerInterval)*time.Second, appConfig.WorkerCount)
 	taskScheduler.Start()
 	defer taskScheduler.Stop()

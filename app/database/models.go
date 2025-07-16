@@ -39,4 +39,9 @@ type Item struct {
 	FilterReason string
 	ContentHash string
 	CreatedAt   time.Time
+	// Content extraction tracking fields
+	ContentExtractedAt       *time.Time
+	ContentExtractionStatus  string // pending, success, failed, skipped
+	ContentExtractionError   string
+	ExtractionAttempts       int
 }

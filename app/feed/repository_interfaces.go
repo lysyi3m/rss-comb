@@ -20,6 +20,7 @@ type ItemRepositoryInterface interface {
 	database.ItemReader
 	database.ItemWriter
 	database.ItemDuplicateChecker
+	database.ItemContentExtractor
 }
 
 // Compile-time interface compliance checks

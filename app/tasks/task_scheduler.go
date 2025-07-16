@@ -16,31 +16,34 @@ var _ TaskSchedulerInterface = (*TaskScheduler)(nil)
 
 // TaskScheduler manages the execution of tasks using a generic task queue
 type TaskScheduler struct {
-	processor    ProcessorInterface
-	feedRepo     database.FeedScheduler
-	configCache  *config_sync.ConfigCacheHandler
-	interval     time.Duration
-	workerCount  int
-	ctx          context.Context
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
-	taskQueue    chan Task
+	processor         ProcessorInterface
+	feedRepo          database.FeedScheduler
+	configCache       *config_sync.ConfigCacheHandler
+	contentExtractor  ContentExtractionInterface
+	interval          time.Duration
+	workerCount       int
+	ctx               context.Context
+	cancel            context.CancelFunc
+	wg                sync.WaitGroup
+	taskQueue         chan Task
 }
 
 // NewTaskScheduler creates a new generic task scheduler
 func NewTaskScheduler(processor ProcessorInterface, feedRepo database.FeedScheduler,
-	configCache *config_sync.ConfigCacheHandler, interval time.Duration, workerCount int) TaskSchedulerInterface {
+	configCache *config_sync.ConfigCacheHandler, contentExtractor ContentExtractionInterface,
+	interval time.Duration, workerCount int) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	return &TaskScheduler{
-		processor:   processor,
-		feedRepo:    feedRepo,
-		configCache: configCache,
-		interval:    interval,
-		workerCount: workerCount,
-		ctx:         ctx,
-		cancel:      cancel,
-		taskQueue:   make(chan Task, 100), // Buffer of 100 tasks
+		processor:        processor,
+		feedRepo:         feedRepo,
+		configCache:      configCache,
+		contentExtractor: contentExtractor,
+		interval:         interval,
+		workerCount:      workerCount,
+		ctx:              ctx,
+		cancel:           cancel,
+		taskQueue:        make(chan Task, 100), // Buffer of 100 tasks
 	}
 }
 
@@ -148,15 +151,31 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 			continue
 		}
 		
-		task := NewProcessFeedTask(feed.ID, feedConfig, s.processor)
+		// Enqueue ProcessFeedTask first
+		processTask := NewProcessFeedTask(feed.ID, feedConfig, s.processor)
 		
 		select {
-		case s.taskQueue <- task:
+		case s.taskQueue <- processTask:
 			slog.Debug("ProcessFeedTask enqueued", "title", feed.Title)
 		case <-s.ctx.Done():
 			return
 		default:
 			slog.Warn("Task queue full, skipping feed", "title", feed.Title)
+			continue
+		}
+		
+		// If content extraction is enabled, enqueue ExtractContentTask after ProcessFeedTask
+		if feedConfig.Settings.ExtractContent {
+			extractTask := NewExtractContentTask(feed.ID, feedConfig, s.contentExtractor)
+			
+			select {
+			case s.taskQueue <- extractTask:
+				slog.Debug("ExtractContentTask enqueued", "title", feed.Title)
+			case <-s.ctx.Done():
+				return
+			default:
+				slog.Warn("Task queue full, skipping ExtractContentTask", "title", feed.Title)
+			}
 		}
 	}
 

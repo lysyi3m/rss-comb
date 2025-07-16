@@ -98,6 +98,8 @@ rss-comb/
    - **Processor**: HTTP feed fetching, content filtering, and automatic deduplication with intelligent timestamp optimization
    - **Parser**: Universal RSS/Atom feed parsing using gofeed and normalization
    - **Generator**: RSS 2.0 XML output generation for API responses
+   - **Content Extractor**: Intelligent full-text content extraction using go-readability for feeds lacking <content:encoded>
+   - **Content Extraction Service**: Orchestrates content extraction with error handling and retry logic
    - **Performance Optimization**: Feed timestamp comparison reduces duplicate checking from O(n) to O(1) when content unchanged
    - Clean separation of concerns with focused interfaces
 
@@ -112,6 +114,7 @@ rss-comb/
    - Worker pool for concurrent task execution
    - Configuration management and resolution for processing tasks
    - Database-driven scheduling with next_fetch timestamps
+   - **Content Extraction Tasks**: Automatic background content extraction after feed processing
    - Graceful shutdown handling
 
 6. **HTTP API** (`app/api/`)
@@ -125,9 +128,10 @@ rss-comb/
 2. **Database Sync**: `config_sync` registers feeds in database, detecting URL changes
 3. **Task Scheduling**: `tasks` scheduler queues feed processing based on `next_fetch` timestamps
 4. **Feed Processing**: `feed/processor` fetches, parses, filters, and deduplicates items with timestamp-based optimization
-5. **Storage**: Items stored with filter status and content hashes for deduplication
-6. **API Access**: `api/handlers` serve processed feeds and management endpoints
-7. **Configuration Reload**: Manual configuration reloading via `/reload` API endpoint
+5. **Content Extraction**: `content_extractor` automatically extracts full article content when `extract_content: true`
+6. **Storage**: Items stored with filter status, content hashes, and extraction tracking for deduplication
+7. **API Access**: `api/handlers` serve processed feeds with extracted content and management endpoints
+8. **Configuration Reload**: Manual configuration reloading via `/reload` API endpoint
 
 ### Database Schema
 
@@ -140,21 +144,24 @@ rss-comb/
 **feed_items table:**
 - Normalized item data with content hashing
 - Filtering and deduplication flags
-- Optimized indexes for common queries
+- Content extraction tracking (status, attempts, errors, timestamps)
+- Optimized indexes for common queries and content extraction
 
 ## Detailed Architecture
 
 ### Database Schema Details
 - **feeds table**: id, feed_url, title, link, image_url, language, enabled, last_fetched, last_success, next_fetch
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, filter_reason, content_hash, created_at
+- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, filter_reason, content_hash, created_at, content_extracted_at, content_extraction_status, content_extraction_error, extraction_attempts
 - **Key relationships**: feeds.id → feed_items.feed_id (UUID primary keys)
-- **Indexes**: feed_id, published_at, content_hash for optimized queries
+- **Indexes**: feed_id, published_at, content_hash, content_extraction_status, extraction_attempts for optimized queries
 - **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
 
 ### Feed Processing Layer (`app/feed/`)
 - `processor.go`: Main feed processing orchestration and business logic with timestamp optimization
 - `parser.go`: RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps
 - `generator.go`: RSS 2.0 XML output generation for API responses
+- `content_extractor.go`: Intelligent HTML content extraction using go-readability library
+- `content_extraction_service.go`: Orchestrates content extraction with error handling and retry logic
 - `types.go`: Feed data structures and models
 - **Performance**: Intelligent duplicate checking only when feed content has changed
 - Consolidated from separate parser/generator packages for better cohesion
@@ -162,15 +169,16 @@ rss-comb/
 ### Repository Layer (`app/database/`)
 - `connection.go`: PostgreSQL connection management with pooling
 - `feed_repository.go`: Feed operations implementing FeedReader, FeedWriter, FeedScheduler
-- `item_repository.go`: Item operations implementing ItemReader, ItemWriter, ItemDuplicateChecker
+- `item_repository.go`: Item operations implementing ItemReader, ItemWriter, ItemDuplicateChecker, ItemContentExtractor
 - `models.go`: Database model structs (Feed, FeedItem, Item)
-- `migrations.go`: Embedded migration management with 10 migration files
-- `migrations/`: SQL files (001-010) handling schema evolution
+- `migrations.go`: Embedded migration management with 18 migration files
+- `migrations/`: SQL files (001-018) handling schema evolution including content extraction support
 - Interface segregation principle: separate interfaces for different responsibilities
 
 ### Task Management Layer (`app/tasks/`)
 - `task_scheduler.go`: Main task scheduling and worker pool management
 - `process_feed_task.go`: Individual feed processing task implementation
+- `extract_content_task.go`: Content extraction task implementation for background processing
 - `refilter_feed_task.go`: Feed item refiltering task implementation (internal task)
 - `interfaces.go`: Task system interface definitions
 - Configuration resolution and task creation coordination
@@ -253,6 +261,8 @@ settings:
   refresh_interval: 1800  # 30 minutes (recommended)
   max_items: 50              # Limits RSS output items (all items stored in database)
   timeout: 30            # seconds
+  extract_content: true     # Enable automatic content extraction
+  extraction_timeout: 15    # Content extraction timeout in seconds
 
 filters:
   - field: "title"
@@ -270,6 +280,36 @@ filters:
 - Feed URLs can be updated in configuration files at any time - the system automatically detects and applies URL changes
 - Feeds with query parameters are fully supported since routing is based on feed IDs, not URLs
 - Authors field contains formatted strings like "email (name)" or "name" when email is not available
+
+### Content Extraction Feature
+
+RSS Comb includes automatic content extraction for feeds that don't provide full article content in their RSS feeds. This feature uses intelligent HTML parsing to extract clean, readable content from article web pages.
+
+**Key Features:**
+- **Automatic Processing**: Runs in background after feed processing
+- **Intelligent Extraction**: Uses Mozilla's Readability algorithm (go-readability library)
+- **Error Resilient**: Extraction failures don't affect feed processing
+- **Retry Logic**: Tracks attempts and prevents infinite loops (max 3 attempts)
+- **Performance Optimized**: Only processes visible (non-filtered) items
+- **Configurable**: Per-feed enable/disable with timeout controls
+
+**Configuration Options:**
+- `extract_content: true/false` - Enable/disable content extraction
+- `extraction_timeout: 15` - Timeout in seconds for content extraction (default: 10)
+- `max_items: 50` - Limits extraction to most recent N items per feed
+
+**How It Works:**
+1. Feed processing completes normally
+2. If `extract_content: true`, an ExtractContentTask is automatically queued
+3. Content extractor fetches article URLs and extracts clean content
+4. Extracted content replaces original RSS content in database
+5. RSS output includes full article content via `<content:encoded>` tags
+
+**Database Tracking:**
+- `content_extraction_status`: pending, success, failed, skipped
+- `content_extracted_at`: Timestamp of successful extraction
+- `content_extraction_error`: Error message for failed extractions
+- `extraction_attempts`: Number of attempts to prevent infinite retries
 
 ### Environment Variables
 All configuration options support both environment variables and command-line flags:
