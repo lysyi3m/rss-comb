@@ -5,13 +5,14 @@ import (
 	"time"
 
 	"github.com/mmcdole/gofeed"
+	"github.com/lysyi3m/rss-comb/app/database"
 )
 
 // Processor handles feed processing including fetching, parsing, filtering, and storage
 type Processor struct {
 	parser      *Parser
-	feedRepo    FeedRepositoryInterface
-	itemRepo    ItemRepositoryInterface
+	feedRepo    database.FeedRepository
+	itemRepo    database.ItemRepository
 	client      *http.Client
 	userAgent   string
 }

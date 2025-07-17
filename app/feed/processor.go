@@ -13,7 +13,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
-func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface) *Processor {
+func NewProcessor(fr database.FeedRepository, ir database.ItemRepository) *Processor {
 	cfg := config.Get()
 	return &Processor{
 		parser:      NewParser(),

@@ -18,7 +18,7 @@ type ContentExtractionService struct {
 }
 
 // NewContentExtractionService creates a new content extraction service
-func NewContentExtractionService(itemRepo ItemRepositoryInterface) *ContentExtractionService {
+func NewContentExtractionService(itemRepo database.ItemRepository) *ContentExtractionService {
 	cfg := config.Get()
 	return &ContentExtractionService{
 		extractor: NewContentExtractor(10 * time.Second, cfg.GetUserAgent()), // Default timeout
