@@ -10,7 +10,6 @@ import (
 // Processor handles feed processing including fetching, parsing, filtering, and storage
 type Processor struct {
 	parser      *Parser
-	generator   *Generator
 	feedRepo    FeedRepositoryInterface
 	itemRepo    ItemRepositoryInterface
 	client      *http.Client

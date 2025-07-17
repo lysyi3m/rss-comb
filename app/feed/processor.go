@@ -17,7 +17,6 @@ func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface) *Proce
 	cfg := config.Get()
 	return &Processor{
 		parser:      NewParser(),
-		generator:   NewGenerator(cfg.GetPort()),
 		feedRepo:    fr,
 		itemRepo:    ir,
 		client: &http.Client{
