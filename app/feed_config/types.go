@@ -58,3 +58,8 @@ func (s *FeedSettings) GetExtractionTimeout() time.Duration {
 	}
 	return time.Duration(s.ExtractionTimeout) * time.Second
 }
+
+// IsEnabled returns whether the feed is enabled for processing
+func (s *FeedSettings) IsEnabled() bool {
+	return s.Enabled
+}

@@ -12,7 +12,6 @@ import (
 // for clean dependency management and improved testability.
 type ProcessorInterface interface {
 	ProcessFeed(feedID string, feedConfig *feed_config.FeedConfig) error
-	IsFeedEnabled(feedConfig *feed_config.FeedConfig) bool
 	ReapplyFilters(feedID string, feedConfig *feed_config.FeedConfig) (int, int, error)
 }
 

@@ -100,14 +100,6 @@ func (m *MockProcessor) ProcessFeed(feedID string, feedConfig *feed_config.FeedC
 	return nil
 }
 
-func (m *MockProcessor) IsFeedEnabled(feedConfig *feed_config.FeedConfig) bool {
-	// Mock implementation - return true for all feeds except those with "disabled" in the name
-	if feedConfig == nil {
-		return false
-	}
-	return true
-}
-
 func (m *MockProcessor) ReapplyFilters(feedID string, feedConfig *feed_config.FeedConfig) (int, int, error) {
 	// Mock implementation - return 0 updated items, 0 errors
 	if m.shouldError {

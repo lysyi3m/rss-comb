@@ -34,7 +34,7 @@ func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface) *Proce
 }
 
 func (p *Processor) ProcessFeed(feedID string, feedConfig *feed_config.FeedConfig) error {
-	if !feedConfig.Settings.Enabled {
+	if !feedConfig.Settings.IsEnabled() {
 		slog.Debug("Feed disabled, skipping", "title", feedConfig.Feed.Title)
 		return nil
 	}
@@ -221,13 +221,6 @@ func (p *Processor) getFieldValue(item Item, field string) string {
 	default:
 		return ""
 	}
-}
-
-func (p *Processor) IsFeedEnabled(feedConfig *feed_config.FeedConfig) bool {
-	if feedConfig == nil {
-		return false // Fail-safe: missing configuration disables processing
-	}
-	return feedConfig.Settings.Enabled
 }
 
 func (p *Processor) ReapplyFilters(feedID string, feedConfig *feed_config.FeedConfig) (int, int, error) {
