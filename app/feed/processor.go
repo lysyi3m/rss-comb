@@ -101,7 +101,20 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *feed_config.FeedConfi
 			slog.Debug("Item filtered", "item_index", i, "reason", reason)
 		}
 
-		dbItem := p.convertToDBItem(item)
+		dbItem := database.FeedItem{
+			GUID:        item.GUID,
+			Title:       item.Title,
+			Link:        item.Link,
+			Description: item.Description,
+			Content:     item.Content,
+			PublishedAt: item.PublishedAt,
+			UpdatedAt:   item.UpdatedAt,
+			Authors:     item.Authors,
+			Categories:  item.Categories,
+			ContentHash: item.ContentHash,
+			IsFiltered:  item.IsFiltered,
+			FilterReason: item.FilterReason,
+		}
 		if err := p.itemRepo.StoreItem(feedID, dbItem); err != nil {
 			slog.Warn("Failed to store item", "item_index", i, "error", err)
 			continue
@@ -281,19 +294,3 @@ func (p *Processor) ReapplyFilters(feedID string, feedConfig *feed_config.FeedCo
 	return updatedCount, errorCount, nil
 }
 
-func (p *Processor) convertToDBItem(item Item) database.FeedItem {
-	return database.FeedItem{
-		GUID:        item.GUID,
-		Title:       item.Title,
-		Link:        item.Link,
-		Description: item.Description,
-		Content:     item.Content,
-		PublishedAt: item.PublishedAt,
-		UpdatedAt:   item.UpdatedAt,
-		Authors:     item.Authors,
-		Categories:  item.Categories,
-		ContentHash: item.ContentHash,
-		IsFiltered:  item.IsFiltered,
-		FilterReason: item.FilterReason,
-	}
-}

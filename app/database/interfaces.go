@@ -5,6 +5,7 @@ import (
 )
 
 // FeedItem represents a normalized feed item for database operations
+// This is a simplified structure without database-specific fields like ID, FeedID, CreatedAt
 type FeedItem struct {
 	GUID        string
 	Title       string
