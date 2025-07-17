@@ -67,8 +67,3 @@ func (t *SyncFeedConfigTask) Execute(ctx context.Context) error {
 	slog.Debug("Task completed", "type", "SyncFeedConfig", "feed_id", t.GetFeedID(), "url_changed", urlChanged)
 	return nil
 }
-
-// GetFeedConfig returns the feed configuration for this task
-func (t *SyncFeedConfigTask) GetFeedConfig() *feed_config.FeedConfig {
-	return t.FeedConfig
-}

@@ -34,7 +34,7 @@ func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface) *Proce
 }
 
 func (p *Processor) ProcessFeed(feedID string, feedConfig *feed_config.FeedConfig) error {
-	if !feedConfig.Settings.IsEnabled() {
+	if !feedConfig.Settings.Enabled {
 		slog.Debug("Feed disabled, skipping", "title", feedConfig.Feed.Title)
 		return nil
 	}

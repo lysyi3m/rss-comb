@@ -173,7 +173,7 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 	enabledFeeds := make([]database.Feed, 0, len(feeds))
 	for _, feed := range feeds {
 		feedConfig, ok := s.configCache.GetConfig(feed.ConfigFile)
-		if ok && feedConfig.Settings.IsEnabled() {
+		if ok && feedConfig.Settings.Enabled {
 			enabledFeeds = append(enabledFeeds, feed)
 		}
 	}

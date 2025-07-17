@@ -61,8 +61,3 @@ func (t *ExtractContentTask) Execute(ctx context.Context) error {
 	slog.Debug("Task completed", "type", "ExtractContent", "feed_id", t.GetFeedID())
 	return nil
 }
-
-// GetFeedConfig returns the feed configuration for this task
-func (t *ExtractContentTask) GetFeedConfig() *feed_config.FeedConfig {
-	return t.FeedConfig
-}

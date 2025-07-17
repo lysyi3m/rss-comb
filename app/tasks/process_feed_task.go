@@ -43,7 +43,3 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	slog.Debug("Task completed", "type", "ProcessFeed", "feed_id", t.GetFeedID())
 	return nil
 }
-
-func (t *ProcessFeedTask) GetFeedConfig() *feed_config.FeedConfig {
-	return t.FeedConfig
-}

@@ -48,8 +48,3 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 	
 	return nil
 }
-
-// GetFeedConfig returns the feed config for this task
-func (t *RefilterFeedTask) GetFeedConfig() *feed_config.FeedConfig {
-	return t.FeedConfig
-}

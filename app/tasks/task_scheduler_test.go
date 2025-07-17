@@ -144,21 +144,6 @@ func (e *testError) Error() string {
 	return e.msg
 }
 
-func TestNewTaskScheduler(t *testing.T) {
-	t.Skip("Skipping test that requires global config initialization")
-}
-
-func TestTaskSchedulerExecuteTask(t *testing.T) {
-	t.Skip("Skipping test that requires global config initialization")
-}
-
-func TestTaskSchedulerLifecycle(t *testing.T) {
-	t.Skip("Skipping test that requires global config initialization")
-}
-
-func TestEnqueueTask(t *testing.T) {
-	t.Skip("Skipping test that requires global config initialization")
-}
 
 func TestRefilterFeedTask(t *testing.T) {
 	mockProcessor := &MockProcessor{}
@@ -173,8 +158,8 @@ func TestRefilterFeedTask(t *testing.T) {
 		t.Errorf("Expected feed ID 'test-id', got '%s'", task.GetFeedID())
 	}
 
-	if task.GetFeedConfig().Feed.ID != "test-feed" {
-		t.Errorf("Expected feed config ID 'test-feed', got '%s'", task.GetFeedConfig().Feed.ID)
+	if task.FeedConfig.Feed.ID != "test-feed" {
+		t.Errorf("Expected feed config ID 'test-feed', got '%s'", task.FeedConfig.Feed.ID)
 	}
 
 	// Test execution
@@ -198,8 +183,8 @@ func TestProcessFeedTask(t *testing.T) {
 		t.Errorf("Expected feed ID 'test-id', got '%s'", task.GetFeedID())
 	}
 
-	if task.GetFeedConfig().Feed.ID != "test-feed" {
-		t.Errorf("Expected feed config ID 'test-feed', got '%s'", task.GetFeedConfig().Feed.ID)
+	if task.FeedConfig.Feed.ID != "test-feed" {
+		t.Errorf("Expected feed config ID 'test-feed', got '%s'", task.FeedConfig.Feed.ID)
 	}
 
 	// Test execution
