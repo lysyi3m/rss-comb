@@ -7,43 +7,50 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lysyi3m/rss-comb/app/config_sync"
+	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/feed_config"
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
 // Compile-time interface compliance checks
 var _ TaskSchedulerInterface = (*TaskScheduler)(nil)
 
-// TaskScheduler manages the execution of tasks using a generic task queue
+
+// TaskScheduler manages the execution of tasks using priority-based task queues
 type TaskScheduler struct {
-	processor         ProcessorInterface
-	feedRepo          database.FeedScheduler
-	configCache       *config_sync.ConfigCacheHandler
-	contentExtractor  ContentExtractionInterface
-	interval          time.Duration
-	workerCount       int
-	ctx               context.Context
-	cancel            context.CancelFunc
-	wg                sync.WaitGroup
-	taskQueue         chan Task
+	processor        ProcessorInterface
+	feedRepo         database.FeedRepository
+	configCache      *feed_config.ConfigCacheHandler
+	contentExtractor ContentExtractionInterface
+	interval         time.Duration
+	workerCount      int
+	ctx              context.Context
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
+	// Priority-based task queues
+	topPriorityQueue    chan Task // Priority 0: Config sync tasks
+	highPriorityQueue   chan Task // Priority 1: Feed processing, refilter tasks
+	normalPriorityQueue chan Task // Priority 2: Content extraction tasks
 }
 
-// NewTaskScheduler creates a new generic task scheduler
-func NewTaskScheduler(processor ProcessorInterface, feedRepo database.FeedScheduler,
-	configCache *config_sync.ConfigCacheHandler, contentExtractor ContentExtractionInterface,
-	interval time.Duration, workerCount int) TaskSchedulerInterface {
+// NewTaskScheduler creates a new priority-based task scheduler
+func NewTaskScheduler(configCache *feed_config.ConfigCacheHandler, feedRepo database.FeedRepository,
+	processor ProcessorInterface, contentExtractor ContentExtractionInterface) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
+	cfg := config.Get()
 	
 	return &TaskScheduler{
-		processor:        processor,
-		feedRepo:         feedRepo,
-		configCache:      configCache,
-		contentExtractor: contentExtractor,
-		interval:         interval,
-		workerCount:      workerCount,
-		ctx:              ctx,
-		cancel:           cancel,
-		taskQueue:        make(chan Task, 100), // Buffer of 100 tasks
+		processor:           processor,
+		feedRepo:            feedRepo,
+		configCache:         configCache,
+		contentExtractor:    contentExtractor,
+		interval:            time.Duration(cfg.GetSchedulerInterval()) * time.Second,
+		workerCount:         cfg.GetWorkerCount(),
+		ctx:                 ctx,
+		cancel:              cancel,
+		topPriorityQueue:    make(chan Task, 50),  // Priority 0: Config sync
+		highPriorityQueue:   make(chan Task, 100), // Priority 1: Feed processing
+		normalPriorityQueue: make(chan Task, 100), // Priority 2: Content extraction
 	}
 }
 
@@ -72,22 +79,37 @@ func (s *TaskScheduler) Stop() {
 	// Wait for all goroutines to finish first
 	s.wg.Wait()
 	
-	// Close the task queue after all goroutines have stopped
-	close(s.taskQueue)
+	// Close all task queues after all goroutines have stopped
+	close(s.topPriorityQueue)
+	close(s.highPriorityQueue)
+	close(s.normalPriorityQueue)
 	
 	slog.Debug("Task scheduler stopped")
 }
 
-// EnqueueTask adds a task to the queue
+// EnqueueTask adds a task to the appropriate priority queue
 func (s *TaskScheduler) EnqueueTask(task Task) error {
+	var targetQueue chan Task
+	
+	switch task.GetPriority() {
+	case PriorityTop:
+		targetQueue = s.topPriorityQueue
+	case PriorityHigh:
+		targetQueue = s.highPriorityQueue
+	case PriorityNormal:
+		targetQueue = s.normalPriorityQueue
+	default:
+		return fmt.Errorf("unknown task priority: %d", task.GetPriority())
+	}
+	
 	select {
-	case s.taskQueue <- task:
-		slog.Debug("Task enqueued", "description", task.GetDescription(), "type", task.GetType())
+	case targetQueue <- task:
+		slog.Debug("Task enqueued", "description", task.GetDescription(), "type", task.GetType(), "priority", task.GetPriority())
 		return nil
 	case <-s.ctx.Done():
 		return s.ctx.Err()
 	default:
-		return fmt.Errorf("task queue is full")
+		return fmt.Errorf("task queue is full for priority %d", task.GetPriority())
 	}
 }
 
@@ -114,6 +136,28 @@ func (s *TaskScheduler) schedulerLoop() {
 
 // enqueueDueFeeds finds feeds that need processing and creates ProcessFeedTasks
 func (s *TaskScheduler) enqueueDueFeeds() {
+	// First, ensure all configured feeds are synced to database
+	allConfigs := s.configCache.GetAllConfigs()
+	for configFile, feedConfig := range allConfigs {
+		// Check if feed exists in database
+		existingFeed, err := s.feedRepo.GetFeedByID(feedConfig.Feed.ID)
+		if err != nil {
+			slog.Error("Failed to check feed existence", "feed_id", feedConfig.Feed.ID, "error", err)
+			continue
+		}
+		
+		// If feed doesn't exist in database, create SyncFeedConfigTask
+		if existingFeed == nil {
+			syncTask := NewSyncFeedConfigTask(configFile, feedConfig, s.feedRepo)
+			if err := s.EnqueueTask(syncTask); err != nil {
+				slog.Warn("Failed to enqueue SyncFeedConfigTask", "feed_id", feedConfig.Feed.ID, "error", err)
+			} else {
+				slog.Debug("SyncFeedConfigTask enqueued for new feed", "feed_id", feedConfig.Feed.ID)
+			}
+		}
+	}
+	
+	// Then, get feeds that are due for refresh
 	feeds, err := s.feedRepo.GetFeedsDueForRefresh()
 	if err != nil {
 		slog.Error("Failed to get feeds for refresh", "error", err)
@@ -151,49 +195,52 @@ func (s *TaskScheduler) enqueueDueFeeds() {
 			continue
 		}
 		
-		// Enqueue ProcessFeedTask first
+		// Enqueue ProcessFeedTask (Priority High)
 		processTask := NewProcessFeedTask(feed.ID, feedConfig, s.processor)
-		
-		select {
-		case s.taskQueue <- processTask:
-			slog.Debug("ProcessFeedTask enqueued", "title", feed.Title)
-		case <-s.ctx.Done():
-			return
-		default:
-			slog.Warn("Task queue full, skipping feed", "title", feed.Title)
+		if err := s.EnqueueTask(processTask); err != nil {
+			slog.Warn("Failed to enqueue ProcessFeedTask", "title", feed.Title, "error", err)
 			continue
 		}
 		
-		// If content extraction is enabled, enqueue ExtractContentTask after ProcessFeedTask
+		// If content extraction is enabled, enqueue ExtractContentTask (Priority Normal)
 		if feedConfig.Settings.ExtractContent {
 			extractTask := NewExtractContentTask(feed.ID, feedConfig, s.contentExtractor)
-			
-			select {
-			case s.taskQueue <- extractTask:
-				slog.Debug("ExtractContentTask enqueued", "title", feed.Title)
-			case <-s.ctx.Done():
-				return
-			default:
-				slog.Warn("Task queue full, skipping ExtractContentTask", "title", feed.Title)
+			if err := s.EnqueueTask(extractTask); err != nil {
+				slog.Warn("Failed to enqueue ExtractContentTask", "title", feed.Title, "error", err)
 			}
 		}
 	}
-
 }
 
-// worker processes tasks from the task queue
+// worker processes tasks from priority queues (highest priority first)
 func (s *TaskScheduler) worker(id int) {
 	defer s.wg.Done()
 	slog.Debug("Worker started", "worker_id", id)
 
 	for {
 		select {
-		case task, ok := <-s.taskQueue:
+		// Priority 0: Top priority (Config sync)
+		case task, ok := <-s.topPriorityQueue:
 			if !ok {
-				slog.Debug("Worker stopping - queue closed", "worker_id", id)
+				slog.Debug("Worker stopping - top priority queue closed", "worker_id", id)
 				return
 			}
+			s.executeTask(id, task)
 
+		// Priority 1: High priority (Feed processing, refilter)
+		case task, ok := <-s.highPriorityQueue:
+			if !ok {
+				slog.Debug("Worker stopping - high priority queue closed", "worker_id", id)
+				return
+			}
+			s.executeTask(id, task)
+
+		// Priority 2: Normal priority (Content extraction)
+		case task, ok := <-s.normalPriorityQueue:
+			if !ok {
+				slog.Debug("Worker stopping - normal priority queue closed", "worker_id", id)
+				return
+			}
 			s.executeTask(id, task)
 
 		case <-s.ctx.Done():

@@ -1,4 +1,4 @@
-package config_loader
+package feed_config
 
 import (
 	"fmt"
@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
-	"github.com/lysyi3m/rss-comb/app/config"
 )
 
 type Loader struct {
@@ -18,8 +17,8 @@ func NewLoader(feedsDir string) *Loader {
 	return &Loader{feedsDir: feedsDir}
 }
 
-func (l *Loader) LoadAll() (map[string]*config.FeedConfig, error) {
-	configs := make(map[string]*config.FeedConfig)
+func (l *Loader) LoadAll() (map[string]*FeedConfig, error) {
+	configs := make(map[string]*FeedConfig)
 	feedIDs := make(map[string]string) // Enforce unique feed IDs across all configuration files
 
 	if _, err := os.Stat(l.feedsDir); os.IsNotExist(err) {
@@ -32,66 +31,66 @@ func (l *Loader) LoadAll() (map[string]*config.FeedConfig, error) {
 	}
 
 	for _, file := range files {
-		cfg, err := l.loadFile(file)
+		feedConfig, err := l.loadFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("error loading %s: %w", file, err)
 		}
 
-		if err := config.ValidateConfig(cfg); err != nil {
+		if err := ValidateConfig(feedConfig); err != nil {
 			return nil, fmt.Errorf("invalid config %s: %w", file, err)
 		}
 
 		// Prevent routing conflicts by ensuring feed ID uniqueness
-		if existingFile, exists := feedIDs[cfg.Feed.ID]; exists {
+		if existingFile, exists := feedIDs[feedConfig.Feed.ID]; exists {
 			return nil, fmt.Errorf("duplicate feed ID '%s' found in %s (also in %s)", 
-				cfg.Feed.ID, file, existingFile)
+				feedConfig.Feed.ID, file, existingFile)
 		}
-		feedIDs[cfg.Feed.ID] = file
+		feedIDs[feedConfig.Feed.ID] = file
 
-		configs[file] = cfg
-		slog.Debug("Configuration loaded", "file", file, "feed_id", cfg.Feed.ID)
+		configs[file] = feedConfig
+		slog.Debug("Configuration loaded", "file", file, "feed_id", feedConfig.Feed.ID)
 	}
 
 	return configs, nil
 }
 
-func (l *Loader) Load(path string) (*config.FeedConfig, error) {
-	cfg, err := l.loadFile(path)
+func (l *Loader) Load(path string) (*FeedConfig, error) {
+	feedConfig, err := l.loadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("error loading %s: %w", path, err)
 	}
 
-	if err := config.ValidateConfig(cfg); err != nil {
+	if err := ValidateConfig(feedConfig); err != nil {
 		return nil, fmt.Errorf("invalid config %s: %w", path, err)
 	}
 
-	return cfg, nil
+	return feedConfig, nil
 }
 
-func (l *Loader) loadFile(path string) (*config.FeedConfig, error) {
+func (l *Loader) loadFile(path string) (*FeedConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	var cfg config.FeedConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	var feedConfig FeedConfig
+	if err := yaml.Unmarshal(data, &feedConfig); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	l.setDefaults(&cfg)
+	l.setDefaults(&feedConfig)
 
-	return &cfg, nil
+	return &feedConfig, nil
 }
 
-func (l *Loader) setDefaults(cfg *config.FeedConfig) {
-	if cfg.Settings.RefreshInterval == 0 {
-		cfg.Settings.RefreshInterval = 3600 // seconds
+func (l *Loader) setDefaults(feedConfig *FeedConfig) {
+	if feedConfig.Settings.RefreshInterval == 0 {
+		feedConfig.Settings.RefreshInterval = 3600 // seconds
 	}
-	if cfg.Settings.MaxItems == 0 {
-		cfg.Settings.MaxItems = 100
+	if feedConfig.Settings.MaxItems == 0 {
+		feedConfig.Settings.MaxItems = 100
 	}
-	if cfg.Settings.Timeout == 0 {
-		cfg.Settings.Timeout = 30 // seconds
+	if feedConfig.Settings.Timeout == 0 {
+		feedConfig.Settings.Timeout = 30 // seconds
 	}
 }

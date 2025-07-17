@@ -1,12 +1,10 @@
-package config_loader
+package feed_config
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/lysyi3m/rss-comb/app/config"
 )
 
 func TestLoadValidConfig(t *testing.T) {
@@ -39,42 +37,42 @@ filters:
 		t.Fatal(err)
 	}
 
-	// Load configuration
+	// Load feedConfig
 	loader := NewLoader(tempDir)
-	configs, err := loader.LoadAll()
+	feedConfigs, err := loader.LoadAll()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(configs) != 1 {
-		t.Errorf("Expected 1 config, got %d", len(configs))
+	if len(feedConfigs) != 1 {
+		t.Errorf("Expected 1 feedConfig, got %d", len(feedConfigs))
 	}
 
-	// Get the config
-	var config *config.FeedConfig
-	for _, cfg := range configs {
-		config = cfg
+	// Get the feedConfig
+	var feedConfig *FeedConfig
+	for _, tempConfig := range feedConfigs {
+		feedConfig = tempConfig
 		break
 	}
 
 	// Validate loaded values
-	if config.Feed.ID != "test" {
-		t.Errorf("Expected ID 'test', got '%s'", config.Feed.ID)
+	if feedConfig.Feed.ID != "test" {
+		t.Errorf("Expected ID 'test', got '%s'", feedConfig.Feed.ID)
 	}
-	if config.Feed.URL != "https://example.com/feed.xml" {
-		t.Errorf("Expected URL 'https://example.com/feed.xml', got '%s'", config.Feed.URL)
+	if feedConfig.Feed.URL != "https://example.com/feed.xml" {
+		t.Errorf("Expected URL 'https://example.com/feed.xml', got '%s'", feedConfig.Feed.URL)
 	}
-	if config.Feed.Title != "Test Feed" {
-		t.Errorf("Expected title 'Test Feed', got '%s'", config.Feed.Title)
+	if feedConfig.Feed.Title != "Test Feed" {
+		t.Errorf("Expected title 'Test Feed', got '%s'", feedConfig.Feed.Title)
 	}
-	if config.Settings.GetRefreshInterval() != 1800*time.Second {
-		t.Errorf("Expected refresh interval 1800s, got %v", config.Settings.GetRefreshInterval())
+	if feedConfig.Settings.GetRefreshInterval() != 1800*time.Second {
+		t.Errorf("Expected refresh interval 1800s, got %v", feedConfig.Settings.GetRefreshInterval())
 	}
-	if config.Settings.MaxItems != 25 {
-		t.Errorf("Expected max items 25, got %d", config.Settings.MaxItems)
+	if feedConfig.Settings.MaxItems != 25 {
+		t.Errorf("Expected max items 25, got %d", feedConfig.Settings.MaxItems)
 	}
-	if len(config.Filters) != 1 {
-		t.Errorf("Expected 1 filter, got %d", len(config.Filters))
+	if len(feedConfig.Filters) != 1 {
+		t.Errorf("Expected 1 filter, got %d", len(feedConfig.Filters))
 	}
 }
 
@@ -98,26 +96,26 @@ settings:
 		t.Fatal(err)
 	}
 
-	// Load configuration
+	// Load feedConfig
 	loader := NewLoader(tempDir)
-	configs, err := loader.LoadAll()
+	feedConfigs, err := loader.LoadAll()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Get the config
-	var config *config.FeedConfig
-	for _, cfg := range configs {
-		config = cfg
+	// Get the feedConfig
+	var feedConfig *FeedConfig
+	for _, tempConfig := range feedConfigs {
+		feedConfig = tempConfig
 		break
 	}
 
 	// Validate default values
-	if config.Settings.GetRefreshInterval() != 3600*time.Second {
-		t.Errorf("Expected default refresh interval 3600s, got %v", config.Settings.GetRefreshInterval())
+	if feedConfig.Settings.GetRefreshInterval() != 3600*time.Second {
+		t.Errorf("Expected default refresh interval 3600s, got %v", feedConfig.Settings.GetRefreshInterval())
 	}
-	if config.Settings.MaxItems != 100 {
-		t.Errorf("Expected default max items 100, got %d", config.Settings.MaxItems)
+	if feedConfig.Settings.MaxItems != 100 {
+		t.Errorf("Expected default max items 100, got %d", feedConfig.Settings.MaxItems)
 	}
 }
 
@@ -139,11 +137,11 @@ settings:
 		t.Fatal(err)
 	}
 
-	// Load configuration
+	// Load feedConfig
 	loader := NewLoader(tempDir)
 	_, err = loader.LoadAll()
 	if err == nil {
-		t.Error("Expected error for invalid configuration")
+		t.Error("Expected error for invalid feedConfig")
 	}
 }
 
@@ -153,13 +151,13 @@ func TestEmptyDirectory(t *testing.T) {
 
 	// Load from empty directory
 	loader := NewLoader(tempDir)
-	configs, err := loader.LoadAll()
+	feedConfigs, err := loader.LoadAll()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(configs) != 0 {
-		t.Errorf("Expected 0 configs from empty directory, got %d", len(configs))
+	if len(feedConfigs) != 0 {
+		t.Errorf("Expected 0 feedConfigs from empty directory, got %d", len(feedConfigs))
 	}
 }
 

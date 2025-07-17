@@ -7,8 +7,8 @@ import (
 	"html"
 	"time"
 
+	"github.com/lysyi3m/rss-comb/app/config"
 	"github.com/lysyi3m/rss-comb/app/database"
-	"github.com/lysyi3m/rss-comb/app/version"
 )
 
 // NewGenerator creates a new RSS generator
@@ -42,7 +42,7 @@ func (g *Generator) Generate(feed database.Feed, items []database.Item) (string,
 		html.EscapeString(selfLink)))
 	
 	g.writeElement(&buf, "lastBuildDate", time.Now().In(time.Local).Format(time.RFC1123Z), 4)
-	g.writeElement(&buf, "generator", fmt.Sprintf("RSS-Comb/%s", version.GetVersion()), 4)
+	g.writeElement(&buf, "generator", fmt.Sprintf("RSS-Comb/%s", config.GetVersion()), 4)
 	// Language (only include if available)
 	if feed.Language != "" {
 		g.writeElement(&buf, "language", feed.Language, 4)
@@ -171,5 +171,5 @@ func (g *Generator) GenerateEmpty(feedName, feedURL string) string {
 		html.EscapeString(feedName), 
 		html.EscapeString(feedURL), 
 		time.Now().In(time.Local).Format(time.RFC1123Z),
-		version.GetVersion())
+		config.GetVersion())
 }

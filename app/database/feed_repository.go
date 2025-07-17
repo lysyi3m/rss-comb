@@ -6,23 +6,21 @@ import (
 	"time"
 )
 
-// Compile-time interface compliance checks
-var _ FeedReader = (*FeedRepository)(nil)
-var _ FeedWriter = (*FeedRepository)(nil)
-var _ FeedScheduler = (*FeedRepository)(nil)
+// Compile-time interface compliance check
+var _ FeedRepository = (*FeedRepositoryImpl)(nil)
 
-// FeedRepository handles database operations for feeds
-type FeedRepository struct {
+// FeedRepositoryImpl handles database operations for feeds
+type FeedRepositoryImpl struct {
 	db *DB
 }
 
 // NewFeedRepository creates a new feed repository
-func NewFeedRepository(db *DB) *FeedRepository {
-	return &FeedRepository{db: db}
+func NewFeedRepository(db *DB) FeedRepository {
+	return &FeedRepositoryImpl{db: db}
 }
 
 // UpsertFeedWithChangeDetection inserts or updates a feed configuration with change detection
-func (r *FeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedTitle string) (string, bool, error) {
+func (r *FeedRepositoryImpl) UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedTitle string) (string, bool, error) {
 	// First try to get existing feed by feed_id
 	existingFeed, err := r.GetFeedByID(feedID)
 	if err != nil {
@@ -61,7 +59,7 @@ func (r *FeedRepository) UpsertFeedWithChangeDetection(configFile, feedID, feedU
 }
 
 // UpdateFeedMetadata updates feed metadata including published timestamp after successful parsing
-func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL string, language string, feedPublishedAt *time.Time) error {
+func (r *FeedRepositoryImpl) UpdateFeedMetadata(feedID string, link string, imageURL string, language string, feedPublishedAt *time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
 		SET link = $2, image_url = $3, language = $4, feed_published_at = $5, updated_at = NOW()
@@ -76,7 +74,7 @@ func (r *FeedRepository) UpdateFeedMetadata(feedID string, link string, imageURL
 }
 
 // UpdateNextFetch updates the next fetch time for a feed
-func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) error {
+func (r *FeedRepositoryImpl) UpdateNextFetch(feedID string, nextFetch time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
 		SET next_fetch_at = $2, last_fetched_at = NOW(), updated_at = NOW()
@@ -91,7 +89,7 @@ func (r *FeedRepository) UpdateNextFetch(feedID string, nextFetch time.Time) err
 }
 
 // GetFeedsDueForRefresh returns feeds that need to be refreshed
-func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
+func (r *FeedRepositoryImpl) GetFeedsDueForRefresh() ([]Feed, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched_at, next_fetch_at, feed_published_at, is_enabled, created_at, updated_at
@@ -128,7 +126,7 @@ func (r *FeedRepository) GetFeedsDueForRefresh() ([]Feed, error) {
 }
 
 // GetFeedByID retrieves a feed by its configuration feed ID
-func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
+func (r *FeedRepositoryImpl) GetFeedByID(feedID string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
 		SELECT id, feed_id, config_file, feed_url, COALESCE(link, ''), title, COALESCE(image_url, ''), COALESCE(language, ''),
@@ -152,7 +150,7 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 }
 
 // SetFeedEnabled sets the enabled status of a feed
-func (r *FeedRepository) SetFeedEnabled(feedID string, enabled bool) error {
+func (r *FeedRepositoryImpl) SetFeedEnabled(feedID string, enabled bool) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
 		SET is_enabled = $2, updated_at = NOW()
@@ -167,7 +165,7 @@ func (r *FeedRepository) SetFeedEnabled(feedID string, enabled bool) error {
 }
 
 // GetFeedCount returns the total number of feeds
-func (r *FeedRepository) GetFeedCount() (int, error) {
+func (r *FeedRepositoryImpl) GetFeedCount() (int, error) {
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds").Scan(&count)
 	if err != nil {
@@ -177,7 +175,7 @@ func (r *FeedRepository) GetFeedCount() (int, error) {
 }
 
 // GetEnabledFeedCount returns the count of enabled feeds
-func (r *FeedRepository) GetEnabledFeedCount() (int, error) {
+func (r *FeedRepositoryImpl) GetEnabledFeedCount() (int, error) {
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds WHERE is_enabled = true").Scan(&count)
 	if err != nil {

@@ -70,10 +70,10 @@ rss-comb/
 ├── app/                      # Main application code
 │   ├── main.go              # Application entry point
 │   ├── api/                 # HTTP handlers and server
-│   ├── config/              # Configuration loading
+│   ├── config/              # Application configuration management
 │   ├── database/            # Database connections, repositories, and embedded migrations
 │   ├── feed/                # Feed processing logic
-│   ├── parser/              # RSS/Atom parsing
+│   ├── feed_config/         # Feed configuration loading and validation
 │   └── tasks/               # Generic task scheduling system
 ├── feeds/                    # Feed configuration files (*.yml)
 ├── docker-compose.yml       # Development database service
@@ -86,15 +86,22 @@ rss-comb/
 ### Core Components
 
 1. **Main Application** (`app/main.go`)
-   - Application entry point and configuration loading
-   - go-flags based environment variable and command-line flag parsing
+   - Application entry point and simplified initialization
    - Server initialization and graceful shutdown handling
 
-2. **Configuration System** (`app/config/`)
-   - YAML-based feed configuration loading
-   - Validation and default value handling
+2. **Application Configuration System** (`app/config/`)
+   - Centralized application configuration management
+   - Global configuration access via `config.Get()` interface
+   - Environment variable and command-line flag parsing using go-flags
+   - Version management and build-time version injection
+   - Timezone configuration and application-wide settings
 
-3. **Feed Processing System** (`app/feed/`)
+3. **Feed Configuration System** (`app/feed_config/`)
+   - YAML-based feed configuration loading and validation
+   - In-memory configuration caching with change detection
+   - Feed-specific settings and filter management
+
+4. **Feed Processing System** (`app/feed/`)
    - **Processor**: HTTP feed fetching, content filtering, and automatic deduplication with intelligent timestamp optimization
    - **Parser**: Universal RSS/Atom feed parsing using gofeed and normalization
    - **Generator**: RSS 2.0 XML output generation for API responses
@@ -103,35 +110,37 @@ rss-comb/
    - **Performance Optimization**: Feed timestamp comparison reduces duplicate checking from O(n) to O(1) when content unchanged
    - Clean separation of concerns with focused interfaces
 
-4. **Database Layer** (`app/database/`)
+5. **Database Layer** (`app/database/`)
    - PostgreSQL with UUID primary keys
    - Separate repositories for feeds and items
    - Optimized queries with proper indexing
    - Embedded migrations with automatic execution on startup
 
-5. **Task Scheduling System** (`app/tasks/`)
-   - Generic FIFO task queue for simple processing order
+6. **Task Scheduling System** (`app/tasks/`)
+   - Priority-based task queue system with multiple channels
    - Worker pool for concurrent task execution
    - Configuration management and resolution for processing tasks
    - Database-driven scheduling with next_fetch timestamps
    - **Content Extraction Tasks**: Automatic background content extraction after feed processing
    - Graceful shutdown handling
 
-6. **HTTP API** (`app/api/`)
+7. **HTTP API** (`app/api/`)
    - RESTful endpoints for feed access
    - RSS 2.0 output generation via feed system
    - Direct database queries for real-time data
+   - Clean constructor pattern with consistent argument order
 
 ### Data Flow
 
-1. **Configuration Loading**: `config_loader` loads and validates YAML files from `feeds/*.yml`
-2. **Database Sync**: `config_sync` registers feeds in database, detecting URL changes
-3. **Task Scheduling**: `tasks` scheduler queues feed processing based on `next_fetch` timestamps
-4. **Feed Processing**: `feed/processor` fetches, parses, filters, and deduplicates items with timestamp-based optimization
-5. **Content Extraction**: `content_extractor` automatically extracts full article content when `extract_content: true`
-6. **Storage**: Items stored with filter status, content hashes, and extraction tracking for deduplication
-7. **API Access**: `api/handlers` serve processed feeds with extracted content and management endpoints
-8. **Configuration Reload**: Manual configuration reloading via `/reload` API endpoint
+1. **Application Initialization**: `config.Load()` loads application configuration with global access pattern
+2. **Feed Configuration Loading**: `feed_config` loader validates YAML files from `feeds/*.yml`
+3. **Database Sync**: Configuration changes automatically registered in database with URL change detection
+4. **Task Scheduling**: Priority-based task scheduler queues feed processing based on `next_fetch` timestamps
+5. **Feed Processing**: `feed/processor` fetches, parses, filters, and deduplicates items with timestamp-based optimization
+6. **Content Extraction**: `content_extractor` automatically extracts full article content when `extract_content: true`
+7. **Storage**: Items stored with filter status, content hashes, and extraction tracking for deduplication
+8. **API Access**: `api/handlers` serve processed feeds with extracted content and management endpoints
+9. **Configuration Reload**: Manual configuration reloading via `/reload` API endpoint
 
 ### Database Schema
 
@@ -176,17 +185,27 @@ rss-comb/
 - Interface segregation principle: separate interfaces for different responsibilities
 
 ### Task Management Layer (`app/tasks/`)
-- `task_scheduler.go`: Main task scheduling and worker pool management
+- `task_scheduler.go`: Main task scheduling and worker pool management with standardized constructor pattern
 - `process_feed_task.go`: Individual feed processing task implementation
 - `extract_content_task.go`: Content extraction task implementation for background processing
 - `refilter_feed_task.go`: Feed item refiltering task implementation (internal task)
-- `interfaces.go`: Task system interface definitions
+- `interfaces.go`: Task system interface definitions with updated constructor documentation
 - Configuration resolution and task creation coordination
+- **Constructor Pattern**: NewTaskScheduler(configCache, feedRepo, processor, contentExtractor)
 
-### Configuration System (`app/config/`)
-- `types.go`: Configuration structs and validation
-- `validation.go`: Configuration validation logic
-- YAML-based feed configuration management
+### Application Configuration System (`app/config/`)
+- `types.go`: Application configuration structs and interface definitions
+- `loader.go`: Configuration loading with environment/command-line parsing and global access
+- `loader_test.go`: Comprehensive tests for configuration loading and interface compliance
+- Centralized application configuration with `config.Get()` global access pattern
+- Integrated version management and timezone configuration
+
+### Feed Configuration System (`app/feed_config/`)
+- `types.go`: Feed configuration structs and validation models
+- `loader.go`: YAML-based feed configuration loading with validation
+- `validation.go`: Comprehensive feed configuration validation logic
+- `cache_handler.go`: In-memory configuration caching with change detection
+- `loader_test.go` and `validation_test.go`: Complete test coverage
 
 ## Environment Guide
 

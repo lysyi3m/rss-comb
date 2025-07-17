@@ -17,12 +17,12 @@ test:
 build:
 	@mkdir -p bin
 	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
-	go build -ldflags "-X github.com/lysyi3m/rss-comb/app/version.Version=$$VERSION" -o bin/rss-comb app/main.go
+	go build -ldflags "-X github.com/lysyi3m/rss-comb/app/config.Version=$$VERSION" -o bin/rss-comb app/main.go
 
 run: db-up
 	@if [ -f .env ]; then set -a && . ./.env && set +a; fi; \
 	VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
-	go run -ldflags "-X github.com/lysyi3m/rss-comb/app/version.Version=$$VERSION" app/main.go
+	go run -ldflags "-X github.com/lysyi3m/rss-comb/app/config.Version=$$VERSION" app/main.go
 
 clean:
 	rm -rf bin/

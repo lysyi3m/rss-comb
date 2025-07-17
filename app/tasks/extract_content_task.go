@@ -5,29 +5,27 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/feed_config"
 )
 
 // ContentExtractionInterface defines the interface for content extraction operations
 type ContentExtractionInterface interface {
-	ExtractContentForFeed(ctx context.Context, feedID string, feedConfig *config.FeedConfig) error
+	ExtractContentForFeed(ctx context.Context, feedID string, feedConfig *feed_config.FeedConfig) error
 }
 
 // ExtractContentTask represents a task for extracting content from feed items
 type ExtractContentTask struct {
 	BaseTask
-	FeedID        string
-	FeedConfig    *config.FeedConfig
-	extractor     ContentExtractionInterface
+	FeedConfig *feed_config.FeedConfig
+	extractor  ContentExtractionInterface
 }
 
 // NewExtractContentTask creates a new content extraction task
-func NewExtractContentTask(feedID string, feedConfig *config.FeedConfig, extractor ContentExtractionInterface) *ExtractContentTask {
+func NewExtractContentTask(feedID string, feedConfig *feed_config.FeedConfig, extractor ContentExtractionInterface) *ExtractContentTask {
 	description := fmt.Sprintf("Extract content for feed %s (%s)", feedID, feedConfig.Feed.Title)
 	
 	return &ExtractContentTask{
-		BaseTask:   NewBaseTask(feedID+"-extract", TaskTypeExtractContent, description),
-		FeedID:     feedID,
+		BaseTask:   NewBaseTask(feedID+"-extract", TaskTypeExtractContent, PriorityNormal, description, feedID),
 		FeedConfig: feedConfig,
 		extractor:  extractor,
 	}
@@ -35,7 +33,7 @@ func NewExtractContentTask(feedID string, feedConfig *config.FeedConfig, extract
 
 // Execute runs the content extraction task
 func (t *ExtractContentTask) Execute(ctx context.Context) error {
-	slog.Debug("Task started", "type", "ExtractContent", "feed_id", t.FeedID)
+	slog.Debug("Task started", "type", "ExtractContent", "feed_id", t.GetFeedID())
 	
 	// Fast-fail on cancellation to avoid unnecessary work
 	select {
@@ -46,7 +44,7 @@ func (t *ExtractContentTask) Execute(ctx context.Context) error {
 	
 	// Check if content extraction is enabled for this feed
 	if !t.FeedConfig.Settings.ExtractContent {
-		slog.Debug("Content extraction disabled for feed", "feed_id", t.FeedID)
+		slog.Debug("Content extraction disabled for feed", "feed_id", t.GetFeedID())
 		return nil
 	}
 	
@@ -54,22 +52,17 @@ func (t *ExtractContentTask) Execute(ctx context.Context) error {
 	extractCtx, cancel := context.WithTimeout(ctx, t.FeedConfig.Settings.GetExtractionTimeout())
 	defer cancel()
 	
-	err := t.extractor.ExtractContentForFeed(extractCtx, t.FeedID, t.FeedConfig)
+	err := t.extractor.ExtractContentForFeed(extractCtx, t.GetFeedID(), t.FeedConfig)
 	if err != nil {
-		slog.Error("Task failed", "type", "ExtractContent", "feed_id", t.FeedID, "error", err)
-		return fmt.Errorf("failed to extract content for feed %s: %w", t.FeedID, err)
+		slog.Error("Task failed", "type", "ExtractContent", "feed_id", t.GetFeedID(), "error", err)
+		return fmt.Errorf("failed to extract content for feed %s: %w", t.GetFeedID(), err)
 	}
 	
-	slog.Debug("Task completed", "type", "ExtractContent", "feed_id", t.FeedID)
+	slog.Debug("Task completed", "type", "ExtractContent", "feed_id", t.GetFeedID())
 	return nil
 }
 
-// GetFeedID returns the feed ID for this task
-func (t *ExtractContentTask) GetFeedID() string {
-	return t.FeedID
-}
-
 // GetFeedConfig returns the feed configuration for this task
-func (t *ExtractContentTask) GetFeedConfig() *config.FeedConfig {
+func (t *ExtractContentTask) GetFeedConfig() *feed_config.FeedConfig {
 	return t.FeedConfig
 }

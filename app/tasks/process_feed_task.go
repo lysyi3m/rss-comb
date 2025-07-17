@@ -5,29 +5,27 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/feed_config"
 )
 
 type ProcessFeedTask struct {
 	BaseTask
-	FeedID     string
-	FeedConfig *config.FeedConfig
+	FeedConfig *feed_config.FeedConfig
 	processor  ProcessorInterface
 }
 
-func NewProcessFeedTask(feedID string, feedConfig *config.FeedConfig, processor ProcessorInterface) *ProcessFeedTask {
+func NewProcessFeedTask(feedID string, feedConfig *feed_config.FeedConfig, processor ProcessorInterface) *ProcessFeedTask {
 	description := fmt.Sprintf("Process feed %s (%s)", feedID, feedConfig.Feed.Title)
 	
 	return &ProcessFeedTask{
-		BaseTask:   NewBaseTask(feedID, TaskTypeProcessFeed, description),
-		FeedID:     feedID,
+		BaseTask:   NewBaseTask(feedID, TaskTypeProcessFeed, PriorityHigh, description, feedID),
 		FeedConfig: feedConfig,
 		processor:  processor,
 	}
 }
 
 func (t *ProcessFeedTask) Execute(ctx context.Context) error {
-	slog.Debug("Task started", "type", "ProcessFeed", "feed_id", t.FeedID)
+	slog.Debug("Task started", "type", "ProcessFeed", "feed_id", t.GetFeedID())
 	
 	// Fast-fail on cancellation to avoid unnecessary work
 	select {
@@ -36,20 +34,16 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	default:
 	}
 	
-	err := t.processor.ProcessFeed(t.FeedID, t.FeedConfig)
+	err := t.processor.ProcessFeed(t.GetFeedID(), t.FeedConfig)
 	if err != nil {
-		slog.Error("Task failed", "type", "ProcessFeed", "feed_id", t.FeedID, "error", err)
-		return fmt.Errorf("failed to process feed %s: %w", t.FeedID, err)
+		slog.Error("Task failed", "type", "ProcessFeed", "feed_id", t.GetFeedID(), "error", err)
+		return fmt.Errorf("failed to process feed %s: %w", t.GetFeedID(), err)
 	}
 	
-	slog.Debug("Task completed", "type", "ProcessFeed", "feed_id", t.FeedID)
+	slog.Debug("Task completed", "type", "ProcessFeed", "feed_id", t.GetFeedID())
 	return nil
 }
 
-func (t *ProcessFeedTask) GetFeedID() string {
-	return t.FeedID
-}
-
-func (t *ProcessFeedTask) GetFeedConfig() *config.FeedConfig {
+func (t *ProcessFeedTask) GetFeedConfig() *feed_config.FeedConfig {
 	return t.FeedConfig
 }

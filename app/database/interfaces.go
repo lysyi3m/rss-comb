@@ -21,55 +21,22 @@ type FeedItem struct {
 	FilterReason string
 }
 
-// FeedReader defines read operations for feeds.
-// Used by components that only need to read feed information, such as API handlers.
-// This interface provides access to feed metadata and counts without write permissions.
-type FeedReader interface {
+// FeedRepository defines all feed-related database operations.
+// Used by components that need to interact with feed data.
+type FeedRepository interface {
+	// Read operations
 	GetFeedByID(feedID string) (*Feed, error)
 	GetFeedCount() (int, error)
 	GetEnabledFeedCount() (int, error)
-}
-
-// FeedWriter defines write operations for feeds.
-// Used by components that need to create, update, or modify feed records.
-// This interface provides full write access to feed metadata and configuration.
-type FeedWriter interface {
+	
+	// Write operations
 	UpsertFeedWithChangeDetection(configFile, feedID, feedURL, feedTitle string) (string, bool, error)
 	UpdateFeedMetadata(feedID string, link string, imageURL string, language string, feedPublishedAt *time.Time) error
 	SetFeedEnabled(feedID string, enabled bool) error
-}
-
-// FeedScheduler defines scheduling operations for feeds.
-// Used by the task scheduler to manage feed processing timing.
-// This interface provides access to scheduling-related operations.
-type FeedScheduler interface {
+	
+	// Scheduling operations
 	GetFeedsDueForRefresh() ([]Feed, error)
 	UpdateNextFetch(feedID string, nextFetch time.Time) error
-}
-
-// ItemReader defines read operations for feed items.
-// Used by components that need to display or serve feed items, such as API handlers.
-// This interface provides read-only access to feed item data.
-type ItemReader interface {
-	GetVisibleItems(feedID string, limit int) ([]Item, error)
-	GetAllItems(feedID string) ([]Item, error)
-	GetItemCount(feedID string) (int, error)
-	GetItemStats(feedID string) (int, int, int, error)
-}
-
-// ItemWriter defines write operations for feed items.
-// Used by components that need to store or modify feed items.
-// This interface provides write access to feed item data.
-type ItemWriter interface {
-	StoreItem(feedID string, item FeedItem) error
-	UpdateItemFilterStatus(itemID string, isFiltered bool, reason string) error
-}
-
-// ItemDuplicateChecker defines duplicate checking operations for feed items.
-// Used by components that need to check for duplicate content before storage.
-// This interface provides automatic deduplication functionality within a feed.
-type ItemDuplicateChecker interface {
-	CheckDuplicate(contentHash, feedID string) (bool, *string, error)
 }
 
 // ItemForExtraction represents minimal data needed for content extraction
@@ -78,10 +45,23 @@ type ItemForExtraction struct {
 	Link string
 }
 
-// ItemContentExtractor defines content extraction operations for feed items.
-// Used by components that need to manage content extraction processes.
-// This interface provides access to extraction tracking and status updates.
-type ItemContentExtractor interface {
+// ItemRepository defines all item-related database operations.
+// Used by components that need to interact with feed item data.
+type ItemRepository interface {
+	// Read operations
+	GetVisibleItems(feedID string, limit int) ([]Item, error)
+	GetAllItems(feedID string) ([]Item, error)
+	GetItemCount(feedID string) (int, error)
+	GetItemStats(feedID string) (int, int, int, error)
+	
+	// Write operations
+	StoreItem(feedID string, item FeedItem) error
+	UpdateItemFilterStatus(itemID string, isFiltered bool, reason string) error
+	
+	// Duplicate checking operations
+	CheckDuplicate(contentHash, feedID string) (bool, *string, error)
+	
+	// Content extraction operations
 	GetItemsForExtraction(feedID string, limit int) ([]ItemForExtraction, error)
 	UpdateExtractionStatus(itemID string, status string, extractedAt *time.Time, error string) error
 	IncrementExtractionAttempts(itemID string) error

@@ -1,20 +1,20 @@
-package config
+package feed_config
 
 import "fmt"
 
-// ValidateConfig performs comprehensive validation on a feed configuration.
-// This function validates all aspects of the configuration including feed info,
-// settings, and filter definitions to ensure the configuration is complete and valid.
-func ValidateConfig(config *FeedConfig) error {
-	if config == nil {
-		return fmt.Errorf("config is nil")
+// ValidateConfig performs comprehensive validation on a feed feedConfig.
+// This function validates all aspects of the feedConfig including feed info,
+// settings, and filter definitions to ensure the feedConfig is complete and valid.
+func ValidateConfig(feedConfig *FeedConfig) error {
+	if feedConfig == nil {
+		return fmt.Errorf("feedConfig is nil")
 	}
 
 	// Validate feed information - check required string fields
 	requiredFeedFields := map[string]string{
-		"feed ID":    config.Feed.ID,
-		"feed URL":   config.Feed.URL,
-		"feed title": config.Feed.Title,
+		"feed ID":    feedConfig.Feed.ID,
+		"feed URL":   feedConfig.Feed.URL,
+		"feed title": feedConfig.Feed.Title,
 	}
 	
 	for fieldName, fieldValue := range requiredFeedFields {
@@ -25,10 +25,10 @@ func ValidateConfig(config *FeedConfig) error {
 
 	// Validate settings - check non-negative integer fields
 	nonNegativeFields := map[string]int{
-		"refresh interval":    config.Settings.RefreshInterval,
-		"max items":           config.Settings.MaxItems,
-		"timeout":             config.Settings.Timeout,
-		"extraction timeout":  config.Settings.ExtractionTimeout,
+		"refresh interval":    feedConfig.Settings.RefreshInterval,
+		"max items":           feedConfig.Settings.MaxItems,
+		"timeout":             feedConfig.Settings.Timeout,
+		"extraction timeout":  feedConfig.Settings.ExtractionTimeout,
 	}
 	
 	for fieldName, fieldValue := range nonNegativeFields {
@@ -47,7 +47,7 @@ func ValidateConfig(config *FeedConfig) error {
 		"categories":  true,
 	}
 
-	for i, filter := range config.Filters {
+	for i, filter := range feedConfig.Filters {
 		if !validFields[filter.Field] {
 			return fmt.Errorf("invalid filter field at index %d: %s", i, filter.Field)
 		}

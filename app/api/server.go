@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lysyi3m/rss-comb/app/version"
+	"github.com/lysyi3m/rss-comb/app/config"
 )
 
 // NewServer creates a new HTTP server with all routes configured
-func NewServer(handler *Handler, apiAccessKey string) *gin.Engine {
+func NewServer(handler *Handler) *gin.Engine {
 	// Set Gin mode (can be controlled via GIN_MODE environment variable)
 	gin.SetMode(gin.ReleaseMode)
 
@@ -52,7 +52,8 @@ func NewServer(handler *Handler, apiAccessKey string) *gin.Engine {
 	})
 
 	// Routes
-	setupRoutes(r, handler, apiAccessKey)
+	cfg := config.Get()
+	setupRoutes(r, handler, cfg.GetAPIAccessKey())
 
 	return r
 }
@@ -95,7 +96,7 @@ func setupRoutes(r *gin.Engine, handler *Handler, apiAccessKey string) {
 
 		c.JSON(200, gin.H{
 			"service":     "RSS Comb",
-			"version":     version.GetVersion(),
+			"version":     config.GetVersion(),
 			"description": "RSS/Atom feed proxy with normalization, automatic deduplication, and filtering",
 			"endpoints":   endpoints,
 			"api_status":  map[string]interface{}{

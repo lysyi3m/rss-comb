@@ -25,7 +25,7 @@ COPY . .
 ARG TARGETARCH
 ARG VERSION=unknown
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
-    -ldflags="-w -s -extldflags '-static' -X github.com/lysyi3m/rss-comb/app/version.Version=${VERSION}" \
+    -ldflags="-w -s -extldflags '-static' -X github.com/lysyi3m/rss-comb/app/config.Version=${VERSION}" \
     -a -installsuffix cgo \
     -o rss-comb \
     app/main.go

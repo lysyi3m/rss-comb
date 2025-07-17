@@ -1,110 +1,110 @@
-package config
+package feed_config
 
 import (
 	"testing"
 )
 
 func TestValidateConfig(t *testing.T) {
-	// Test with nil config
+	// Test with nil feedConfig
 	err := ValidateConfig(nil)
 	if err == nil {
-		t.Error("Expected error for nil config, got none")
+		t.Error("Expected error for nil feedConfig, got none")
 	}
 
 	// Test with empty feed ID
-	config := &FeedConfig{
+	feedConfig := &FeedConfig{
 		Feed: FeedInfo{
 			ID:    "",
 			URL:   "https://example.com/feed.xml",
 			Title: "Test Feed",
 		},
 	}
-	err = ValidateConfig(config)
+	err = ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for empty feed ID, got none")
 	}
 
 	// Test with empty URL
-	config.Feed.ID = "test-feed"
-	config.Feed.URL = ""
-	err = ValidateConfig(config)
+	feedConfig.Feed.ID = "test-feed"
+	feedConfig.Feed.URL = ""
+	err = ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for empty URL, got none")
 	}
 
 	// Test with empty title
-	config.Feed.URL = "https://example.com/feed.xml"
-	config.Feed.Title = ""
-	err = ValidateConfig(config)
+	feedConfig.Feed.URL = "https://example.com/feed.xml"
+	feedConfig.Feed.Title = ""
+	err = ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for empty title, got none")
 	}
 
 	// Test with negative refresh interval
-	config.Feed.Title = "Test Feed"
-	config.Settings.RefreshInterval = -1
-	err = ValidateConfig(config)
+	feedConfig.Feed.Title = "Test Feed"
+	feedConfig.Settings.RefreshInterval = -1
+	err = ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for negative refresh interval, got none")
 	}
 
 	// Test with negative max items
-	config.Settings.RefreshInterval = 3600
-	config.Settings.MaxItems = -1
-	err = ValidateConfig(config)
+	feedConfig.Settings.RefreshInterval = 3600
+	feedConfig.Settings.MaxItems = -1
+	err = ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for negative max items, got none")
 	}
 
 	// Test with negative timeout
-	config.Settings.MaxItems = 100
-	config.Settings.Timeout = -1
-	err = ValidateConfig(config)
+	feedConfig.Settings.MaxItems = 100
+	feedConfig.Settings.Timeout = -1
+	err = ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for negative timeout, got none")
 	}
 
 	// Test with invalid filter field
-	config.Settings.Timeout = 30
-	config.Filters = []Filter{
+	feedConfig.Settings.Timeout = 30
+	feedConfig.Filters = []Filter{
 		{
 			Field:    "invalid_field",
 			Includes: []string{"test"},
 		},
 	}
-	err = ValidateConfig(config)
+	err = ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for invalid filter field, got none")
 	}
 
 	// Test with filter having no includes or excludes
-	config.Filters = []Filter{
+	feedConfig.Filters = []Filter{
 		{
 			Field:    "title",
 			Includes: []string{},
 			Excludes: []string{},
 		},
 	}
-	err = ValidateConfig(config)
+	err = ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for filter with no includes or excludes, got none")
 	}
 
-	// Test with valid config
-	config.Filters = []Filter{
+	// Test with valid feedConfig
+	feedConfig.Filters = []Filter{
 		{
 			Field:    "title",
 			Includes: []string{"test"},
 		},
 	}
-	err = ValidateConfig(config)
+	err = ValidateConfig(feedConfig)
 	if err != nil {
-		t.Errorf("Expected no error for valid config, got: %v", err)
+		t.Errorf("Expected no error for valid feedConfig, got: %v", err)
 	}
 }
 
 func TestValidateConfigFilterFields(t *testing.T) {
-	config := &FeedConfig{
+	feedConfig := &FeedConfig{
 		Feed: FeedInfo{
 			ID:    "test-feed",
 			URL:   "https://example.com/feed.xml",
@@ -120,26 +120,26 @@ func TestValidateConfigFilterFields(t *testing.T) {
 	// Test all valid filter fields
 	validFields := []string{"title", "description", "content", "authors", "link", "categories"}
 	for _, field := range validFields {
-		config.Filters = []Filter{
+		feedConfig.Filters = []Filter{
 			{
 				Field:    field,
 				Includes: []string{"test"},
 			},
 		}
-		err := ValidateConfig(config)
+		err := ValidateConfig(feedConfig)
 		if err != nil {
 			t.Errorf("Expected no error for valid filter field '%s', got: %v", field, err)
 		}
 	}
 
 	// Test invalid filter field
-	config.Filters = []Filter{
+	feedConfig.Filters = []Filter{
 		{
 			Field:    "invalid_field",
 			Includes: []string{"test"},
 		},
 	}
-	err := ValidateConfig(config)
+	err := ValidateConfig(feedConfig)
 	if err == nil {
 		t.Error("Expected error for invalid filter field, got none")
 	}

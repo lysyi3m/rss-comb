@@ -7,29 +7,27 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/feed_config"
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
 // ContentExtractionService handles content extraction for feed items
 type ContentExtractionService struct {
-	extractor  *ContentExtractor
-	itemRepo   database.ItemContentExtractor
-	itemReader database.ItemReader
-	itemWriter database.ItemWriter
+	extractor *ContentExtractor
+	itemRepo  database.ItemRepository
 }
 
 // NewContentExtractionService creates a new content extraction service
-func NewContentExtractionService(itemRepo ItemRepositoryInterface, userAgent string) *ContentExtractionService {
+func NewContentExtractionService(itemRepo ItemRepositoryInterface) *ContentExtractionService {
+	cfg := config.Get()
 	return &ContentExtractionService{
-		extractor:  NewContentExtractor(10 * time.Second, userAgent), // Default timeout
-		itemRepo:   itemRepo,
-		itemReader: itemRepo,
-		itemWriter: itemRepo,
+		extractor: NewContentExtractor(10 * time.Second, cfg.GetUserAgent()), // Default timeout
+		itemRepo:  itemRepo,
 	}
 }
 
 // ExtractContentForFeed extracts content for items in the specified feed
-func (s *ContentExtractionService) ExtractContentForFeed(ctx context.Context, feedID string, feedConfig *config.FeedConfig) error {
+func (s *ContentExtractionService) ExtractContentForFeed(ctx context.Context, feedID string, feedConfig *feed_config.FeedConfig) error {
 	if !feedConfig.Settings.ExtractContent {
 		return nil
 	}

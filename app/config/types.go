@@ -1,60 +1,61 @@
 package config
 
-import (
-	"time"
-)
+// Config represents the application configuration
+type Config struct {
+	// Database configuration
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
 
-// FeedConfig represents a complete feed configuration
-type FeedConfig struct {
-	Feed     FeedInfo     `yaml:"feed"`
-	Settings FeedSettings `yaml:"settings"`
-	Filters  []Filter     `yaml:"filters"`
+	// Application configuration
+	FeedsDir          string
+	Port              string
+	WorkerCount       int
+	SchedulerInterval int
+	APIAccessKey      string
+	DisableMigrate    bool
+
+	// Application metadata
+	UserAgent string
+	Timezone  string
+	Debug     bool
+	Version   string
 }
 
-// FeedInfo contains basic feed information
-type FeedInfo struct {
-	ID    string `yaml:"id"`
-	URL   string `yaml:"url"`
-	Title string `yaml:"title"`
+// Interface provides access to application configuration
+type Interface interface {
+	GetPort() string
+	GetUserAgent() string
+	GetWorkerCount() int
+	GetSchedulerInterval() int
+	GetAPIAccessKey() string
+	GetVersion() string
+	GetFeedsDir() string
+	GetDBHost() string
+	GetDBPort() string
+	GetDBUser() string
+	GetDBPassword() string
+	GetDBName() string
+	GetTimezone() string
+	IsDebugEnabled() bool
+	IsMigrationDisabled() bool
 }
 
-// FeedSettings contains feed processing settings
-type FeedSettings struct {
-	Enabled            bool `yaml:"enabled"`
-	RefreshInterval    int  `yaml:"refresh_interval"`    // seconds
-	MaxItems           int  `yaml:"max_items"`
-	Timeout            int  `yaml:"timeout"`             // seconds
-	ExtractContent     bool `yaml:"extract_content"`     // enable content extraction
-	ExtractionTimeout  int  `yaml:"extraction_timeout"`  // seconds
-}
-
-// Filter represents a content filter rule
-type Filter struct {
-	Field    string   `yaml:"field"`
-	Includes []string `yaml:"includes"`
-	Excludes []string `yaml:"excludes"`
-}
-
-// GetRefreshInterval returns the refresh interval as time.Duration
-func (s *FeedSettings) GetRefreshInterval() time.Duration {
-	if s.RefreshInterval <= 0 {
-		return 3600 * time.Second // default 1 hour
-	}
-	return time.Duration(s.RefreshInterval) * time.Second
-}
-
-// GetTimeout returns the timeout as time.Duration
-func (s *FeedSettings) GetTimeout() time.Duration {
-	if s.Timeout <= 0 {
-		return 30 * time.Second // default 30 seconds
-	}
-	return time.Duration(s.Timeout) * time.Second
-}
-
-// GetExtractionTimeout returns the extraction timeout as time.Duration
-func (s *FeedSettings) GetExtractionTimeout() time.Duration {
-	if s.ExtractionTimeout <= 0 {
-		return 10 * time.Second // default 10 seconds
-	}
-	return time.Duration(s.ExtractionTimeout) * time.Second
-}
+// Getter methods for Config
+func (c *Config) GetPort() string { return c.Port }
+func (c *Config) GetUserAgent() string { return c.UserAgent }
+func (c *Config) GetWorkerCount() int { return c.WorkerCount }
+func (c *Config) GetSchedulerInterval() int { return c.SchedulerInterval }
+func (c *Config) GetAPIAccessKey() string { return c.APIAccessKey }
+func (c *Config) GetVersion() string { return c.Version }
+func (c *Config) GetFeedsDir() string { return c.FeedsDir }
+func (c *Config) GetDBHost() string { return c.DBHost }
+func (c *Config) GetDBPort() string { return c.DBPort }
+func (c *Config) GetDBUser() string { return c.DBUser }
+func (c *Config) GetDBPassword() string { return c.DBPassword }
+func (c *Config) GetDBName() string { return c.DBName }
+func (c *Config) GetTimezone() string { return c.Timezone }
+func (c *Config) IsDebugEnabled() bool { return c.Debug }
+func (c *Config) IsMigrationDisabled() bool { return c.DisableMigrate }

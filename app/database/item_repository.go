@@ -8,20 +8,18 @@ import (
 	"github.com/lib/pq"
 )
 
-var _ ItemReader = (*ItemRepository)(nil)
-var _ ItemWriter = (*ItemRepository)(nil)
-var _ ItemDuplicateChecker = (*ItemRepository)(nil)
-var _ ItemContentExtractor = (*ItemRepository)(nil)
+// Compile-time interface compliance check
+var _ ItemRepository = (*ItemRepositoryImpl)(nil)
 
-type ItemRepository struct {
+type ItemRepositoryImpl struct {
 	db *DB
 }
 
-func NewItemRepository(db *DB) *ItemRepository {
-	return &ItemRepository{db: db}
+func NewItemRepository(db *DB) ItemRepository {
+	return &ItemRepositoryImpl{db: db}
 }
 
-func (r *ItemRepository) CheckDuplicate(contentHash, feedID string) (bool, *string, error) {
+func (r *ItemRepositoryImpl) CheckDuplicate(contentHash, feedID string) (bool, *string, error) {
 	var duplicateID sql.NullString
 	
 	// Scope duplicate check to feed to allow same content across different feeds
@@ -38,7 +36,7 @@ func (r *ItemRepository) CheckDuplicate(contentHash, feedID string) (bool, *stri
 	return true, &id, nil
 }
 
-func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
+func (r *ItemRepositoryImpl) StoreItem(feedID string, item FeedItem) error {
 	// Ensure authors is never nil to prevent NULL constraint violations
 	authors := item.Authors
 	if authors == nil {
@@ -79,7 +77,7 @@ func (r *ItemRepository) StoreItem(feedID string, item FeedItem) error {
 	return nil
 }
 
-func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, error) {
+func (r *ItemRepositoryImpl) GetVisibleItems(feedID string, limit int) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
 		       COALESCE(description, ''), COALESCE(content, ''),
@@ -98,30 +96,10 @@ func (r *ItemRepository) GetVisibleItems(feedID string, limit int) ([]Item, erro
 	}
 	defer rows.Close()
 
-	var items []Item
-	for rows.Next() {
-		var item Item
-		err := rows.Scan(
-			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
-			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
-			pq.Array(&item.Authors), pq.Array(&item.Categories),
-			&item.IsFiltered, &item.FilterReason,
-			&item.ContentHash, &item.CreatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan item row: %w", err)
-		}
-		items = append(items, item)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating item rows: %w", err)
-	}
-
-	return items, nil
+	return r.scanItemRows(rows)
 }
 
-func (r *ItemRepository) GetItemCount(feedID string) (int, error) {
+func (r *ItemRepositoryImpl) GetItemCount(feedID string) (int, error) {
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM feed_items WHERE feed_id = $1", feedID).Scan(&count)
 	if err != nil {
@@ -130,7 +108,7 @@ func (r *ItemRepository) GetItemCount(feedID string) (int, error) {
 	return count, nil
 }
 
-func (r *ItemRepository) GetItemStats(feedID string) (total, visible, filtered int, err error) {
+func (r *ItemRepositoryImpl) GetItemStats(feedID string) (total, visible, filtered int, err error) {
 	err = r.db.QueryRow(`
 		SELECT 
 			COUNT(*) as total,
@@ -147,7 +125,7 @@ func (r *ItemRepository) GetItemStats(feedID string) (total, visible, filtered i
 	return total, visible, filtered, nil
 }
 
-func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
+func (r *ItemRepositoryImpl) GetAllItems(feedID string) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT id, feed_id, guid, COALESCE(link, ''), COALESCE(title, ''), 
 		       COALESCE(description, ''), COALESCE(content, ''),
@@ -164,30 +142,10 @@ func (r *ItemRepository) GetAllItems(feedID string) ([]Item, error) {
 	}
 	defer rows.Close()
 
-	var items []Item
-	for rows.Next() {
-		var item Item
-		err := rows.Scan(
-			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
-			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
-			pq.Array(&item.Authors), pq.Array(&item.Categories),
-			&item.IsFiltered, &item.FilterReason,
-			&item.ContentHash, &item.CreatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan item row: %w", err)
-		}
-		items = append(items, item)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating item rows: %w", err)
-	}
-
-	return items, nil
+	return r.scanItemRows(rows)
 }
 
-func (r *ItemRepository) UpdateItemFilterStatus(itemID string, isFiltered bool, filterReason string) error {
+func (r *ItemRepositoryImpl) UpdateItemFilterStatus(itemID string, isFiltered bool, filterReason string) error {
 	_, err := r.db.Exec(`
 		UPDATE feed_items 
 		SET is_filtered = $2, filter_reason = $3
@@ -202,7 +160,7 @@ func (r *ItemRepository) UpdateItemFilterStatus(itemID string, isFiltered bool, 
 }
 
 // GetItemsForExtraction returns items that need content extraction (only ID and link)
-func (r *ItemRepository) GetItemsForExtraction(feedID string, limit int) ([]ItemForExtraction, error) {
+func (r *ItemRepositoryImpl) GetItemsForExtraction(feedID string, limit int) ([]ItemForExtraction, error) {
 	query := `
 		SELECT id, link
 		FROM feed_items 
@@ -240,8 +198,34 @@ func (r *ItemRepository) GetItemsForExtraction(feedID string, limit int) ([]Item
 	return items, nil
 }
 
+// scanItemRows is a helper method that scans database rows into Item structs
+// This eliminates code duplication between GetVisibleItems and GetAllItems
+func (r *ItemRepositoryImpl) scanItemRows(rows *sql.Rows) ([]Item, error) {
+	var items []Item
+	for rows.Next() {
+		var item Item
+		err := rows.Scan(
+			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
+			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
+			pq.Array(&item.Authors), pq.Array(&item.Categories),
+			&item.IsFiltered, &item.FilterReason,
+			&item.ContentHash, &item.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan item row: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating item rows: %w", err)
+	}
+
+	return items, nil
+}
+
 // UpdateExtractionStatus updates the content extraction status for an item
-func (r *ItemRepository) UpdateExtractionStatus(itemID string, status string, extractedAt *time.Time, errorMsg string) error {
+func (r *ItemRepositoryImpl) UpdateExtractionStatus(itemID string, status string, extractedAt *time.Time, errorMsg string) error {
 	query := `
 		UPDATE feed_items 
 		SET content_extraction_status = $1, 
@@ -258,7 +242,7 @@ func (r *ItemRepository) UpdateExtractionStatus(itemID string, status string, ex
 }
 
 // IncrementExtractionAttempts increments the extraction attempts counter
-func (r *ItemRepository) IncrementExtractionAttempts(itemID string) error {
+func (r *ItemRepositoryImpl) IncrementExtractionAttempts(itemID string) error {
 	query := `
 		UPDATE feed_items 
 		SET extraction_attempts = extraction_attempts + 1
@@ -273,7 +257,7 @@ func (r *ItemRepository) IncrementExtractionAttempts(itemID string) error {
 }
 
 // UpdateExtractedContent updates the content field with extracted content
-func (r *ItemRepository) UpdateExtractedContent(itemID string, content string) error {
+func (r *ItemRepositoryImpl) UpdateExtractedContent(itemID string, content string) error {
 	query := `
 		UPDATE feed_items 
 		SET content = $1

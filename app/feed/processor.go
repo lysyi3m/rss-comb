@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/config"
+	"github.com/lysyi3m/rss-comb/app/feed_config"
 	"github.com/lysyi3m/rss-comb/app/database"
 )
 
-func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface,
-	userAgent string, port string) *Processor {
+func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface) *Processor {
+	cfg := config.Get()
 	return &Processor{
 		parser:      NewParser(),
-		generator:   NewGenerator(port),
+		generator:   NewGenerator(cfg.GetPort()),
 		feedRepo:    fr,
 		itemRepo:    ir,
 		client: &http.Client{
@@ -29,11 +30,11 @@ func NewProcessor(fr FeedRepositoryInterface, ir ItemRepositoryInterface,
 				MaxIdleConnsPerHost: 5,
 			},
 		},
-		userAgent: userAgent,
+		userAgent: cfg.GetUserAgent(),
 	}
 }
 
-func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) error {
+func (p *Processor) ProcessFeed(feedID string, feedConfig *feed_config.FeedConfig) error {
 	if !feedConfig.Settings.Enabled {
 		slog.Debug("Feed disabled, skipping", "title", feedConfig.Feed.Title)
 		return nil
@@ -129,7 +130,7 @@ func (p *Processor) ProcessFeed(feedID string, feedConfig *config.FeedConfig) er
 	return nil
 }
 
-func (p *Processor) fetchFeed(url string, settings config.FeedSettings) ([]byte, error) {
+func (p *Processor) fetchFeed(url string, settings feed_config.FeedSettings) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -171,7 +172,7 @@ func (p *Processor) fetchFeed(url string, settings config.FeedSettings) ([]byte,
 	return data, nil
 }
 
-func (p *Processor) applyFilters(item Item, filters []config.Filter) (bool, string) {
+func (p *Processor) applyFilters(item Item, filters []feed_config.Filter) (bool, string) {
 	for _, filter := range filters {
 		value := p.getFieldValue(item, filter.Field)
 
@@ -223,14 +224,14 @@ func (p *Processor) getFieldValue(item Item, field string) string {
 	}
 }
 
-func (p *Processor) IsFeedEnabled(feedConfig *config.FeedConfig) bool {
+func (p *Processor) IsFeedEnabled(feedConfig *feed_config.FeedConfig) bool {
 	if feedConfig == nil {
 		return false // Fail-safe: missing configuration disables processing
 	}
 	return feedConfig.Settings.Enabled
 }
 
-func (p *Processor) ReapplyFilters(feedID string, feedConfig *config.FeedConfig) (int, int, error) {
+func (p *Processor) ReapplyFilters(feedID string, feedConfig *feed_config.FeedConfig) (int, int, error) {
 	slog.Debug("Re-applying filters", "title", feedConfig.Feed.Title)
 
 	items, err := p.itemRepo.GetAllItems(feedID)
