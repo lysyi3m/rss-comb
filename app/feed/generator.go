@@ -148,28 +148,3 @@ func (g *Generator) writeElement(buf *bytes.Buffer, tag, content string, indent 
 func (g *Generator) isURL(s string) bool {
 	return (len(s) > 7 && s[:7] == "http://") || (len(s) > 8 && s[:8] == "https://")
 }
-
-// GenerateEmpty creates an empty RSS feed template
-func (g *Generator) GenerateEmpty(feedName, feedURL string) string {
-	if feedName == "" {
-		feedName = "Empty Feed"
-	}
-	if feedURL == "" {
-		feedURL = fmt.Sprintf("http://localhost:%s/", g.Port)
-	}
-
-	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
-  <channel>
-    <title>%s</title>
-    <link>%s</link>
-    <description>Feed is being processed. Please check back later.</description>
-    <lastBuildDate>%s</lastBuildDate>
-    <generator>RSS-Comb/%s</generator>
-  </channel>
-</rss>`, 
-		html.EscapeString(feedName), 
-		html.EscapeString(feedURL), 
-		time.Now().In(time.Local).Format(time.RFC1123Z),
-		config.GetVersion())
-}

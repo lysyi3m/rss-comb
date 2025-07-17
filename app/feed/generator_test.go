@@ -144,46 +144,6 @@ func TestGenerateRSS(t *testing.T) {
 	}
 }
 
-func TestGenerateEmpty(t *testing.T) {
-	generator := NewGenerator("8080")
-	
-	rss := generator.GenerateEmpty("Empty Feed", "https://example.com/feed.xml")
-	
-	// Verify basic structure
-	if !strings.Contains(rss, `<?xml version="1.0" encoding="UTF-8"?>`) {
-		t.Error("Empty RSS should contain XML declaration")
-	}
-	
-	if !strings.Contains(rss, `<rss version="2.0"`) {
-		t.Error("Empty RSS should contain RSS 2.0 declaration")
-	}
-	
-	if !strings.Contains(rss, "<title>Empty Feed</title>") {
-		t.Error("Empty RSS should contain provided title")
-	}
-	
-	if !strings.Contains(rss, "<link>https://example.com/feed.xml</link>") {
-		t.Error("Empty RSS should contain provided URL as link")
-	}
-	
-	if !strings.Contains(rss, "<description>Feed is being processed. Please check back later.</description>") {
-		t.Error("Empty RSS should contain processing message")
-	}
-	
-	// Verify it doesn't contain any items
-	if strings.Contains(rss, "<item>") {
-		t.Error("Empty RSS should not contain any items")
-	}
-	
-	if !strings.Contains(rss, "</channel>") {
-		t.Error("Empty RSS should contain closing channel tag")
-	}
-	
-	if !strings.Contains(rss, "</rss>") {
-		t.Error("Empty RSS should contain closing rss tag")
-	}
-}
-
 func TestGenerateWithMinimalData(t *testing.T) {
 	generator := NewGenerator("9000")
 	

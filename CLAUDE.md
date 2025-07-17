@@ -470,7 +470,7 @@ go test -v ./app/database
 #### `GET /feeds/<id>`
 - Returns processed RSS feed by feed ID
 - Returns HTTP 404 for unknown feed IDs
-- Returns empty feed template for not-yet-processed feeds
+- Returns HTTP 202 Accepted for registered feeds that haven't been processed yet
 
 #### `GET /health`
 - Returns application health status and statistics

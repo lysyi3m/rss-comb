@@ -11,7 +11,6 @@ import (
 // This interface provides RSS generation and formatting functionality.
 type GeneratorInterface interface {
 	Generate(feed database.Feed, items []database.Item) (string, error)
-	GenerateEmpty(title, feedURL string) string
 }
 
 // Compile-time interface compliance check

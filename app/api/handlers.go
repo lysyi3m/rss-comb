@@ -54,10 +54,9 @@ func (h *Handler) GetFeedByID(c *gin.Context) {
 		return
 	}
 
-	// If feed not found in database, return empty feed
+	// If feed not found in database, return 202 Accepted (feed registered but not processed yet)
 	if feed == nil {
-		c.Header("Content-Type", "application/xml; charset=utf-8")
-		c.String(http.StatusOK, h.generator.GenerateEmpty(feedConfig.Feed.Title, feedConfig.Feed.URL))
+		c.Status(http.StatusAccepted)
 		return
 	}
 
