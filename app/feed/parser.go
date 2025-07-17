@@ -86,10 +86,8 @@ func (p *Parser) normalizeItem(item *gofeed.Item) Item {
 	return normalized
 }
 
-// generateContentHash generates a hash for content deduplication
+// generateContentHash generates a hash used for content deduplication
 func (p *Parser) generateContentHash(item Item) string {
-	// Use only title and link for hash generation
-	// This prevents duplicate detection when only description changes (e.g., article updates)
 	content := fmt.Sprintf("%s|%s",
 		item.Title,
 		item.Link)
@@ -101,7 +99,7 @@ func (p *Parser) generateContentHash(item Item) string {
 // extractAuthors extracts authors from gofeed item using modern Authors field with fallback
 func (p *Parser) extractAuthors(item *gofeed.Item) []string {
 	var authors []string
-	
+
 	// Prefer the modern Authors field
 	if len(item.Authors) > 0 {
 		for _, author := range item.Authors {
@@ -119,7 +117,7 @@ func (p *Parser) extractAuthors(item *gofeed.Item) []string {
 			authors = append(authors, authorStr)
 		}
 	}
-	
+
 	return authors
 }
 
@@ -128,7 +126,7 @@ func (p *Parser) extractAuthors(item *gofeed.Item) []string {
 func (p *Parser) formatAuthor(name, email string) string {
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(email)
-	
+
 	// Only apply email (name) format if both are non-empty after trimming
 	if name != "" && email != "" {
 		return fmt.Sprintf("%s (%s)", email, name)
@@ -137,7 +135,7 @@ func (p *Parser) formatAuthor(name, email string) string {
 	} else if email != "" {
 		return email
 	}
-	
+
 	return ""
 }
 

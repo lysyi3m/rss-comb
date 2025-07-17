@@ -171,8 +171,9 @@ rss-comb/
 - `generator.go`: RSS 2.0 XML output generation for API responses
 - `content_extractor.go`: Intelligent HTML content extraction using go-readability library
 - `content_extraction_service.go`: Orchestrates content extraction with error handling and retry logic
-- `types.go`: Feed data structures and models
+- `types.go`: Feed data structures and models, uses database interfaces directly
 - **Performance**: Intelligent duplicate checking only when feed content has changed
+- **Architecture**: Direct use of database repository interfaces, no unnecessary alias layers
 - Consolidated from separate parser/generator packages for better cohesion
 
 ### Repository Layer (`app/database/`)
