@@ -1,0 +1,45 @@
+# Build artifacts
+bin/
+dist/
+*.exe
+rss-comb
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage.out
+
+# Temporary files
+tmp/
+temp/
+
+# Docker volumes
+data/
+
+# Product specifications (keep private)
+product-specification.md
+
+# User-specific feed configurations (keep only example)
+feeds/*
+!feeds/example.yml
+
+# Make sure CLAUDE.md is never ignored
+!CLAUDE.md
