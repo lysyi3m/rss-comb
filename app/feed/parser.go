@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -52,11 +53,54 @@ func (p *Parser) Run(data []byte) (*Metadata, []Item, error) {
 	return metadata, items, nil
 }
 
+func (p *Parser) normalizeURL(rawURL string) string {
+	if rawURL == "" {
+		return rawURL
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+
+	// List of common tracking parameters to remove
+	trackingParams := []string{
+		// UTM parameters (Google Analytics)
+		"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+		// Facebook parameters
+		"fbclid", "fb_action_ids", "fb_action_types", "fb_ref", "fb_source",
+		// Google parameters
+		"gclid", "gclsrc", "dclid",
+		// Twitter parameters
+		"twclid",
+		// Microsoft parameters
+		"msclkid",
+		// Generic tracking parameters
+		"ref", "referrer", "source", "campaign", "medium",
+		// Email marketing parameters
+		"mc_cid", "mc_eid",
+		// Other common tracking parameters
+		"_ga", "_gl", "igshid", "hsCtaTracking", "hsa_acc", "hsa_ad", "hsa_cam", "hsa_grp", "hsa_kw", "hsa_mt", "hsa_net", "hsa_src", "hsa_tgt", "hsa_ver",
+	}
+
+	query := parsedURL.Query()
+
+	for _, param := range trackingParams {
+		query.Del(param)
+	}
+
+	parsedURL.RawQuery = query.Encode()
+
+	return parsedURL.String()
+}
+
 func (p *Parser) normalizeItem(item *gofeed.Item) Item {
+	normalizedLink := p.normalizeURL(item.Link)
+
 	normalized := Item{
-		GUID:        cmp.Or(item.GUID, item.Link),
+		GUID:        cmp.Or(item.GUID, normalizedLink),
 		Title:       item.Title,
-		Link:        item.Link,
+		Link:        normalizedLink,
 		Description: item.Description,
 		Content:     item.Content,
 	}
@@ -80,8 +124,8 @@ func (p *Parser) normalizeItem(item *gofeed.Item) Item {
 		enclosure := item.Enclosures[0]
 		normalized.EnclosureURL = enclosure.URL
 		normalized.EnclosureType = enclosure.Type
-		
-		// Parse length as int64, handle potential parsing errors
+
+    // Parse length as int64, handle potential parsing errors
 		if enclosure.Length != "" {
 			if length, err := strconv.ParseInt(enclosure.Length, 10, 64); err == nil {
 				normalized.EnclosureLength = length
