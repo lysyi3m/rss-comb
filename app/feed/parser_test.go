@@ -427,3 +427,61 @@ func TestParser_normalizeItem_WithTrackingParams(t *testing.T) {
 	}
 }
 
+func TestParseRSSWithHTMLEntities(t *testing.T) {
+	rssData := `<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed &amp; Special Characters</title>
+    <link>https://example.com</link>
+    <description>A test feed with &quot;HTML entities&quot; &amp; special chars</description>
+    <item>
+      <title>Company didn&#8217;t fix users&#8217; security issues</title>
+      <link>https://example.com/item1</link>
+      <description>This article discusses &lt;privacy&gt; issues with &quot;smart&quot; devices &amp; IoT security.</description>
+      <content:encoded><![CDATA[Full article content with &amp; entities and &#8220;curly quotes&#8221;]]></content:encoded>
+      <guid>item-1</guid>
+      <pubDate>Mon, 03 Jul 2023 10:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`
+
+	parser := NewParser()
+	metadata, items, err := parser.Run([]byte(rssData))
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	// Test metadata HTML entity decoding
+	expectedTitle := "Test Feed & Special Characters"
+	if metadata.Title != expectedTitle {
+		t.Errorf("Expected metadata title %q, got %q", expectedTitle, metadata.Title)
+	}
+
+	expectedDesc := `A test feed with "HTML entities" & special chars`
+	if metadata.Description != expectedDesc {
+		t.Errorf("Expected metadata description %q, got %q", expectedDesc, metadata.Description)
+	}
+
+	// Test item HTML entity decoding
+	if len(items) != 1 {
+		t.Fatalf("Expected 1 item, got: %d", len(items))
+	}
+
+	item := items[0]
+	expectedItemTitle := "Company didn\u2019t fix users\u2019 security issues"
+	if item.Title != expectedItemTitle {
+		t.Errorf("Expected item title %q, got %q", expectedItemTitle, item.Title)
+	}
+
+	expectedItemDesc := `This article discusses <privacy> issues with "smart" devices & IoT security.`
+	if item.Description != expectedItemDesc {
+		t.Errorf("Expected item description %q, got %q", expectedItemDesc, item.Description)
+	}
+
+	expectedContent := "Full article content with &amp; entities and &#8220;curly quotes&#8221;"
+	if item.Content != expectedContent {
+		t.Errorf("Expected item content %q, got %q", expectedContent, item.Content)
+	}
+}
+

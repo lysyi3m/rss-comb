@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"html"
 	"net/url"
 	"strconv"
 	"strings"
@@ -30,9 +31,9 @@ func (p *Parser) Run(data []byte) (*Metadata, []Item, error) {
 	}
 
 	metadata := &Metadata{
-		Title:       feed.Title,
+		Title:       p.decodeHTMLEntities(feed.Title),
 		Link:        feed.Link,
-		Description: feed.Description,
+		Description: p.decodeHTMLEntities(feed.Description),
 		Language:    feed.Language,
 	}
 
@@ -99,9 +100,9 @@ func (p *Parser) normalizeItem(item *gofeed.Item) Item {
 
 	normalized := Item{
 		GUID:        cmp.Or(item.GUID, normalizedLink),
-		Title:       item.Title,
+		Title:       p.decodeHTMLEntities(item.Title),
 		Link:        normalizedLink,
-		Description: item.Description,
+		Description: p.decodeHTMLEntities(item.Description),
 		Content:     item.Content,
 	}
 
@@ -180,5 +181,12 @@ func (p *Parser) formatAuthor(name, email string) string {
 	}
 
 	return ""
+}
+
+func (p *Parser) decodeHTMLEntities(s string) string {
+	if s == "" {
+		return s
+	}
+	return html.UnescapeString(s)
 }
 
