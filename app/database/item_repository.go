@@ -155,7 +155,7 @@ func (r *ItemRepositoryImpl) UpdateItemFilterStatus(itemID string, isFiltered bo
 	return nil
 }
 
-func (r *ItemRepositoryImpl) CheckDuplicate(contentHash, feedName string) (bool, *string, error) {
+func (r *ItemRepositoryImpl) CheckDuplicate(feedName, contentHash string) (bool, *string, error) {
 	var duplicateID sql.NullString
 
 	query := `

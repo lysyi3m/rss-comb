@@ -44,7 +44,7 @@ type ItemRepository interface {
 	UpsertItem(feedName string, item FeedItem) error
 	UpdateItemFilterStatus(itemID string, isFiltered bool) error
 
-	CheckDuplicate(contentHash, feedName string) (bool, *string, error)
+	CheckDuplicate(feedName, contentHash string) (bool, *string, error)
 
 	GetItemsForExtraction(feedName string, limit int) ([]ItemForExtraction, error)
 	UpdateExtractionStatus(itemID string, status string, extractedAt *time.Time, error string) error

@@ -71,7 +71,7 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	if len(items) > 0 {
 		var nonDuplicateItems []feed.Item
 		for _, item := range items {
-			isDuplicate, _, err := t.itemRepo.CheckDuplicate(item.ContentHash, t.FeedName)
+			isDuplicate, _, err := t.itemRepo.CheckDuplicate(t.FeedName, item.ContentHash)
 			if err != nil {
 				return fmt.Errorf("failed to check for duplicates: %w", err)
 			}
