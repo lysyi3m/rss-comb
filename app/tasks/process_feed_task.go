@@ -167,7 +167,6 @@ func (t *ProcessFeedTask) storeFilteredItems(ctx context.Context, items []feed.I
 			Authors:         item.Authors,
 			Categories:      item.Categories,
 			IsFiltered:      item.IsFiltered,
-			FilterReason:    item.FilterReason,
 			ContentHash:     item.ContentHash,
 			EnclosureURL:    item.EnclosureURL,
 			EnclosureLength: item.EnclosureLength,

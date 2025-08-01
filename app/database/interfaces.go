@@ -17,7 +17,6 @@ type FeedItem struct {
 
 	ContentHash     string
 	IsFiltered      bool
-	FilterReason    string
 	EnclosureURL    string // RSS enclosure URL
 	EnclosureLength int64  // RSS enclosure length in bytes
 	EnclosureType   string // RSS enclosure MIME type
@@ -43,7 +42,7 @@ type ItemRepository interface {
 	GetItemStats(feedName string) (int, int, int, error)
 
 	UpsertItem(feedName string, item FeedItem) error
-	UpdateItemFilterStatus(itemID string, isFiltered bool, reason string) error
+	UpdateItemFilterStatus(itemID string, isFiltered bool) error
 
 	CheckDuplicate(contentHash, feedName string) (bool, *string, error)
 

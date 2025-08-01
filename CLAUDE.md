@@ -158,7 +158,7 @@ rss-comb/
 
 ### Database Schema Details
 - **feeds table**: id, name, feed_url, title, link, image_url, language, enabled, last_fetched, last_success, next_fetch
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, filter_reason, content_hash, created_at, content_extracted_at, content_extraction_status, content_extraction_error, extraction_attempts
+- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, created_at, content_extracted_at, content_extraction_status, content_extraction_error, extraction_attempts
 - **Key relationships**: feeds.id → feed_items.feed_id (UUID primary keys)
 - **Indexes**: feed_id, published_at, content_hash, content_extraction_status, extraction_attempts for optimized queries
 - **Constraints**: Unique (feed_id, guid) for item deduplication within feeds

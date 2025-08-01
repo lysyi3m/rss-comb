@@ -65,8 +65,8 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 	for i, filteredItem := range filteredItems {
 		originalItem := items[i]
 
-		if originalItem.IsFiltered != filteredItem.IsFiltered || originalItem.FilterReason != filteredItem.FilterReason {
-			err := t.itemRepo.UpdateItemFilterStatus(originalItem.ID, filteredItem.IsFiltered, filteredItem.FilterReason)
+		if originalItem.IsFiltered != filteredItem.IsFiltered {
+			err := t.itemRepo.UpdateItemFilterStatus(originalItem.ID, filteredItem.IsFiltered)
 			if err != nil {
 				slog.Error("Failed to update item filter status", "item_id", originalItem.ID, "error", err)
 				errorCount++

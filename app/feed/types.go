@@ -28,7 +28,6 @@ type Item struct {
 
 	ContentHash     string
 	IsFiltered      bool
-	FilterReason    string
 	EnclosureURL    string // RSS enclosure URL
 	EnclosureLength int64  // RSS enclosure length in bytes
 	EnclosureType   string // RSS enclosure MIME type

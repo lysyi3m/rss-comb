@@ -24,7 +24,7 @@ func (r *ItemRepositoryImpl) GetVisibleItems(feedName string, limit int) ([]Item
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
 		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'), 
 		       COALESCE(fi.categories, '{}'),
-		       fi.is_filtered, COALESCE(fi.filter_reason, ''),
+		       fi.is_filtered,
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, '')
 		FROM feed_items fi
@@ -48,7 +48,7 @@ func (r *ItemRepositoryImpl) GetAllItems(feedName string) ([]Item, error) {
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
 		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'), 
 		       COALESCE(fi.categories, '{}'),
-		       fi.is_filtered, COALESCE(fi.filter_reason, ''),
+		       fi.is_filtered,
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, '')
 		FROM feed_items fi
@@ -111,11 +111,11 @@ func (r *ItemRepositoryImpl) UpsertItem(feedName string, item FeedItem) error {
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,
 			published_at, updated_at, authors,
-			categories, is_filtered, filter_reason, content_hash,
+			categories, is_filtered, content_hash,
 			enclosure_url, enclosure_length, enclosure_type
 		) VALUES (
 			(SELECT id FROM feeds WHERE name = $1),
-			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 		)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
@@ -125,14 +125,13 @@ func (r *ItemRepositoryImpl) UpsertItem(feedName string, item FeedItem) error {
 			authors = EXCLUDED.authors,
 			categories = EXCLUDED.categories,
 			is_filtered = EXCLUDED.is_filtered,
-			filter_reason = EXCLUDED.filter_reason,
 			content_hash = EXCLUDED.content_hash,
 			enclosure_url = EXCLUDED.enclosure_url,
 			enclosure_length = EXCLUDED.enclosure_length,
 			enclosure_type = EXCLUDED.enclosure_type
 	`, feedName, item.GUID, item.Link, item.Title, item.Description, item.Content,
 		item.PublishedAt, item.UpdatedAt, pq.Array(authors),
-		pq.Array(categories), item.IsFiltered, item.FilterReason,
+		pq.Array(categories), item.IsFiltered,
 		item.ContentHash, item.EnclosureURL, item.EnclosureLength, item.EnclosureType)
 
 	if err != nil {
@@ -142,12 +141,12 @@ func (r *ItemRepositoryImpl) UpsertItem(feedName string, item FeedItem) error {
 	return nil
 }
 
-func (r *ItemRepositoryImpl) UpdateItemFilterStatus(itemID string, isFiltered bool, filterReason string) error {
+func (r *ItemRepositoryImpl) UpdateItemFilterStatus(itemID string, isFiltered bool) error {
 	_, err := r.db.Exec(`
 		UPDATE feed_items 
-		SET is_filtered = $2, filter_reason = $3
+		SET is_filtered = $2
 		WHERE id = $1
-	`, itemID, isFiltered, filterReason)
+	`, itemID, isFiltered)
 
 	if err != nil {
 		return fmt.Errorf("failed to update item filter status: %w", err)
@@ -257,7 +256,7 @@ func (r *ItemRepositoryImpl) scanItemRows(rows *sql.Rows) ([]Item, error) {
 			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
 			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
 			pq.Array(&item.Authors), pq.Array(&item.Categories),
-			&item.IsFiltered, &item.FilterReason,
+			&item.IsFiltered,
 			&item.ContentHash, &item.CreatedAt,
 			&item.EnclosureURL, &item.EnclosureLength, &item.EnclosureType,
 		)

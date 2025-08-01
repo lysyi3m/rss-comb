@@ -33,7 +33,6 @@ type Item struct {
 	Authors                 []string // Multiple authors in format "email (name)" or "name"
 	Categories              []string
 	IsFiltered              bool
-	FilterReason            string
 	ContentHash             string
 	CreatedAt               time.Time
 	ContentExtractedAt      *time.Time
