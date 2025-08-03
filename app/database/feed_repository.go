@@ -39,6 +39,24 @@ func (r *FeedRepositoryImpl) GetFeed(feedName string) (*Feed, error) {
 	return &feed, nil
 }
 
+func (r *FeedRepositoryImpl) GetFeedTimestamps(feedName string) (*Feed, error) {
+	var feed Feed
+	err := r.db.QueryRow(`
+		SELECT id, name, feed_published_at, feed_updated_at
+		FROM feeds
+		WHERE name = $1
+	`, feedName).Scan(&feed.ID, &feed.Name, &feed.FeedPublishedAt, &feed.FeedUpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get feed timestamps: %w", err)
+	}
+
+	return &feed, nil
+}
+
 func (r *FeedRepositoryImpl) GetFeedCount() (int, error) {
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds").Scan(&count)

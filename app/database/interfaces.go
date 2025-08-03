@@ -24,6 +24,7 @@ type FeedItem struct {
 
 type FeedRepository interface {
 	GetFeed(feedName string) (*Feed, error)
+	GetFeedTimestamps(feedName string) (*Feed, error) // Only timestamp fields for optimization
 	GetFeedCount() (int, error)
 
 	UpsertFeed(feedName, feedURL string) error

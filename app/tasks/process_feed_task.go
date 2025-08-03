@@ -59,7 +59,7 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 		return fmt.Errorf("failed to parse feed: %w", err)
 	}
 
-	storedFeed, err := t.feedRepo.GetFeed(t.FeedName)
+	storedFeed, err := t.feedRepo.GetFeedTimestamps(t.FeedName)
 	if err != nil {
 		return fmt.Errorf("failed to get stored feed: %w", err)
 	}
