@@ -27,7 +27,7 @@ type FeedRepository interface {
 	GetFeedCount() (int, error)
 
 	UpsertFeed(feedName, feedURL string) error
-	UpdateFeedMetadata(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, nextFetch time.Time) error
+	UpdateFeedMetadata(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, nextFetch time.Time) error
 }
 
 type ItemForExtraction struct {

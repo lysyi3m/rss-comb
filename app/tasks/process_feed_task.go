@@ -59,9 +59,23 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 		return fmt.Errorf("failed to parse feed: %w", err)
 	}
 
+	storedFeed, err := t.feedRepo.GetFeed(t.FeedName)
+	if err != nil {
+		return fmt.Errorf("failed to get stored feed: %w", err)
+	}
+
 	err = t.storeFeedMetadata(ctx, metadata)
 	if err != nil {
 		return fmt.Errorf("failed to store feed metadata: %w", err)
+	}
+
+	if t.isFeedUnchanged(storedFeed, metadata) {
+		slog.Info("Feed unchanged, skipping item processing",
+			"feed", t.FeedName,
+			"duration", t.GetDuration(),
+			"feed_updated_at", metadata.FeedUpdatedAt,
+			"feed_published_at", metadata.FeedPublishedAt)
+		return nil
 	}
 
 	duplicateCount := 0
@@ -146,7 +160,7 @@ func (t *ProcessFeedTask) storeFeedMetadata(ctx context.Context, metadata *feed.
 	now := time.Now().UTC()
 	nextFetch := now.Add(time.Duration(t.FeedConfig.Settings.RefreshInterval) * time.Second)
 
-	err := t.feedRepo.UpdateFeedMetadata(t.FeedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, nextFetch)
+	err := t.feedRepo.UpdateFeedMetadata(t.FeedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, nextFetch)
 	if err != nil {
 		return fmt.Errorf("failed to update feed metadata and next fetch time: %w", err)
 	}
@@ -180,4 +194,22 @@ func (t *ProcessFeedTask) storeFilteredItems(ctx context.Context, items []feed.I
 	}
 
 	return nil
+}
+
+func (t *ProcessFeedTask) isFeedUnchanged(storedFeed *database.Feed, newMetadata *feed.Metadata) bool {
+	if storedFeed == nil {
+		return false
+	}
+
+	if storedFeed.FeedUpdatedAt == nil && storedFeed.FeedPublishedAt == nil {
+		return false
+	}
+
+	updatedMatches := (storedFeed.FeedUpdatedAt == nil) == (newMetadata.FeedUpdatedAt == nil) &&
+		(storedFeed.FeedUpdatedAt == nil || storedFeed.FeedUpdatedAt.Equal(*newMetadata.FeedUpdatedAt))
+
+	publishedMatches := (storedFeed.FeedPublishedAt == nil) == (newMetadata.FeedPublishedAt == nil) &&
+		(storedFeed.FeedPublishedAt == nil || storedFeed.FeedPublishedAt.Equal(*newMetadata.FeedPublishedAt))
+
+	return updatedMatches && publishedMatches
 }

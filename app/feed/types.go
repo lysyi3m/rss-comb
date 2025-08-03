@@ -13,6 +13,7 @@ type Metadata struct {
 	ImageURL        string
 	Language        string
 	FeedPublishedAt *time.Time
+	FeedUpdatedAt   *time.Time
 }
 
 type Item struct {

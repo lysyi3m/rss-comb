@@ -20,12 +20,12 @@ func (r *FeedRepositoryImpl) GetFeed(feedName string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
 		SELECT id, name, feed_url, COALESCE(link, ''), title, COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(language, ''),
-		       last_fetched_at, next_fetch_at, feed_published_at, created_at, updated_at
+		       last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, created_at, updated_at
 		FROM feeds
 		WHERE name = $1
 	`, feedName).Scan(
 		&feed.ID, &feed.Name, &feed.FeedURL, &feed.Link, &feed.Title, &feed.Description, &feed.ImageURL, &feed.Language,
-		&feed.LastFetchedAt, &feed.NextFetchAt, &feed.FeedPublishedAt,
+		&feed.LastFetchedAt, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.FeedUpdatedAt,
 		&feed.CreatedAt, &feed.UpdatedAt,
 	)
 
@@ -69,13 +69,13 @@ func (r *FeedRepositoryImpl) UpsertFeed(feedName, feedURL string) error {
 	return nil
 }
 
-func (r *FeedRepositoryImpl) UpdateFeedMetadata(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, nextFetchAt time.Time) error {
+func (r *FeedRepositoryImpl) UpdateFeedMetadata(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, nextFetchAt time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
-		SET title = $2, link = $3, description = $4, image_url = $5, language = $6, feed_published_at = $7,
-		    next_fetch_at = $8, last_fetched_at = NOW(), updated_at = NOW()
+		SET title = $2, link = $3, description = $4, image_url = $5, language = $6, feed_published_at = $7, feed_updated_at = $8,
+		    next_fetch_at = $9, last_fetched_at = NOW(), updated_at = NOW()
 		WHERE name = $1
-	`, feedName, title, link, description, imageURL, language, feedPublishedAt, nextFetchAt)
+	`, feedName, title, link, description, imageURL, language, feedPublishedAt, feedUpdatedAt, nextFetchAt)
 
 	if err != nil {
 		return fmt.Errorf("failed to upsert feed: %w", err)

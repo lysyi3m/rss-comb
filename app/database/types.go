@@ -16,6 +16,7 @@ type Feed struct {
 	LastFetchedAt   *time.Time
 	NextFetchAt     *time.Time
 	FeedPublishedAt *time.Time // Feed's own pubDate/published from RSS/Atom
+	FeedUpdatedAt   *time.Time // Feed's own updated/lastBuildDate from RSS/Atom
 	CreatedAt       time.Time
 	UpdatedAt       time.Time // Tracks last successful processing (replaces last_success)
 }

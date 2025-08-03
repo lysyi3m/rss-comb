@@ -61,6 +61,12 @@ func TestParseRSS2(t *testing.T) {
 	if metadata.ImageURL != "https://example.com/icon.png" {
 		t.Errorf("Expected image URL 'https://example.com/icon.png', got: %s", metadata.ImageURL)
 	}
+	if metadata.FeedUpdatedAt == nil {
+		t.Error("Expected FeedUpdatedAt to be parsed from lastBuildDate")
+	}
+	if metadata.FeedPublishedAt != nil {
+		t.Error("Expected FeedPublishedAt to be nil for RSS feed without pubDate field at channel level")
+	}
 
 	// Test items
 	if len(items) != 2 {
@@ -114,6 +120,12 @@ func TestParseAtom(t *testing.T) {
 	if metadata.Title != "Test Atom Feed" {
 		t.Errorf("Expected title 'Test Atom Feed', got: %s", metadata.Title)
 	}
+	if metadata.FeedUpdatedAt == nil {
+		t.Error("Expected FeedUpdatedAt to be parsed from Atom updated field")
+	}
+	if metadata.FeedPublishedAt != nil {
+		t.Error("Expected FeedPublishedAt to be nil for Atom feed without published field")
+	}
 
 	if len(items) != 1 {
 		t.Fatalf("Expected 1 item, got: %d", len(items))
@@ -128,6 +140,44 @@ func TestParseAtom(t *testing.T) {
 	}
 	if item.ContentHash == "" {
 		t.Error("Expected content hash to be generated")
+	}
+}
+
+func TestParseRSSWithPubDate(t *testing.T) {
+	rssData := `<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed</title>
+    <link>https://example.com</link>
+    <description>Test Description</description>
+    <pubDate>Mon, 03 Jul 2023 12:00:00 GMT</pubDate>
+    <item>
+      <title>Test Item 1</title>
+      <link>https://example.com/item1</link>
+      <description>Test Item 1 Description</description>
+      <guid>item-1</guid>
+      <pubDate>Mon, 03 Jul 2023 10:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`
+
+	parser := NewParser()
+	metadata, items, err := parser.Run([]byte(rssData))
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	// RSS channel pubDate should map to FeedPublishedAt
+	if metadata.FeedPublishedAt == nil {
+		t.Error("Expected FeedPublishedAt to be parsed from RSS channel pubDate")
+	}
+	if metadata.FeedUpdatedAt != nil {
+		t.Error("Expected FeedUpdatedAt to be nil for RSS feed without lastBuildDate")
+	}
+
+	if len(items) != 1 {
+		t.Fatalf("Expected 1 item, got: %d", len(items))
 	}
 }
 

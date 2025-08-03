@@ -44,6 +44,10 @@ func (p *Parser) Run(data []byte) (*Metadata, []Item, error) {
 	if feed.PublishedParsed != nil {
 		metadata.FeedPublishedAt = feed.PublishedParsed
 	}
+
+	if feed.UpdatedParsed != nil {
+		metadata.FeedUpdatedAt = feed.UpdatedParsed
+	}
 	items := make([]Item, 0, len(feed.Items))
 	for _, item := range feed.Items {
 		normalized := p.normalizeItem(item)
