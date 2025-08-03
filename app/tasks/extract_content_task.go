@@ -88,7 +88,7 @@ func (t *ExtractContentTask) Execute(ctx context.Context) error {
 	}
 
 	slog.Info("Task completed",
-    "type", "ExtractContent",
+    "type", t.GetType(),
     "feed", t.FeedName,
     "duration", t.GetDuration(),
     "success", successCount,

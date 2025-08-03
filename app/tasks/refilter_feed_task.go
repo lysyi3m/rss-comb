@@ -77,7 +77,7 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 	}
 
   slog.Info("Task completed",
-    "type", "RefilterFeed",
+    "type", t.GetType(),
     "feed", t.FeedName,
     "duration", t.GetDuration(),
     "success", updatedCount,

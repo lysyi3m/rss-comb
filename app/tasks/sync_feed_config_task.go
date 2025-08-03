@@ -37,12 +37,12 @@ func (t *SyncFeedConfigTask) Execute(ctx context.Context) error {
 		t.FeedConfig.Name,
 		t.FeedConfig.URL)
 	if err != nil {
-		slog.Error("Task failed", "type", "SyncFeedConfig", "feed", t.FeedName, "error", err)
+		slog.Error("Task failed", "type", t.GetType(), "feed", t.FeedName, "error", err)
 		return fmt.Errorf("failed to sync feed config to database: %w", err)
 	}
 
   slog.Info("Task completed",
-    "type", "SyncFeedConfig",
+    "type", t.GetType(),
     "feed", t.FeedName,
     "duration", t.GetDuration())
 

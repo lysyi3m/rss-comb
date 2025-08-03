@@ -116,7 +116,7 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	}
 
   slog.Info("Task completed",
-    "type", "ProcessedFeed",
+    "type", t.GetType(),
     "feed", t.FeedName,
     "duration", t.GetDuration(),
     "total", len(items),
