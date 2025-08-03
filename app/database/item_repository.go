@@ -20,7 +20,7 @@ func NewItemRepository(db *DB) ItemRepository {
 
 func (r *ItemRepositoryImpl) GetVisibleItems(feedName string, limit int) ([]Item, error) {
 	rows, err := r.db.Query(`
-		SELECT fi.id, fi.feed_id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 
+		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
 		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'), 
 		       COALESCE(fi.categories, '{}'),
@@ -44,7 +44,7 @@ func (r *ItemRepositoryImpl) GetVisibleItems(feedName string, limit int) ([]Item
 
 func (r *ItemRepositoryImpl) GetAllItems(feedName string) ([]Item, error) {
 	rows, err := r.db.Query(`
-		SELECT fi.id, fi.feed_id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 
+		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
 		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'), 
 		       COALESCE(fi.categories, '{}'),
@@ -253,7 +253,7 @@ func (r *ItemRepositoryImpl) scanItemRows(rows *sql.Rows) ([]Item, error) {
 	for rows.Next() {
 		var item Item
 		err := rows.Scan(
-			&item.ID, &item.FeedID, &item.GUID, &item.Link, &item.Title,
+			&item.ID, &item.GUID, &item.Link, &item.Title,
 			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
 			pq.Array(&item.Authors), pq.Array(&item.Categories),
 			&item.IsFiltered,
