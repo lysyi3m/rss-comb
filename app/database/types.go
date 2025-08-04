@@ -17,6 +17,7 @@ type Feed struct {
 	NextFetchAt     *time.Time
 	FeedPublishedAt *time.Time // Feed's own pubDate/published from RSS/Atom
 	FeedUpdatedAt   *time.Time // Feed's own updated/lastBuildDate from RSS/Atom
+	ContentHash     *string    // SHA-256 hash of raw feed content for change detection
 	CreatedAt       time.Time
 	UpdatedAt       time.Time // Tracks last successful processing (replaces last_success)
 }

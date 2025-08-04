@@ -31,6 +31,9 @@ coverage.out
 tmp/
 temp/
 
+# Debug tools
+debug_*.go
+
 # Docker volumes
 data/
 

@@ -24,11 +24,11 @@ type FeedItem struct {
 
 type FeedRepository interface {
 	GetFeed(feedName string) (*Feed, error)
-	GetFeedTimestamps(feedName string) (*Feed, error) // Only timestamp fields for optimization
+	GetFeedContentHash(feedName string) (*string, error)
 	GetFeedCount() (int, error)
 
 	UpsertFeed(feedName, feedURL string) error
-	UpdateFeedMetadata(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, nextFetch time.Time) error
+	UpdateFeedMetadataWithHash(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, contentHash string, nextFetch time.Time) error
 }
 
 type ItemForExtraction struct {

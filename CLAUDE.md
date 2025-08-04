@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RSS Comb is a Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, and content filtering capabilities through YAML-based configuration files.
 
-The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, optimizing configuration management, and implementing intelligent feed timestamp optimization for significant performance improvements.
+The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, optimizing configuration management, and implementing intelligent feed content hash optimization for significant performance improvements.
 
 ## Development Environment
 
@@ -105,7 +105,7 @@ rss-comb/
    - **Generator**: RSS 2.0 XML output generation for API responses
    - **Content Extractor**: Intelligent full-text content extraction using go-shiori/go-readability for feeds lacking <content:encoded>
    - **Filterer**: Configurable content filtering with include/exclude rules
-   - **Performance Optimization**: Feed timestamp comparison reduces duplicate checking from O(n) to O(1) when content unchanged
+   - **Performance Optimization**: Feed content hash comparison skips item processing when content unchanged
    - Clean separation of concerns with focused interfaces
 
 5. **Database Layer** (`app/database/`)
@@ -134,7 +134,7 @@ rss-comb/
 2. **Feed Configuration Loading**: `feed.ConfigCache` validates YAML files from `feeds/*.yml`
 3. **Database Sync**: Configuration changes automatically registered in database with URL change detection via PostgreSQL UPSERT
 4. **Task Scheduling**: FIFO task scheduler queues feed processing based on `next_fetch` timestamps
-5. **Feed Processing**: Task-based processing fetches, parses, filters, and deduplicates items with timestamp-based optimization
+5. **Feed Processing**: Task-based processing fetches, parses, filters, and deduplicates items with content hash optimization
 6. **Content Extraction**: `content_extractor` automatically extracts full article content when `extract_content: true`
 7. **Storage**: Items stored with filter status, content hashes, and extraction tracking for deduplication
 8. **API Access**: `api/handlers` serve processed feeds with extracted content and management endpoints
@@ -145,7 +145,7 @@ rss-comb/
 **feeds table:**
 - Stores feed metadata and processing status
 - Tracks last_fetched, last_success, next_fetch timestamps
-- Stores feed_updated_at from RSS/Atom feeds for optimization
+- Stores content_hash for feed change detection optimization
 - Uses `name` field to match with configuration files
 
 **feed_items table:**
@@ -170,7 +170,7 @@ rss-comb/
 - `content_extractor.go`: Intelligent HTML content extraction using go-shiori/go-readability library
 - `filterer.go`: Configurable content filtering with include/exclude rules
 - `types.go`: Feed data structures and models, consolidated configuration types
-- **Performance**: Intelligent duplicate checking only when feed content has changed
+- **Performance**: Intelligent content hash comparison skips processing when feed unchanged
 - **Architecture**: Direct use of database repository interfaces, no unnecessary alias layers
 - Consolidated from separate packages for better cohesion
 
@@ -439,7 +439,8 @@ go test -v ./app/database
 - Monitor query performance with EXPLAIN
 
 ### Performance Considerations
-- **Feed Timestamp Optimization**: Compares feed's `Updated`/`lastBuildDate` timestamps to skip duplicate checking when content unchanged (100x performance improvement for unchanged feeds)
+- **Feed Content Hash Optimization**: Compares SHA-256 hash of raw feed content to skip item processing when unchanged (100x performance improvement for unchanged feeds)
+- Works universally with all RSS/Atom feeds regardless of timestamp support
 - Implement connection pooling for HTTP clients
 - Use worker pools for concurrent processing
 - Monitor memory usage in feed parsing

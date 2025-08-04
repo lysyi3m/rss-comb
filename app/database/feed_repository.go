@@ -39,24 +39,6 @@ func (r *FeedRepositoryImpl) GetFeed(feedName string) (*Feed, error) {
 	return &feed, nil
 }
 
-func (r *FeedRepositoryImpl) GetFeedTimestamps(feedName string) (*Feed, error) {
-	var feed Feed
-	err := r.db.QueryRow(`
-		SELECT id, name, feed_published_at, feed_updated_at
-		FROM feeds
-		WHERE name = $1
-	`, feedName).Scan(&feed.ID, &feed.Name, &feed.FeedPublishedAt, &feed.FeedUpdatedAt)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get feed timestamps: %w", err)
-	}
-
-	return &feed, nil
-}
-
 func (r *FeedRepositoryImpl) GetFeedCount() (int, error) {
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM feeds").Scan(&count)
@@ -87,16 +69,28 @@ func (r *FeedRepositoryImpl) UpsertFeed(feedName, feedURL string) error {
 	return nil
 }
 
-func (r *FeedRepositoryImpl) UpdateFeedMetadata(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, nextFetchAt time.Time) error {
+func (r *FeedRepositoryImpl) GetFeedContentHash(feedName string) (*string, error) {
+	var contentHash *string
+	err := r.db.QueryRow("SELECT content_hash FROM feeds WHERE name = $1", feedName).Scan(&contentHash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get feed content hash: %w", err)
+	}
+	return contentHash, nil
+}
+
+func (r *FeedRepositoryImpl) UpdateFeedMetadataWithHash(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, contentHash string, nextFetchAt time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
 		SET title = $2, link = $3, description = $4, image_url = $5, language = $6, feed_published_at = $7, feed_updated_at = $8,
-		    next_fetch_at = $9, last_fetched_at = NOW(), updated_at = NOW()
+		    content_hash = $9, next_fetch_at = $10, last_fetched_at = NOW(), updated_at = NOW()
 		WHERE name = $1
-	`, feedName, title, link, description, imageURL, language, feedPublishedAt, feedUpdatedAt, nextFetchAt)
+	`, feedName, title, link, description, imageURL, language, feedPublishedAt, feedUpdatedAt, contentHash, nextFetchAt)
 
 	if err != nil {
-		return fmt.Errorf("failed to upsert feed: %w", err)
+		return fmt.Errorf("failed to update feed metadata with hash: %w", err)
 	}
 
 	return nil

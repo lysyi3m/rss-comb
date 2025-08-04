@@ -2,6 +2,8 @@ package tasks
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
@@ -54,27 +56,28 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch feed: %w", err)
 	}
 
+	storedHash, err := t.feedRepo.GetFeedContentHash(t.FeedName)
+	if err != nil {
+		return fmt.Errorf("failed to get stored content hash: %w", err)
+	}
+
 	metadata, items, err := t.parser.Run(data)
 	if err != nil {
 		return fmt.Errorf("failed to parse feed: %w", err)
 	}
 
-	storedFeed, err := t.feedRepo.GetFeedTimestamps(t.FeedName)
+	newContentHash := generateContentHash(data)
+
+	err = t.storeFeedMetadataWithHash(ctx, metadata, newContentHash)
 	if err != nil {
-		return fmt.Errorf("failed to get stored feed: %w", err)
+		return fmt.Errorf("failed to store feed metadata with hash: %w", err)
 	}
 
-	err = t.storeFeedMetadata(ctx, metadata)
-	if err != nil {
-		return fmt.Errorf("failed to store feed metadata: %w", err)
-	}
-
-	if t.isFeedUnchanged(storedFeed, metadata) {
+	if storedHash != nil && *storedHash == newContentHash {
 		slog.Info("Feed unchanged, skipping item processing",
 			"feed", t.FeedName,
-			"duration", t.GetDuration(),
-			"feed_updated_at", metadata.FeedUpdatedAt,
-			"feed_published_at", metadata.FeedPublishedAt)
+			"content_hash", newContentHash,
+			"duration", t.GetDuration())
 		return nil
 	}
 
@@ -156,13 +159,18 @@ func (t *ProcessFeedTask) fetchFeed(ctx context.Context, url string) ([]byte, er
 	return data, nil
 }
 
-func (t *ProcessFeedTask) storeFeedMetadata(ctx context.Context, metadata *feed.Metadata) error {
+func generateContentHash(data []byte) string {
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:8])
+}
+
+func (t *ProcessFeedTask) storeFeedMetadataWithHash(ctx context.Context, metadata *feed.Metadata, contentHash string) error {
 	now := time.Now().UTC()
 	nextFetch := now.Add(time.Duration(t.FeedConfig.Settings.RefreshInterval) * time.Second)
 
-	err := t.feedRepo.UpdateFeedMetadata(t.FeedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, nextFetch)
+	err := t.feedRepo.UpdateFeedMetadataWithHash(t.FeedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, contentHash, nextFetch)
 	if err != nil {
-		return fmt.Errorf("failed to update feed metadata and next fetch time: %w", err)
+		return fmt.Errorf("failed to update feed metadata with hash and next fetch time: %w", err)
 	}
 
 	return nil
@@ -196,20 +204,3 @@ func (t *ProcessFeedTask) storeFilteredItems(ctx context.Context, items []feed.I
 	return nil
 }
 
-func (t *ProcessFeedTask) isFeedUnchanged(storedFeed *database.Feed, newMetadata *feed.Metadata) bool {
-	if storedFeed == nil {
-		return false
-	}
-
-	if storedFeed.FeedUpdatedAt == nil && storedFeed.FeedPublishedAt == nil {
-		return false
-	}
-
-	updatedMatches := (storedFeed.FeedUpdatedAt == nil) == (newMetadata.FeedUpdatedAt == nil) &&
-		(storedFeed.FeedUpdatedAt == nil || storedFeed.FeedUpdatedAt.Equal(*newMetadata.FeedUpdatedAt))
-
-	publishedMatches := (storedFeed.FeedPublishedAt == nil) == (newMetadata.FeedPublishedAt == nil) &&
-		(storedFeed.FeedPublishedAt == nil || storedFeed.FeedPublishedAt.Equal(*newMetadata.FeedPublishedAt))
-
-	return updatedMatches && publishedMatches
-}
