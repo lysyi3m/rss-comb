@@ -106,6 +106,19 @@ func (cc *ConfigCache) GetEnabledConfigs() map[string]*Config {
 	return enabledConfigs
 }
 
+func (cc *ConfigCache) GetEnabledFeedNames() []string {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+
+	var names []string
+	for name, config := range cc.cache {
+		if config.Settings.Enabled {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 func (cc *ConfigCache) GetConfigCount() int {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()

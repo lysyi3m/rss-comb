@@ -192,7 +192,12 @@ func (s *Scheduler) executeTask(workerID int, task TaskInterface) {
 	err := task.Execute(taskCtx)
 
 	if err != nil {
-		slog.Error("Worker task execution failed", "worker_id", workerID, "type", string(task.GetType()), "id", task.GetID(), "retry_count", task.GetRetryCount(), "error", err)
+		slog.Error("Worker task execution failed", 
+			"worker_id", workerID, 
+			"type", string(task.GetType()), 
+			"id", task.GetID(), 
+			"retry_count", task.GetRetryCount(), 
+			"error", err)
 
 		if task.CanRetry() {
 			task.IncrementRetryCount()
@@ -201,7 +206,12 @@ func (s *Scheduler) executeTask(workerID int, task TaskInterface) {
 				retryDelay = 30 * time.Second
 			}
 
-			slog.Warn("Task retry scheduled", "type", string(task.GetType()), "feed", task.GetFeedName(), "retry_count", task.GetRetryCount(), "max_retries", task.GetMaxRetries(), "delay", retryDelay.String())
+			slog.Warn("Task retry scheduled", 
+				"type", string(task.GetType()), 
+				"feed", task.GetFeedName(), 
+				"retry_count", task.GetRetryCount(), 
+				"max_retries", task.GetMaxRetries(), 
+				"delay", retryDelay.String())
 
 			go func() {
 				time.Sleep(retryDelay)
@@ -211,12 +221,21 @@ func (s *Scheduler) executeTask(workerID int, task TaskInterface) {
 					return
 				default:
 					if retryErr := s.EnqueueTask(task); retryErr != nil {
-						slog.Error("Failed to re-enqueue task for retry", "type", string(task.GetType()), "id", task.GetID(), "retry_count", task.GetRetryCount(), "error", retryErr)
+						slog.Error("Failed to re-enqueue task for retry", 
+							"type", string(task.GetType()), 
+							"id", task.GetID(), 
+							"retry_count", task.GetRetryCount(), 
+							"error", retryErr)
 					}
 				}
 			}()
 		} else {
-			slog.Error("Task failed after maximum retries", "type", string(task.GetType()), "id", task.GetID(), "retry_count", task.GetRetryCount(), "max_retries", task.GetMaxRetries(), "last_error", err)
+			slog.Error("Task failed after maximum retries", 
+				"type", string(task.GetType()), 
+				"id", task.GetID(), 
+				"retry_count", task.GetRetryCount(), 
+				"max_retries", task.GetMaxRetries(), 
+				"last_error", err)
 		}
 	}
 }

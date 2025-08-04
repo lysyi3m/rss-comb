@@ -54,7 +54,11 @@ func main() {
 		slog.Error("Configuration loading failed", "directory", cfg.FeedsDir, "error", err)
 		os.Exit(1)
 	}
-	slog.Info("Configuration loaded", "total", configCache.GetConfigCount(), "enabled", configCache.GetEnabledConfigs(), "directory", cfg.FeedsDir)
+	slog.Info("Configuration loaded", 
+		"total", configCache.GetConfigCount(), 
+		"enabled", len(configCache.GetEnabledFeedNames()), 
+		"feeds", configCache.GetEnabledFeedNames(), 
+		"directory", cfg.FeedsDir)
 
 	feedRepo := database.NewFeedRepository(db)
 	itemRepo := database.NewItemRepository(db)

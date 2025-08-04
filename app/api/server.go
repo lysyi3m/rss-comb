@@ -68,7 +68,7 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 			api.POST("/feeds/:name/reload", handler.APIReloadFeed)
 		}
 	} else {
-		slog.Info("API endpoints disabled", "reason", "API_ACCESS_KEY not set")
+		slog.Debug("API endpoints disabled", "reason", "API_ACCESS_KEY not set")
 	}
 
 	// Root endpoint with basic information
