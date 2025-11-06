@@ -12,8 +12,8 @@ import (
 	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
-func NewHandler(configCache *feed.ConfigCache, feedRepo database.FeedRepository,
-	itemRepo database.ItemRepository, filterer *feed.Filterer,
+func NewHandler(configCache *feed.ConfigCache, feedRepo *database.FeedRepository,
+	itemRepo *database.ItemRepository, filterer *feed.Filterer,
 	scheduler tasks.TaskSchedulerInterface) *Handler {
 	return &Handler{
 		feedRepo:    feedRepo,

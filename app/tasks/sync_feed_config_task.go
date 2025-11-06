@@ -13,10 +13,10 @@ type SyncFeedConfigTask struct {
 	Task
 	FeedName   string
 	FeedConfig *feed.Config
-	feedRepo   database.FeedRepository
+	feedRepo   *database.FeedRepository
 }
 
-func NewSyncFeedConfigTask(feedName string, feedConfig *feed.Config, feedRepo database.FeedRepository) *SyncFeedConfigTask {
+func NewSyncFeedConfigTask(feedName string, feedConfig *feed.Config, feedRepo *database.FeedRepository) *SyncFeedConfigTask {
 	return &SyncFeedConfigTask{
 		Task:       NewTask(TaskTypeSyncFeedConfig, feedName),
 		FeedName:   feedName,

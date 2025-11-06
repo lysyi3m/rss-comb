@@ -16,8 +16,8 @@ import (
 var _ TaskSchedulerInterface = (*Scheduler)(nil)
 
 type Scheduler struct {
-	feedRepo         database.FeedRepository
-	itemRepo         database.ItemRepository
+	feedRepo         *database.FeedRepository
+	itemRepo         *database.ItemRepository
 	configCache      *feed.ConfigCache
 	httpClient       *http.Client
 	parser           *feed.Parser
@@ -32,8 +32,8 @@ type Scheduler struct {
 	taskQueue        chan TaskInterface
 }
 
-func NewScheduler(configCache *feed.ConfigCache, feedRepo database.FeedRepository,
-	itemRepo database.ItemRepository, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer,
+func NewScheduler(configCache *feed.ConfigCache, feedRepo *database.FeedRepository,
+	itemRepo *database.ItemRepository, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer,
 	contentExtractor *feed.ContentExtractor) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
 	cfg := cfg.Get()

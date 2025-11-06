@@ -22,12 +22,12 @@ type ProcessFeedTask struct {
 	parser           *feed.Parser
 	filterer         *feed.Filterer
 	contentExtractor *feed.ContentExtractor
-	feedRepo         database.FeedRepository
-	itemRepo         database.ItemRepository
+	feedRepo         *database.FeedRepository
+	itemRepo         *database.ItemRepository
 	userAgent        string
 }
 
-func NewProcessFeedTask(feedName string, feedConfig *feed.Config, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer, contentExtractor *feed.ContentExtractor, feedRepo database.FeedRepository, itemRepo database.ItemRepository, userAgent string) *ProcessFeedTask {
+func NewProcessFeedTask(feedName string, feedConfig *feed.Config, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer, contentExtractor *feed.ContentExtractor, feedRepo *database.FeedRepository, itemRepo *database.ItemRepository, userAgent string) *ProcessFeedTask {
 	return &ProcessFeedTask{
 		Task:             NewTask(TaskTypeProcessFeed, feedName),
 		FeedConfig:       feedConfig,

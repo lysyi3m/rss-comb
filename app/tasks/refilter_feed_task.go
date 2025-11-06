@@ -13,11 +13,11 @@ type RefilterFeedTask struct {
 	Task
 	FeedConfig *feed.Config
 	filterer   *feed.Filterer
-	feedRepo   database.FeedRepository
-	itemRepo   database.ItemRepository
+	feedRepo   *database.FeedRepository
+	itemRepo   *database.ItemRepository
 }
 
-func NewRefilterFeedTask(feedName string, feedConfig *feed.Config, filterer *feed.Filterer, feedRepo database.FeedRepository, itemRepo database.ItemRepository) *RefilterFeedTask {
+func NewRefilterFeedTask(feedName string, feedConfig *feed.Config, filterer *feed.Filterer, feedRepo *database.FeedRepository, itemRepo *database.ItemRepository) *RefilterFeedTask {
 	return &RefilterFeedTask{
 		Task:       NewTask(TaskTypeRefilterFeed, feedName),
 		FeedConfig: feedConfig,

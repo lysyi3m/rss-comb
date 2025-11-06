@@ -21,24 +21,3 @@ type FeedItem struct {
 	EnclosureLength int64  // RSS enclosure length in bytes
 	EnclosureType   string // RSS enclosure MIME type
 }
-
-type FeedRepository interface {
-	GetFeed(feedName string) (*Feed, error)
-	GetFeedContentHash(feedName string) (*string, error)
-	GetFeedCount() (int, error)
-
-	UpsertFeed(feedName, feedURL string) error
-	UpdateFeedMetadataWithHash(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, contentHash string, nextFetch time.Time) error
-}
-
-type ItemRepository interface {
-	GetVisibleItems(feedName string, limit int) ([]Item, error)
-	GetAllItems(feedName string) ([]Item, error)
-	GetItemCount(feedName string) (int, error)
-	GetItemStats(feedName string) (int, int, int, error)
-
-	UpsertItem(feedName string, item FeedItem) error
-	UpdateItemFilterStatus(itemID string, isFiltered bool) error
-
-	CheckDuplicate(feedName, contentHash string) (bool, *string, error)
-}

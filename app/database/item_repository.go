@@ -7,17 +7,15 @@ import (
 	"github.com/lib/pq"
 )
 
-var _ ItemRepository = (*ItemRepositoryImpl)(nil)
-
-type ItemRepositoryImpl struct {
+type ItemRepository struct {
 	db *DB
 }
 
-func NewItemRepository(db *DB) ItemRepository {
-	return &ItemRepositoryImpl{db: db}
+func NewItemRepository(db *DB) *ItemRepository {
+	return &ItemRepository{db: db}
 }
 
-func (r *ItemRepositoryImpl) GetVisibleItems(feedName string, limit int) ([]Item, error) {
+func (r *ItemRepository) GetVisibleItems(feedName string, limit int) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
@@ -41,7 +39,7 @@ func (r *ItemRepositoryImpl) GetVisibleItems(feedName string, limit int) ([]Item
 	return r.scanItemRows(rows)
 }
 
-func (r *ItemRepositoryImpl) GetAllItems(feedName string) ([]Item, error) {
+func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
@@ -63,7 +61,7 @@ func (r *ItemRepositoryImpl) GetAllItems(feedName string) ([]Item, error) {
 	return r.scanItemRows(rows)
 }
 
-func (r *ItemRepositoryImpl) GetItemCount(feedName string) (int, error) {
+func (r *ItemRepository) GetItemCount(feedName string) (int, error) {
 	var count int
 	err := r.db.QueryRow(`
 		SELECT COUNT(*) 
@@ -77,7 +75,7 @@ func (r *ItemRepositoryImpl) GetItemCount(feedName string) (int, error) {
 	return count, nil
 }
 
-func (r *ItemRepositoryImpl) GetItemStats(feedName string) (total, visible, filtered int, err error) {
+func (r *ItemRepository) GetItemStats(feedName string) (total, visible, filtered int, err error) {
 	err = r.db.QueryRow(`
 		SELECT 
 			COUNT(*) as total,
@@ -95,7 +93,7 @@ func (r *ItemRepositoryImpl) GetItemStats(feedName string) (total, visible, filt
 	return total, visible, filtered, nil
 }
 
-func (r *ItemRepositoryImpl) UpsertItem(feedName string, item FeedItem) error {
+func (r *ItemRepository) UpsertItem(feedName string, item FeedItem) error {
 	authors := item.Authors
 	if authors == nil {
 		authors = []string{}
@@ -140,7 +138,7 @@ func (r *ItemRepositoryImpl) UpsertItem(feedName string, item FeedItem) error {
 	return nil
 }
 
-func (r *ItemRepositoryImpl) UpdateItemFilterStatus(itemID string, isFiltered bool) error {
+func (r *ItemRepository) UpdateItemFilterStatus(itemID string, isFiltered bool) error {
 	_, err := r.db.Exec(`
 		UPDATE feed_items 
 		SET is_filtered = $2
@@ -154,7 +152,7 @@ func (r *ItemRepositoryImpl) UpdateItemFilterStatus(itemID string, isFiltered bo
 	return nil
 }
 
-func (r *ItemRepositoryImpl) CheckDuplicate(feedName, contentHash string) (bool, *string, error) {
+func (r *ItemRepository) CheckDuplicate(feedName, contentHash string) (bool, *string, error) {
 	var duplicateID sql.NullString
 
 	query := `
@@ -175,7 +173,7 @@ func (r *ItemRepositoryImpl) CheckDuplicate(feedName, contentHash string) (bool,
 	return true, &id, nil
 }
 
-func (r *ItemRepositoryImpl) scanItemRows(rows *sql.Rows) ([]Item, error) {
+func (r *ItemRepository) scanItemRows(rows *sql.Rows) ([]Item, error) {
 	var items []Item
 	for rows.Next() {
 		var item Item

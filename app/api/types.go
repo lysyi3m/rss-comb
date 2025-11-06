@@ -13,8 +13,8 @@ type GeneratorInterface interface {
 var _ GeneratorInterface = (*feed.Generator)(nil)
 
 type Handler struct {
-	feedRepo    database.FeedRepository
-	itemRepo    database.ItemRepository
+	feedRepo    *database.FeedRepository
+	itemRepo    *database.ItemRepository
 	generator   GeneratorInterface
 	configCache *feed.ConfigCache
 	filterer    *feed.Filterer
