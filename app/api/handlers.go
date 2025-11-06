@@ -196,18 +196,6 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		return
 	}
 
-	feed, err := h.feedRepo.GetFeed(name)
-	if err != nil {
-		slog.Error("Database error", "operation", "get_feed", "feed", name, "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-
-	if feed == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not found in database"})
-		return
-	}
-
 	feedConfig, err := h.configCache.LoadConfig(name)
 	if err != nil {
 		slog.Error("Error reloading configuration", "feed", name, "error", err)
@@ -244,9 +232,8 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		"success": true,
 		"message": "Configuration reloaded and tasks enqueued successfully",
 		"feed": gin.H{
-			"name":  name,
-			"title": feed.Title,
-			"url":   feedConfig.URL,
+			"name": name,
+			"url":  feedConfig.URL,
 		},
 		"tasks": []gin.H{
 			{

@@ -31,11 +31,6 @@ type FeedRepository interface {
 	UpdateFeedMetadataWithHash(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, contentHash string, nextFetch time.Time) error
 }
 
-type ItemForExtraction struct {
-	ID   string
-	Link string
-}
-
 type ItemRepository interface {
 	GetVisibleItems(feedName string, limit int) ([]Item, error)
 	GetAllItems(feedName string) ([]Item, error)
@@ -46,8 +41,4 @@ type ItemRepository interface {
 	UpdateItemFilterStatus(itemID string, isFiltered bool) error
 
 	CheckDuplicate(feedName, contentHash string) (bool, *string, error)
-
-	GetItemsForExtraction(feedName string, limit int) ([]ItemForExtraction, error)
-	UpdateExtractionStatus(itemID string, status string, extractedAt *time.Time, error string) error
-	UpdateExtractedContentAndStatus(itemID string, content string, status string, extractedAt *time.Time, errorMsg string) error
 }

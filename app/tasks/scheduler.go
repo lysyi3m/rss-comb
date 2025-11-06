@@ -120,7 +120,7 @@ func (s *Scheduler) enqueueStartupTasks() {
       continue
     }
 
-    processTask := NewProcessFeedTask(feedConfig.Name, feedConfig, s.httpClient, s.parser, s.filterer, s.feedRepo, s.itemRepo, s.userAgent)
+    processTask := NewProcessFeedTask(feedConfig.Name, feedConfig, s.httpClient, s.parser, s.filterer, s.contentExtractor, s.feedRepo, s.itemRepo, s.userAgent)
     if err := s.EnqueueTask(processTask); err != nil {
       slog.Warn("Failed to enqueue ProcessFeedTask", "feed", feedConfig.Name, "error", err)
     }
@@ -151,16 +151,9 @@ func (s *Scheduler) enqueueTasks() {
 		if feed.NextFetchAt != nil && feed.NextFetchAt.After(now) {
 			slog.Debug("Feed not due for refresh yet", "feed", feedConfig.Name, "next_fetch_at", feed.NextFetchAt)
 		} else {
-			processTask := NewProcessFeedTask(feedConfig.Name, feedConfig, s.httpClient, s.parser, s.filterer, s.feedRepo, s.itemRepo, s.userAgent)
+			processTask := NewProcessFeedTask(feedConfig.Name, feedConfig, s.httpClient, s.parser, s.filterer, s.contentExtractor, s.feedRepo, s.itemRepo, s.userAgent)
 			if err := s.EnqueueTask(processTask); err != nil {
 				slog.Warn("Failed to enqueue ProcessFeedTask", "feed", feedConfig.Name, "error", err)
-			}
-		}
-
-		if feedConfig.Settings.ExtractContent {
-			extractTask := NewExtractContentTask(feedConfig.Name, feedConfig, s.httpClient, s.contentExtractor, s.feedRepo, s.itemRepo, s.userAgent)
-			if err := s.EnqueueTask(extractTask); err != nil {
-				slog.Warn("Failed to enqueue ExtractContentTask", "feed", feedConfig.Name, "error", err)
 			}
 		}
 	}

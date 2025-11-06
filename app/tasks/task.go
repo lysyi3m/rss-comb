@@ -10,7 +10,6 @@ import (
 type TaskType string
 
 const (
-	TaskTypeExtractContent TaskType = "extract_content"
 	TaskTypeProcessFeed    TaskType = "process_feed"
 	TaskTypeRefilterFeed   TaskType = "refilter_feed"
 	TaskTypeSyncFeedConfig TaskType = "sync_feed_config"

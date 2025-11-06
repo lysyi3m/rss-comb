@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/lib/pq"
 )
@@ -174,78 +173,6 @@ func (r *ItemRepositoryImpl) CheckDuplicate(feedName, contentHash string) (bool,
 
 	id := duplicateID.String
 	return true, &id, nil
-}
-
-func (r *ItemRepositoryImpl) GetItemsForExtraction(feedName string, limit int) ([]ItemForExtraction, error) {
-	query := `
-		SELECT fi.id, fi.link
-		FROM feed_items fi
-		JOIN feeds f ON fi.feed_id = f.id 
-		WHERE f.name = $1 
-		  AND fi.link IS NOT NULL 
-		  AND fi.link != ''
-		  AND fi.is_filtered = false
-		  AND (fi.content_extraction_status = 'pending' OR fi.content_extraction_status IS NULL)
-		  AND fi.extraction_attempts < 3
-		ORDER BY fi.published_at DESC
-		LIMIT $2`
-
-	rows, err := r.db.Query(query, feedName, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query items for extraction: %w", err)
-	}
-	defer rows.Close()
-
-	var items []ItemForExtraction
-	for rows.Next() {
-		var item ItemForExtraction
-
-		err := rows.Scan(&item.ID, &item.Link)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan item row: %w", err)
-		}
-
-		items = append(items, item)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("failed to iterate over rows: %w", err)
-	}
-
-	return items, nil
-}
-
-func (r *ItemRepositoryImpl) UpdateExtractionStatus(itemID string, status string, extractedAt *time.Time, errorMsg string) error {
-	query := `
-		UPDATE feed_items 
-		SET content_extraction_status = $1, 
-			content_extracted_at = $2, 
-			content_extraction_error = $3
-		WHERE id = $4`
-
-	_, err := r.db.Exec(query, status, extractedAt, errorMsg, itemID)
-	if err != nil {
-		return fmt.Errorf("failed to update extraction status: %w", err)
-	}
-
-	return nil
-}
-
-func (r *ItemRepositoryImpl) UpdateExtractedContentAndStatus(itemID string, content string, status string, extractedAt *time.Time, errorMsg string) error {
-	_, err := r.db.Exec(`
-		UPDATE feed_items 
-		SET content = $1, 
-		    content_extraction_status = $2, 
-		    content_extracted_at = $3, 
-		    content_extraction_error = $4
-		WHERE id = $5
-	`, content, status, extractedAt, errorMsg, itemID)
-
-	if err != nil {
-		return fmt.Errorf("failed to update extracted content and status: %w", err)
-	}
-
-	return nil
 }
 
 func (r *ItemRepositoryImpl) scanItemRows(rows *sql.Rows) ([]Item, error) {

@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
@@ -16,30 +17,31 @@ import (
 
 type ProcessFeedTask struct {
 	Task
-	FeedConfig *feed.Config
-	httpClient *http.Client
-	parser     *feed.Parser
-	filterer   *feed.Filterer
-	feedRepo   database.FeedRepository
-	itemRepo   database.ItemRepository
-	userAgent  string
+	FeedConfig       *feed.Config
+	httpClient       *http.Client
+	parser           *feed.Parser
+	filterer         *feed.Filterer
+	contentExtractor *feed.ContentExtractor
+	feedRepo         database.FeedRepository
+	itemRepo         database.ItemRepository
+	userAgent        string
 }
 
-func NewProcessFeedTask(feedName string, feedConfig *feed.Config, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer, feedRepo database.FeedRepository, itemRepo database.ItemRepository, userAgent string) *ProcessFeedTask {
+func NewProcessFeedTask(feedName string, feedConfig *feed.Config, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer, contentExtractor *feed.ContentExtractor, feedRepo database.FeedRepository, itemRepo database.ItemRepository, userAgent string) *ProcessFeedTask {
 	return &ProcessFeedTask{
-		Task:       NewTask(TaskTypeProcessFeed, feedName),
-		FeedConfig: feedConfig,
-		httpClient: httpClient,
-		parser:     parser,
-		filterer:   filterer,
-		feedRepo:   feedRepo,
-		itemRepo:   itemRepo,
-		userAgent:  userAgent,
+		Task:             NewTask(TaskTypeProcessFeed, feedName),
+		FeedConfig:       feedConfig,
+		httpClient:       httpClient,
+		parser:           parser,
+		filterer:         filterer,
+		contentExtractor: contentExtractor,
+		feedRepo:         feedRepo,
+		itemRepo:         itemRepo,
+		userAgent:        userAgent,
 	}
 }
 
 func (t *ProcessFeedTask) Execute(ctx context.Context) error {
-
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -51,32 +53,19 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	data, err := t.fetchFeed(ctx, t.FeedConfig.URL)
+	metadata, items, contentHash, newContentHash, err := t.fetchAndParseFeed(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to fetch feed: %w", err)
+		return err
 	}
-
-	storedHash, err := t.feedRepo.GetFeedContentHash(t.FeedName)
-	if err != nil {
-		return fmt.Errorf("failed to get stored content hash: %w", err)
-	}
-
-	metadata, items, err := t.parser.Run(data)
-	if err != nil {
-		return fmt.Errorf("failed to parse feed: %w", err)
-	}
-
-	newContentHash := generateContentHash(data)
 
 	err = t.storeFeedMetadataWithHash(ctx, metadata, newContentHash)
 	if err != nil {
 		return fmt.Errorf("failed to store feed metadata with hash: %w", err)
 	}
 
-	if storedHash != nil && *storedHash == newContentHash {
+	if contentHash != nil && *contentHash == newContentHash {
 		slog.Info("Feed unchanged, skipping item processing",
 			"feed", t.FeedName,
-			"content_hash", newContentHash,
 			"duration", t.GetDuration())
 		return nil
 	}
@@ -84,48 +73,77 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	duplicateCount := 0
 	filteredCount := 0
 	newCount := 0
+	extractionSuccessCount := 0
+	extractionFailureCount := 0
 
-	if len(items) > 0 {
-		var nonDuplicateItems []feed.Item
-		for _, item := range items {
-			isDuplicate, _, err := t.itemRepo.CheckDuplicate(t.FeedName, item.ContentHash)
-			if err != nil {
-				return fmt.Errorf("failed to check for duplicates: %w", err)
-			}
+	if len(items) == 0 {
+		slog.Info("No parsed items found, skipping item processing",
+			"feed", t.FeedName,
+			"duration", t.GetDuration())
+		return nil
+	}
 
-			if isDuplicate {
-				duplicateCount++
-			} else {
-				nonDuplicateItems = append(nonDuplicateItems, item)
+	for _, item := range items {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		isDuplicate, _, err := t.itemRepo.CheckDuplicate(t.FeedName, item.ContentHash)
+		if err != nil {
+			return fmt.Errorf("failed to check for duplicates: %w", err)
+		}
+
+		if isDuplicate {
+			duplicateCount++
+			continue
+		}
+
+		filteredItems := t.filterer.Run([]feed.Item{item}, t.FeedConfig)
+		processedItem := filteredItems[0] // filterer always returns same number of items
+
+		if processedItem.IsFiltered {
+			filteredCount++
+		} else {
+			newCount++
+		}
+
+		if !processedItem.IsFiltered && t.FeedConfig.Settings.ExtractContent {
+			extractedContent, extractionErr := t.fetchAndExtractContent(ctx, processedItem)
+			if extractionErr != nil {
+				slog.Warn("Failed to extract content for item",
+					"feed", t.FeedName,
+					"item_link", processedItem.Link,
+					"error", extractionErr)
+				extractionFailureCount++
+			} else if extractedContent != "" {
+				processedItem.Content = extractedContent
+				extractionSuccessCount++
 			}
 		}
 
-		if len(nonDuplicateItems) > 0 {
-			filteredItems := t.filterer.Run(nonDuplicateItems, t.FeedConfig)
-
-			for _, item := range filteredItems {
-				if item.IsFiltered {
-					filteredCount++
-				} else {
-          newCount++
-        }
-			}
-
-			err = t.storeFilteredItems(ctx, filteredItems)
-			if err != nil {
-				return fmt.Errorf("failed to store items: %w", err)
-			}
+		err = t.storeItem(ctx, processedItem)
+		if err != nil {
+			return fmt.Errorf("failed to store item: %w", err)
 		}
 	}
 
-  slog.Info("Task completed",
-    "type", t.GetType(),
-    "feed", t.FeedName,
-    "duration", t.GetDuration(),
-    "total", len(items),
+	logData := []interface{}{
+		"type", t.GetType(),
+		"feed", t.FeedName,
+		"duration", t.GetDuration(),
+		"total", len(items),
 		"duplicates", duplicateCount,
 		"filtered", filteredCount,
-    "new", newCount)
+		"new", newCount,
+	}
+
+	if t.FeedConfig.Settings.ExtractContent {
+		logData = append(logData, "extraction_success", extractionSuccessCount, "extraction_failure", extractionFailureCount)
+	}
+
+	slog.Info("Task completed", logData...)
 
 	return nil
 }
@@ -159,9 +177,26 @@ func (t *ProcessFeedTask) fetchFeed(ctx context.Context, url string) ([]byte, er
 	return data, nil
 }
 
-func generateContentHash(data []byte) string {
+func (t *ProcessFeedTask) fetchAndParseFeed(ctx context.Context) (*feed.Metadata, []feed.Item, *string, string, error) {
+	data, err := t.fetchFeed(ctx, t.FeedConfig.URL)
+	if err != nil {
+		return nil, nil, nil, "", fmt.Errorf("failed to fetch feed: %w", err)
+	}
+
+  metadata, items, err := t.parser.Run(data)
+  if err != nil {
+    return nil, nil, nil, "", fmt.Errorf("failed to parse feed: %w", err)
+  }
+
+  contentHash, err := t.feedRepo.GetFeedContentHash(t.FeedName)
+	if err != nil {
+		return nil, nil, nil, "", fmt.Errorf("failed to get stored content hash: %w", err)
+	}
+
 	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:8])
+	newContentHash := hex.EncodeToString(hash[:8])
+
+	return metadata, items, contentHash, newContentHash, nil
 }
 
 func (t *ProcessFeedTask) storeFeedMetadataWithHash(ctx context.Context, metadata *feed.Metadata, contentHash string) error {
@@ -176,31 +211,80 @@ func (t *ProcessFeedTask) storeFeedMetadataWithHash(ctx context.Context, metadat
 	return nil
 }
 
-func (t *ProcessFeedTask) storeFilteredItems(ctx context.Context, items []feed.Item) error {
-	for _, item := range items {
-		dbItem := database.FeedItem{
-			GUID:            item.GUID,
-			Link:            item.Link,
-			Title:           item.Title,
-			Description:     item.Description,
-			Content:         item.Content,
-			PublishedAt:     item.PublishedAt,
-			UpdatedAt:       item.UpdatedAt,
-			Authors:         item.Authors,
-			Categories:      item.Categories,
-			IsFiltered:      item.IsFiltered,
-			ContentHash:     item.ContentHash,
-			EnclosureURL:    item.EnclosureURL,
-			EnclosureLength: item.EnclosureLength,
-			EnclosureType:   item.EnclosureType,
-		}
+func (t *ProcessFeedTask) fetchContent(ctx context.Context, url string) ([]byte, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(t.FeedConfig.Settings.Timeout)*time.Second)
+	defer cancel()
 
-		err := t.itemRepo.UpsertItem(t.FeedName, dbItem)
-		if err != nil {
-			return fmt.Errorf("failed to upsert item: %w", err)
-		}
+	req, err := http.NewRequestWithContext(timeoutCtx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", t.userAgent)
+
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(strings.ToLower(contentType), "text/html") {
+		return nil, fmt.Errorf("content type is not HTML: %s", contentType)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return data, nil
+}
+
+func (t *ProcessFeedTask) fetchAndExtractContent(ctx context.Context, item feed.Item) (string, error) {
+	if item.Link == "" {
+		return "", fmt.Errorf("item has no link")
+	}
+
+	data, err := t.fetchContent(ctx, item.Link)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch article content: %w", err)
+	}
+
+	extractedContent, err := t.contentExtractor.Run(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract content: %w", err)
+	}
+
+	return extractedContent, nil
+}
+
+func (t *ProcessFeedTask) storeItem(ctx context.Context, item feed.Item) error {
+	dbItem := database.FeedItem{
+		GUID:            item.GUID,
+		Link:            item.Link,
+		Title:           item.Title,
+		Description:     item.Description,
+		Content:         item.Content,
+		PublishedAt:     item.PublishedAt,
+		UpdatedAt:       item.UpdatedAt,
+		Authors:         item.Authors,
+		Categories:      item.Categories,
+		IsFiltered:      item.IsFiltered,
+		ContentHash:     item.ContentHash,
+		EnclosureURL:    item.EnclosureURL,
+		EnclosureLength: item.EnclosureLength,
+		EnclosureType:   item.EnclosureType,
+	}
+
+	err := t.itemRepo.UpsertItem(t.FeedName, dbItem)
+	if err != nil {
+		return fmt.Errorf("failed to upsert item: %w", err)
 	}
 
 	return nil
 }
-

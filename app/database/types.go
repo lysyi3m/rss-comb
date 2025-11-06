@@ -34,14 +34,10 @@ type Item struct {
 	UpdatedAt               *time.Time
 	Authors                 []string // Multiple authors in format "email (name)" or "name"
 	Categories              []string
-	IsFiltered              bool
-	ContentHash             string
-	CreatedAt               time.Time
-	ContentExtractedAt      *time.Time
-	ContentExtractionStatus string // pending, success, failed, skipped
-	ContentExtractionError  string
-	ExtractionAttempts      int
-	EnclosureURL            string // RSS enclosure URL
-	EnclosureLength         int64  // RSS enclosure length in bytes
-	EnclosureType           string // RSS enclosure MIME type
+	IsFiltered      bool
+	ContentHash     string
+	CreatedAt       time.Time
+	EnclosureURL    string // RSS enclosure URL
+	EnclosureLength int64  // RSS enclosure length in bytes
+	EnclosureType   string // RSS enclosure MIME type
 }
