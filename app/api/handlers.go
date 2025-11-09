@@ -37,42 +37,6 @@ func (h *Handler) GetHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, health)
 }
 
-func (h *Handler) APIListFeeds(c *gin.Context) {
-	configs := h.configCache.GetConfigs()
-
-	feeds := make([]map[string]interface{}, 0, len(configs))
-
-	for _, feedConfig := range configs {
-		feedInfo := map[string]interface{}{
-			"name":             feedConfig.Name,
-			"url":              feedConfig.URL,
-			"title":            "",
-			"enabled":          feedConfig.Settings.Enabled,
-			"max_items":        feedConfig.Settings.MaxItems,
-			"refresh_interval": (time.Duration(feedConfig.Settings.RefreshInterval) * time.Second).String(),
-			"filters":          len(feedConfig.Filters),
-		}
-
-		if feed, err := h.feedRepo.GetFeed(feedConfig.Name); err == nil && feed != nil {
-			feedInfo["title"] = feed.Title
-			feedInfo["last_fetched_at"] = feed.LastFetchedAt
-			feedInfo["next_fetch_at"] = feed.NextFetchAt
-			feedInfo["updated_at"] = feed.UpdatedAt
-		}
-
-		if itemCount, err := h.itemRepo.GetItemCount(feedConfig.Name); err == nil {
-			feedInfo["item_count"] = itemCount
-		}
-
-		feeds = append(feeds, feedInfo)
-	}
-
-	c.JSON(http.StatusOK, map[string]interface{}{
-		"feeds": feeds,
-		"total": len(feeds),
-	})
-}
-
 func (h *Handler) APIGetFeedDetails(c *gin.Context) {
 	name := c.Param("name")
 	if name == "" {

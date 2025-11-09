@@ -164,7 +164,6 @@ filters:
 
 Require `X-API-Key` header or `Authorization: Bearer <token>`:
 
-- **`GET /api/feeds`** - List all configured feeds with status
 - **`GET /api/feeds/<name>/details`** - Detailed feed information and statistics
 - **`POST /api/feeds/<name>/reload`** - Reload configuration and re-apply filters to all feed items
 
@@ -174,10 +173,7 @@ Require `X-API-Key` header or `Authorization: Bearer <token>`:
 # Get health check and statistics
 curl http://localhost:8080/health
 
-# List all feeds (with API key)
-curl -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds
-
-# Get feed details
+# Get feed details (with API key)
 curl -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds/tech-news/details
 
 # Reload configuration and re-apply filters

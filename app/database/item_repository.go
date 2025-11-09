@@ -37,20 +37,6 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 	return r.scanItemRows(rows)
 }
 
-func (r *ItemRepository) GetItemCount(feedName string) (int, error) {
-	var count int
-	err := r.db.QueryRow(`
-		SELECT COUNT(*) 
-		FROM feed_items fi
-		JOIN feeds f ON fi.feed_id = f.id 
-		WHERE f.name = $1
-	`, feedName).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get item count: %w", err)
-	}
-	return count, nil
-}
-
 func (r *ItemRepository) GetItemStats(feedName string) (total, visible, filtered int, err error) {
 	err = r.db.QueryRow(`
 		SELECT 

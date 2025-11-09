@@ -485,11 +485,6 @@ go test -v ./app/database
 
 ### API Endpoints (require API key)
 
-#### `GET /api/feeds`
-- Lists all configured feeds
-- Returns feed configuration and status information
-- Requires X-API-Key header or Authorization: Bearer token
-
 #### `GET /api/feeds/<name>/details`
 - Returns detailed information about a specific feed by name
 - Includes configuration, database status, and item statistics
