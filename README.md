@@ -71,7 +71,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 
 3. **Access your feeds**:
    - Health check: `http://localhost:8080/health`
-   - Feed example: `http://localhost:8080/feeds/your-feed-name` (based on YAML filename)
+   - API endpoints require authentication (see API Endpoints section below)
 
 ### Development Setup
 
@@ -147,7 +147,6 @@ filters:
 
 **Key Configuration Notes:**
 - Feed names are derived from filenames (remove `.yml` extension)
-- Feed names are used in URLs: `/feeds/<name>`
 - Feed names must be unique and URL-safe
 - Feed titles are automatically extracted from the RSS/Atom source (no manual configuration needed)
 - `max_items` limits RSS output only - all feed items are stored in database
@@ -159,7 +158,6 @@ filters:
 
 ### Public Endpoints
 
-- **`GET /feeds/<name>`** - Get processed RSS feed by feed name (derived from filename)
 - **`GET /health`** - Application health check and statistics
 
 ### Authenticated Endpoints
@@ -176,11 +174,11 @@ Require `X-API-Key` header or `Authorization: Bearer <token>`:
 # Get health check and statistics
 curl http://localhost:8080/health
 
-# Access processed feed (name derived from filename tech-news.yml)
-curl http://localhost:8080/feeds/tech-news
-
 # List all feeds (with API key)
 curl -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds
+
+# Get feed details
+curl -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds/tech-news/details
 
 # Reload configuration and re-apply filters
 curl -X POST -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds/tech-news/reload

@@ -55,8 +55,6 @@ func NewServer(handler *Handler) *gin.Engine {
 }
 
 func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
-	r.GET("/feeds/:name", handler.GetFeed)
-
 	r.GET("/health", handler.GetHealth)
 
 	if cfg.APIAccessKey != "" {
@@ -74,7 +72,6 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 	// Root endpoint with basic information
 	r.GET("/", func(c *gin.Context) {
 		endpoints := map[string]string{
-			"feed":   "/feeds/<name>",
 			"health": "/health",
 		}
 

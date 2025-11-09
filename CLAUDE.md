@@ -288,7 +288,7 @@ filters:
 
 **Important Notes:**
 - The feed name is automatically derived from the filename (without `.yml` extension)
-- Feed names must be unique and are used in the URL schema: `/feeds/<name>`
+- Feed names must be unique
 - Filenames should be URL-safe (alphanumeric, hyphens, underscores) since they become the feed name
 - Feed URLs can be updated in configuration files at any time - the system automatically detects and applies URL changes
 - Feeds with query parameters are fully supported since routing is based on feed names derived from filenames
@@ -390,7 +390,7 @@ go test -v ./app/database
 1. Enable the example feed in `feeds/example.yml` (set `enabled: true`)
 2. Start services with `make run`
 3. Monitor logs for feed processing
-4. Test API endpoint: `curl "http://localhost:${PORT:-8080}/feeds/example"`
+4. Test API endpoint: `curl -H "X-API-Key: your-key" "http://localhost:${PORT:-8080}/api/feeds/example/details"`
 5. Reset example feed to disabled when done testing
 
 ## Deployment
@@ -478,11 +478,6 @@ go test -v ./app/database
 ## API Endpoints
 
 ### Public Endpoints
-
-#### `GET /feeds/<name>`
-- Returns processed RSS feed by feed name
-- Returns HTTP 404 for unknown feed names
-- Returns HTTP 202 Accepted for registered feeds that haven't been processed yet
 
 #### `GET /health`
 - Returns application health status and statistics

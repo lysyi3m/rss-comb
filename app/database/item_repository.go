@@ -15,30 +15,6 @@ func NewItemRepository(db *DB) *ItemRepository {
 	return &ItemRepository{db: db}
 }
 
-func (r *ItemRepository) GetVisibleItems(feedName string, limit int) ([]Item, error) {
-	rows, err := r.db.Query(`
-		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 
-		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
-		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'), 
-		       COALESCE(fi.categories, '{}'),
-		       fi.is_filtered,
-		       fi.content_hash, fi.created_at,
-		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, '')
-		FROM feed_items fi
-		JOIN feeds f ON fi.feed_id = f.id
-		WHERE f.name = $1
-		  AND fi.is_filtered = false
-		ORDER BY fi.published_at DESC
-		LIMIT $2
-	`, feedName, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get visible items: %w", err)
-	}
-	defer rows.Close()
-
-	return r.scanItemRows(rows)
-}
-
 func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 

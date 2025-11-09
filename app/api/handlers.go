@@ -3,7 +3,6 @@ package api
 import (
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,60 +17,10 @@ func NewHandler(configCache *feed.ConfigCache, feedRepo *database.FeedRepository
 	return &Handler{
 		feedRepo:    feedRepo,
 		itemRepo:    itemRepo,
-		generator:   feed.NewGenerator(),
 		configCache: configCache,
 		filterer:    filterer,
 		scheduler:   scheduler,
 	}
-}
-
-func (h *Handler) GetFeed(c *gin.Context) {
-	name := c.Param("name")
-	if name == "" {
-		c.Status(http.StatusBadRequest)
-		return
-	}
-
-	feedConfig, err := h.configCache.GetConfig(name)
-	if err != nil {
-		slog.Error("Feed configuration not found", "feed", name, "error", err)
-		c.Status(http.StatusNotFound)
-		return
-	}
-
-	feed, err := h.feedRepo.GetFeed(name)
-	if err != nil {
-		slog.Error("Database error", "operation", "get_feed", "feed", name, "error", err)
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	if feed == nil {
-		slog.Error("Feed not found in database", "feed", name)
-		c.Status(http.StatusNotFound)
-		return
-	}
-
-	items, err := h.itemRepo.GetVisibleItems(name, feedConfig.Settings.MaxItems)
-	if err != nil {
-		slog.Error("Database error", "operation", "get_items", "feed", name, "error", err)
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	rss, err := h.generator.Run(*feed, items)
-	if err != nil {
-		slog.Error("RSS generation error", "feed", name, "error", err)
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	c.Header("Content-Type", "application/xml; charset=utf-8")
-	c.Header("X-Feed-Items", strconv.Itoa(len(items)))
-	c.Header("X-Feed-Name", name)
-	c.Header("X-Last-Updated", feed.UpdatedAt.Format(time.RFC3339))
-
-	c.String(http.StatusOK, rss)
 }
 
 func (h *Handler) GetHealth(c *gin.Context) {
