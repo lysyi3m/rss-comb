@@ -35,7 +35,6 @@ func TestConfigFields(t *testing.T) {
 		DBPassword:        "test_password",
 		DBName:            "test_db",
 		Timezone:          "UTC",
-		Debug:             true,
 	}
 
 	// Test direct field access
@@ -80,8 +79,5 @@ func TestConfigFields(t *testing.T) {
 	}
 	if cfg.Timezone != "UTC" {
 		t.Errorf("Expected timezone 'UTC', got '%s'", cfg.Timezone)
-	}
-	if !cfg.Debug {
-		t.Error("Expected debug to be enabled")
 	}
 }

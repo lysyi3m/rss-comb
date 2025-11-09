@@ -2,7 +2,6 @@ package feed
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/go-shiori/go-readability"
@@ -27,10 +26,6 @@ func (e *ContentExtractor) Run(data []byte) (string, error) {
 	if article.Content == "" {
 		return "", fmt.Errorf("no content extracted from HTML data")
 	}
-
-	slog.Debug("Content extracted successfully",
-		"title", article.Title,
-		"content_length", len(article.Content))
 
 	return article.Content, nil
 }

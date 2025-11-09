@@ -3,7 +3,6 @@ package api
 import (
 	"cmp"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -64,8 +63,6 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 			api.GET("/feeds/:name", handler.APIGetFeed)
 			api.POST("/feeds/:name/reload", handler.APIReloadFeed)
 		}
-	} else {
-		slog.Debug("API endpoints disabled", "reason", "API_ACCESS_KEY not set")
 	}
 
 	// Root endpoint with basic information

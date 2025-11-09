@@ -111,7 +111,6 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 | `API_ACCESS_KEY` | *optional* | API access key for authentication |
 | `USER_AGENT` | "RSS Comb/1.0" | User agent for HTTP requests |
 | `TZ` | UTC | Timezone for timestamps |
-| `DEBUG` | false | Enable debug logging |
 
 ### Feed Configuration
 

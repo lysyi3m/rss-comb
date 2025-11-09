@@ -19,6 +19,5 @@ type Cfg struct {
 	// Application metadata
 	UserAgent string
 	Timezone  string
-	Debug     bool
 	Version   string
 }

@@ -28,7 +28,7 @@ func main() {
 		return
 	}
 
-	initializeLogger(cfg.Debug)
+	initializeLogger()
 
 	slog.Info("Starting RSS Comb server", "version", cfg.Version)
 
@@ -117,16 +117,9 @@ func main() {
 	}
 }
 
-func initializeLogger(debug bool) {
-	var level slog.Level
-	if debug {
-		level = slog.LevelDebug
-	} else {
-		level = slog.LevelInfo
-	}
-
+func initializeLogger() {
 	opts := &slog.HandlerOptions{
-		Level: level,
+		Level: slog.LevelInfo,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
 				return slog.String("time", a.Value.Time().Format("2006-01-02 15:04:05"))

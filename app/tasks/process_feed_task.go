@@ -49,7 +49,6 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	}
 
 	if !t.FeedConfig.Settings.Enabled {
-		slog.Debug("Feed disabled, skipping", "feed", t.FeedName)
 		return nil
 	}
 

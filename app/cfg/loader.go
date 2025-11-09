@@ -34,7 +34,6 @@ type rawCfg struct {
 	// Application metadata
 	UserAgent string `long:"user-agent" env:"USER_AGENT" default:"RSS Comb/1.0" description:"User agent string for HTTP requests"`
 	Timezone  string `long:"timezone" env:"TZ" default:"UTC" description:"Timezone for timestamps (e.g., UTC, America/New_York)"`
-	Debug     bool   `long:"debug" env:"DEBUG" description:"Enable debug logging"`
 }
 
 var globalCfg *Cfg
@@ -67,7 +66,6 @@ func Load() (*Cfg, error) {
 		APIAccessKey:      raw.APIAccessKey,
 		UserAgent:         raw.UserAgent,
 		Timezone:          raw.Timezone,
-		Debug:             raw.Debug,
 		Version:           GetVersion(),
 	}
 

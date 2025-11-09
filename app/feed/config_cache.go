@@ -2,7 +2,6 @@ package feed
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -38,12 +37,10 @@ func (cc *ConfigCache) Run() error {
 		fileName := filepath.Base(file)
 		feedName := fileName[:len(fileName)-4] // Remove .yml extension
 
-		config, err := cc.LoadConfig(feedName)
+		_, err := cc.LoadConfig(feedName)
 		if err != nil {
 			return fmt.Errorf("error loading %s: %w", file, err)
 		}
-
-		slog.Debug("Configuration loaded", "feed", feedName, "enabled", config.Settings.Enabled, "refresh_interval", config.Settings.RefreshInterval)
 	}
 
 	return nil

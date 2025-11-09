@@ -102,11 +102,8 @@ func (s *Scheduler) EnqueueTask(task TaskInterface) error {
 func (s *Scheduler) enqueueStartupTasks() {
 	feedConfigs := s.configCache.GetConfigs()
 	if len(feedConfigs) == 0 {
-		slog.Debug("No feed configurations found")
 		return
 	}
-
-	slog.Debug("Processing feed configurations", "count", len(feedConfigs))
 
 	for _, feedConfig := range feedConfigs {
 		syncTask := NewSyncFeedConfigTask(feedConfig.Name, feedConfig, s.feedRepo)
@@ -116,7 +113,6 @@ func (s *Scheduler) enqueueStartupTasks() {
 		}
 
     if !feedConfig.Settings.Enabled {
-      slog.Debug("Feed disabled, skipping ProcessFeedTask", "feed", feedConfig.Name)
       continue
     }
 
@@ -130,11 +126,8 @@ func (s *Scheduler) enqueueStartupTasks() {
 func (s *Scheduler) enqueueTasks() {
 	feedConfigs := s.configCache.GetEnabledConfigs()
 	if len(feedConfigs) == 0 {
-		slog.Debug("No enabled feed configurations found")
 		return
 	}
-
-	slog.Debug("Processing enabled feed configurations for task scheduling", "count", len(feedConfigs))
 
 	for _, feedConfig := range feedConfigs {
 		feed, err := s.feedRepo.GetFeed(feedConfig.Name)
@@ -149,12 +142,12 @@ func (s *Scheduler) enqueueTasks() {
 
 		now := time.Now().UTC()
 		if feed.NextFetchAt != nil && feed.NextFetchAt.After(now) {
-			slog.Debug("Feed not due for refresh yet", "feed", feedConfig.Name, "next_fetch_at", feed.NextFetchAt)
-		} else {
-			processTask := NewProcessFeedTask(feedConfig.Name, feedConfig, s.httpClient, s.parser, s.filterer, s.contentExtractor, s.feedRepo, s.itemRepo, s.userAgent)
-			if err := s.EnqueueTask(processTask); err != nil {
-				slog.Warn("Failed to enqueue ProcessFeedTask", "feed", feedConfig.Name, "error", err)
-			}
+			continue
+		}
+
+		processTask := NewProcessFeedTask(feedConfig.Name, feedConfig, s.httpClient, s.parser, s.filterer, s.contentExtractor, s.feedRepo, s.itemRepo, s.userAgent)
+		if err := s.EnqueueTask(processTask); err != nil {
+			slog.Warn("Failed to enqueue ProcessFeedTask", "feed", feedConfig.Name, "error", err)
 		}
 	}
 }
@@ -210,7 +203,6 @@ func (s *Scheduler) executeTask(workerID int, task TaskInterface) {
 				time.Sleep(retryDelay)
 				select {
 				case <-s.ctx.Done():
-					slog.Debug("Scheduler stopped, skipping task retry", "type", string(task.GetType()), "id", task.GetID())
 					return
 				default:
 					if retryErr := s.EnqueueTask(task); retryErr != nil {
