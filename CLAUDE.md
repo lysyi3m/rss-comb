@@ -390,7 +390,7 @@ go test -v ./app/database
 1. Enable the example feed in `feeds/example.yml` (set `enabled: true`)
 2. Start services with `make run`
 3. Monitor logs for feed processing
-4. Test API endpoint: `curl -H "X-API-Key: your-key" "http://localhost:${PORT:-8080}/api/feeds/example/details"`
+4. Test API endpoint: `curl -H "X-API-Key: your-key" "http://localhost:${PORT:-8080}/api/feeds/example"`
 5. Reset example feed to disabled when done testing
 
 ## Deployment
@@ -485,8 +485,8 @@ go test -v ./app/database
 
 ### API Endpoints (require API key)
 
-#### `GET /api/feeds/<name>/details`
-- Returns detailed information about a specific feed by name
+#### `GET /api/feeds/<name>`
+- Returns information about a specific feed by name
 - Includes configuration, database status, and item statistics
 - Requires X-API-Key header or Authorization: Bearer token
 
