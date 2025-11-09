@@ -37,7 +37,7 @@ func (h *Handler) GetHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, health)
 }
 
-func (h *Handler) APIGetFeedDetails(c *gin.Context) {
+func (h *Handler) APIGetFeed(c *gin.Context) {
 	name := c.Param("name")
 	if name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing feed name parameter"})

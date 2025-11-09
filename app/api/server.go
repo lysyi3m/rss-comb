@@ -61,7 +61,7 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 		api := r.Group("/api")
 		api.Use(authMiddleware(cfg.APIAccessKey))
 		{
-			api.GET("/feeds/:name", handler.APIGetFeedDetails)
+			api.GET("/feeds/:name", handler.APIGetFeed)
 			api.POST("/feeds/:name/reload", handler.APIReloadFeed)
 		}
 	} else {
