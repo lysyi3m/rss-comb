@@ -2,7 +2,9 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -18,13 +20,15 @@ func (r *FeedRepository) GetFeed(feedName string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
 		SELECT id, name, feed_url, COALESCE(link, ''), title, COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(language, ''),
-		       last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, created_at, updated_at
+		       last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, created_at, updated_at,
+		       is_enabled, settings, filters, config_hash
 		FROM feeds
 		WHERE name = $1
 	`, feedName).Scan(
 		&feed.ID, &feed.Name, &feed.FeedURL, &feed.Link, &feed.Title, &feed.Description, &feed.ImageURL, &feed.Language,
 		&feed.LastFetchedAt, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.FeedUpdatedAt,
 		&feed.CreatedAt, &feed.UpdatedAt,
+		&feed.IsEnabled, &feed.Settings, &feed.Filters, &feed.ConfigHash,
 	)
 
 	if err == sql.ErrNoRows {
@@ -92,4 +96,89 @@ func (r *FeedRepository) UpdateFeedMetadataWithHash(feedName string, title strin
 	}
 
 	return nil
+}
+
+func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, isEnabled bool, settings interface{}, filters interface{}, configHash string) error {
+	var existingHash *string
+	err := r.db.QueryRow("SELECT config_hash FROM feeds WHERE name = $1", feedName).Scan(&existingHash)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("failed to check existing config hash: %w", err)
+	}
+
+	if existingHash != nil && *existingHash == configHash {
+		return nil
+	}
+
+	if existingHash == nil {
+		slog.Info("New feed configuration", "feed", feedName)
+	} else {
+		slog.Info("Feed configuration updated", "feed", feedName)
+	}
+
+  settingsJSON, err := json.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("failed to marshal settings: %w", err)
+	}
+
+	filtersJSON, err := json.Marshal(filters)
+	if err != nil {
+		return fmt.Errorf("failed to marshal filters: %w", err)
+	}
+
+	_, err = r.db.Exec(`
+		INSERT INTO feeds (name, feed_url, is_enabled, settings, filters, config_hash)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (name) DO UPDATE SET
+			feed_url = EXCLUDED.feed_url,
+			is_enabled = EXCLUDED.is_enabled,
+			settings = EXCLUDED.settings,
+			filters = EXCLUDED.filters,
+			config_hash = EXCLUDED.config_hash,
+			next_fetch_at = CASE
+				WHEN feeds.feed_url != EXCLUDED.feed_url OR feeds.config_hash != EXCLUDED.config_hash
+				THEN NULL
+				ELSE feeds.next_fetch_at
+			END,
+			updated_at = NOW()
+	`, feedName, feedURL, isEnabled, settingsJSON, filtersJSON, configHash)
+
+	if err != nil {
+		return fmt.Errorf("failed to upsert feed config: %w", err)
+	}
+
+	return nil
+}
+
+type FeedScheduleInfo struct {
+	Name        string
+	NextFetchAt *time.Time
+}
+
+func (r *FeedRepository) GetEnabledFeedsForScheduling() ([]FeedScheduleInfo, error) {
+	rows, err := r.db.Query(`
+		SELECT name, next_fetch_at
+		FROM feeds
+		WHERE is_enabled = true
+		ORDER BY name
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get enabled feeds for scheduling: %w", err)
+	}
+	defer rows.Close()
+
+	var feeds []FeedScheduleInfo
+	for rows.Next() {
+		var feed FeedScheduleInfo
+		err := rows.Scan(&feed.Name, &feed.NextFetchAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan feed schedule info: %w", err)
+		}
+		feeds = append(feeds, feed)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating feeds: %w", err)
+	}
+
+	return feeds, nil
 }

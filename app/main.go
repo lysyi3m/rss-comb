@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -49,19 +50,14 @@ func main() {
 	}
 	slog.Info("Database migrations completed", "version", version, "dirty", dirty)
 
-	configCache := feed.NewConfigCache(cfg.FeedsDir)
-	if err := configCache.Run(); err != nil {
+	feedRepo := database.NewFeedRepository(db)
+	itemRepo := database.NewItemRepository(db)
+
+	// Load feed configurations from YAML files into database
+	if err := loadFeedConfigurations(cfg.FeedsDir, feedRepo); err != nil {
 		slog.Error("Configuration loading failed", "directory", cfg.FeedsDir, "error", err)
 		os.Exit(1)
 	}
-	slog.Info("Configuration loaded", 
-		"total", configCache.GetConfigCount(), 
-		"enabled", len(configCache.GetEnabledFeedNames()), 
-		"feeds", configCache.GetEnabledFeedNames(), 
-		"directory", cfg.FeedsDir)
-
-	feedRepo := database.NewFeedRepository(db)
-	itemRepo := database.NewItemRepository(db)
 
 	// Create feed processing components
 	httpClient := &http.Client{
@@ -77,11 +73,11 @@ func main() {
 	filterer := feed.NewFilterer()
 	contentExtractor := feed.NewContentExtractor()
 
-	scheduler := tasks.NewScheduler(configCache, feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
+	scheduler := tasks.NewScheduler(feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
 	scheduler.Start()
 	defer scheduler.Stop()
 
-	apiHandler := api.NewHandler(configCache, feedRepo, itemRepo, filterer, scheduler)
+	apiHandler := api.NewHandler(feedRepo, itemRepo, filterer, scheduler)
 	server := api.NewServer(apiHandler)
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -131,4 +127,62 @@ func initializeLogger() {
 	handler := slog.NewTextHandler(os.Stdout, opts)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
+}
+
+func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) error {
+	if _, err := os.Stat(feedsDir); os.IsNotExist(err) {
+		slog.Info("Feeds directory does not exist, skipping config loading", "directory", feedsDir)
+		return nil
+	}
+
+	files, err := filepath.Glob(filepath.Join(feedsDir, "*.yml"))
+	if err != nil {
+		return fmt.Errorf("failed to find YAML files: %w", err)
+	}
+
+	if len(files) == 0 {
+		slog.Info("No feed configuration files found", "directory", feedsDir)
+		return nil
+	}
+
+	var totalCount int
+	var enabledCount int
+	var enabledNames []string
+
+	for _, file := range files {
+		fileName := filepath.Base(file)
+		feedName := fileName[:len(fileName)-4]
+
+		config, hash, err := feed.LoadConfig(feedsDir, feedName)
+		if err != nil {
+			slog.Warn("Failed to load config, skipping", "file", file, "error", err)
+			continue
+		}
+
+		err = feedRepo.UpsertFeedConfig(
+			config.Name,
+			config.URL,
+			config.Settings.Enabled,
+			config.Settings,
+			config.Filters,
+			hash,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to save config for %s: %w", feedName, err)
+		}
+
+		totalCount++
+		if config.Settings.Enabled {
+			enabledCount++
+			enabledNames = append(enabledNames, feedName)
+		}
+	}
+
+	slog.Info("Configuration loaded",
+		"total", totalCount,
+		"enabled", enabledCount,
+		"feeds", enabledNames,
+		"directory", feedsDir)
+
+	return nil
 }

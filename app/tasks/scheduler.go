@@ -18,7 +18,6 @@ var _ TaskSchedulerInterface = (*Scheduler)(nil)
 type Scheduler struct {
 	feedRepo         *database.FeedRepository
 	itemRepo         *database.ItemRepository
-	configCache      *feed.ConfigCache
 	httpClient       *http.Client
 	parser           *feed.Parser
 	filterer         *feed.Filterer
@@ -32,7 +31,7 @@ type Scheduler struct {
 	taskQueue        chan TaskInterface
 }
 
-func NewScheduler(configCache *feed.ConfigCache, feedRepo *database.FeedRepository,
+func NewScheduler(feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer,
 	contentExtractor *feed.ContentExtractor) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,7 +40,6 @@ func NewScheduler(configCache *feed.ConfigCache, feedRepo *database.FeedReposito
 	return &Scheduler{
 		feedRepo:         feedRepo,
 		itemRepo:         itemRepo,
-		configCache:      configCache,
 		httpClient:       httpClient,
 		parser:           parser,
 		filterer:         filterer,
@@ -68,7 +66,7 @@ func (s *Scheduler) Start() {
 		ticker := time.NewTicker(s.interval)
 		defer ticker.Stop()
 
-		s.enqueueStartupTasks()
+		s.enqueueTasks()
 
 		for {
 			select {
@@ -99,55 +97,26 @@ func (s *Scheduler) EnqueueTask(task TaskInterface) error {
 	}
 }
 
-func (s *Scheduler) enqueueStartupTasks() {
-	feedConfigs := s.configCache.GetConfigs()
-	if len(feedConfigs) == 0 {
-		return
-	}
-
-	for _, feedConfig := range feedConfigs {
-		syncTask := NewSyncFeedConfigTask(feedConfig.Name, feedConfig, s.feedRepo)
-		if err := s.EnqueueTask(syncTask); err != nil {
-			slog.Warn("Failed to enqueue SyncFeedConfigTask", "feed", feedConfig.Name, "error", err)
-			continue
-		}
-
-    if !feedConfig.Settings.Enabled {
-      continue
-    }
-
-    processTask := NewProcessFeedTask(feedConfig.Name, feedConfig, s.httpClient, s.parser, s.filterer, s.contentExtractor, s.feedRepo, s.itemRepo, s.userAgent)
-    if err := s.EnqueueTask(processTask); err != nil {
-      slog.Warn("Failed to enqueue ProcessFeedTask", "feed", feedConfig.Name, "error", err)
-    }
-	}
-}
-
 func (s *Scheduler) enqueueTasks() {
-	feedConfigs := s.configCache.GetEnabledConfigs()
-	if len(feedConfigs) == 0 {
+	feeds, err := s.feedRepo.GetEnabledFeedsForScheduling()
+	if err != nil {
+		slog.Error("Failed to get enabled feeds from database", "error", err)
 		return
 	}
 
-	for _, feedConfig := range feedConfigs {
-		feed, err := s.feedRepo.GetFeed(feedConfig.Name)
-		if err != nil {
-			slog.Warn("Failed to get feed from database, skipping", "feed", feedConfig.Name, "error", err)
-			continue
-		}
-		if feed == nil {
-			slog.Warn("Feed not found in database, skipping", "feed", feedConfig.Name)
-			continue
-		}
+	if len(feeds) == 0 {
+		return
+	}
 
-		now := time.Now().UTC()
+	now := time.Now().UTC()
+	for _, feed := range feeds {
 		if feed.NextFetchAt != nil && feed.NextFetchAt.After(now) {
 			continue
 		}
 
-		processTask := NewProcessFeedTask(feedConfig.Name, feedConfig, s.httpClient, s.parser, s.filterer, s.contentExtractor, s.feedRepo, s.itemRepo, s.userAgent)
+		processTask := NewProcessFeedTask(feed.Name, s.httpClient, s.parser, s.filterer, s.contentExtractor, s.feedRepo, s.itemRepo, s.userAgent)
 		if err := s.EnqueueTask(processTask); err != nil {
-			slog.Warn("Failed to enqueue ProcessFeedTask", "feed", feedConfig.Name, "error", err)
+			slog.Warn("Failed to enqueue ProcessFeedTask", "feed", feed.Name, "error", err)
 		}
 	}
 }
@@ -178,49 +147,10 @@ func (s *Scheduler) executeTask(workerID int, task TaskInterface) {
 	err := task.Execute(taskCtx)
 
 	if err != nil {
-		slog.Error("Worker task execution failed", 
-			"worker_id", workerID, 
-			"type", string(task.GetType()), 
-			"id", task.GetID(), 
-			"retry_count", task.GetRetryCount(), 
+		slog.Error("Task execution failed",
+			"worker_id", workerID,
+			"type", string(task.GetType()),
+			"feed", task.GetFeedName(),
 			"error", err)
-
-		if task.CanRetry() {
-			task.IncrementRetryCount()
-			retryDelay := time.Duration(1<<uint(task.GetRetryCount()-1)) * time.Second
-			if retryDelay > 30*time.Second {
-				retryDelay = 30 * time.Second
-			}
-
-			slog.Warn("Task retry scheduled", 
-				"type", string(task.GetType()), 
-				"feed", task.GetFeedName(), 
-				"retry_count", task.GetRetryCount(), 
-				"max_retries", task.GetMaxRetries(), 
-				"delay", retryDelay.String())
-
-			go func() {
-				time.Sleep(retryDelay)
-				select {
-				case <-s.ctx.Done():
-					return
-				default:
-					if retryErr := s.EnqueueTask(task); retryErr != nil {
-						slog.Error("Failed to re-enqueue task for retry", 
-							"type", string(task.GetType()), 
-							"id", task.GetID(), 
-							"retry_count", task.GetRetryCount(), 
-							"error", retryErr)
-					}
-				}
-			}()
-		} else {
-			slog.Error("Task failed after maximum retries", 
-				"type", string(task.GetType()), 
-				"id", task.GetID(), 
-				"retry_count", task.GetRetryCount(), 
-				"max_retries", task.GetMaxRetries(), 
-				"last_error", err)
-		}
 	}
 }

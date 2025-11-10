@@ -115,11 +115,9 @@ rss-comb/
    - Embedded migrations with automatic execution on startup
 
 6. **Task Scheduling System** (`app/tasks/`)
-   - FIFO task queue system with retry logic
+   - FIFO task queue system
    - Worker pool for concurrent task execution
-   - Configuration management and resolution for processing tasks
    - Database-driven scheduling with next_fetch timestamps
-   - **Content Extraction Tasks**: Automatic background content extraction after feed processing
    - Graceful shutdown handling
 
 7. **HTTP API** (`app/api/`)
@@ -131,48 +129,47 @@ rss-comb/
 ### Data Flow
 
 1. **Application Initialization**: `cfg.Load()` loads application configuration with global access pattern
-2. **Feed Configuration Loading**: `feed.ConfigCache` validates YAML files from `feeds/*.yml`
-3. **Database Sync**: Configuration changes automatically registered in database with URL change detection via PostgreSQL UPSERT
-4. **Task Scheduling**: FIFO task scheduler queues feed processing based on `next_fetch` timestamps
-5. **Feed Processing**: Task-based processing fetches, parses, filters, and deduplicates items with content hash optimization
-6. **Content Extraction**: `content_extractor` automatically extracts full article content when `extract_content: true`
-7. **Storage**: Items stored with filter status, content hashes, and extraction tracking for deduplication
-8. **API Access**: `api/handlers` serve processed feeds with extracted content and management endpoints
-9. **Configuration Reload**: Manual configuration reloading via `/reload` API endpoint
+2. **Feed Configuration Loading**: YAML files loaded from `feeds/*.yml` and stored in database at startup
+3. **Database Sync**: Configuration changes automatically registered in database with hash-based change detection via PostgreSQL UPSERT
+4. **Task Scheduling**: Scheduler queries database for enabled feeds with `next_fetch` due, enqueues processing tasks
+5. **Feed Processing**: Tasks fetch fresh feed data from database, parse RSS/Atom, filter, and deduplicate items with content hash optimization
+6. **Content Extraction**: During processing, content extractor fetches and extracts full article content when `extract_content: true`
+7. **Storage**: Items stored with filter status and content hashes for deduplication
+8. **API Access**: API handlers serve feed details directly from database
+9. **Configuration Reload**: `/reload` API endpoint reloads YAML, updates database, and refilters existing items
 
 ### Database Schema
 
 **feeds table:**
 - Stores feed metadata and processing status
-- Tracks last_fetched, last_success, next_fetch timestamps
+- Tracks last_fetched_at, next_fetch_at timestamps
 - Stores content_hash for feed change detection optimization
+- Stores configuration (settings JSONB, filters JSONB, is_enabled, config_hash)
 - Uses `name` field to match with configuration files
 
 **feed_items table:**
 - Normalized item data with content hashing
 - Filtering and deduplication flags
-- Content extraction tracking (status, attempts, errors, timestamps)
-- Optimized indexes for common queries and content extraction
+- RSS enclosure support (url, length, type)
+- Optimized indexes for common queries
 
 ## Detailed Architecture
 
 ### Database Schema Details
-- **feeds table**: id, name, feed_url, title, link, image_url, language, enabled, last_fetched, last_success, next_fetch
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, created_at, content_extracted_at, content_extraction_status, content_extraction_error, extraction_attempts
+- **feeds table**: id, name, feed_url, title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, content_hash, is_enabled, settings (JSONB), filters (JSONB), config_hash, created_at, updated_at
+- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, created_at
 - **Key relationships**: feeds.id → feed_items.feed_id (UUID primary keys)
-- **Indexes**: feed_id, published_at, content_hash, content_extraction_status, extraction_attempts for optimized queries
+- **Indexes**: feed_id, published_at, content_hash, is_enabled for optimized queries
 - **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
 
 ### Feed Processing Layer (`app/feed/`)
-- `config_cache.go`: YAML-based feed configuration loading, validation, and in-memory caching
+- `config_loader.go`: Pure functions for loading and validating YAML configuration files
 - `parser.go`: RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps
-- `generator.go`: RSS 2.0 XML output generation for API responses
 - `content_extractor.go`: Intelligent HTML content extraction using go-shiori/go-readability library
 - `filterer.go`: Configurable content filtering with include/exclude rules
-- `types.go`: Feed data structures and models, consolidated configuration types
+- `types.go`: Feed data structures and models, configuration types
 - **Performance**: Intelligent content hash comparison skips processing when feed unchanged
-- **Architecture**: Direct use of database repository interfaces, no unnecessary alias layers
-- Consolidated from separate packages for better cohesion
+- **Architecture**: Database is single source of truth at runtime, YAML files loaded only at startup/reload
 
 ### Repository Layer (`app/database/`)
 - `connection.go`: PostgreSQL connection management with pooling
@@ -180,22 +177,19 @@ rss-comb/
 - `item_repository.go`: Item operations implementing all repository interfaces
 - `types.go`: Database model structs (Feed, FeedItem, Item)
 - `interfaces.go`: Clean interface definitions with segregated responsibilities
-- `migrations.go`: Embedded migration management with 18 migration files
-- `migrations/`: SQL files (001-018) handling schema evolution including content extraction support
+- `migrations.go`: Embedded migration management with 6 migration files
+- `migrations/`: SQL files (001-006) handling schema evolution
 - Interface segregation principle: separate interfaces for different responsibilities
 
 ### Task Management Layer (`app/tasks/`)
-- `scheduler.go`: Main task scheduling and worker pool management with standardized constructor pattern and retry logic
-- `process_feed_task.go`: Individual feed processing task implementation
-- `extract_content_task.go`: Content extraction task implementation for background processing
-- `refilter_feed_task.go`: Feed item refiltering task implementation (internal task)
-- `sync_feed_config_task.go`: Feed configuration sync task implementation
-- `task.go`: Base task interface and implementation with retry support
-- `interfaces.go`: Task system interface definitions with updated constructor documentation
-- Configuration resolution and task creation coordination
-- **Constructor Pattern**: NewScheduler(configCache, feedRepo, processor, contentExtractor)
-- **Retry Mechanism**: Automatic task retry with exponential backoff (max 2-5 attempts based on priority)
-- **Failure Handling**: Failed tasks are re-enqueued with delay to handle transient issues
+- `scheduler.go`: Task scheduling and worker pool management
+- `process_feed_task.go`: Feed processing task (fetches, parses, filters, extracts content inline)
+- `refilter_feed_task.go`: Feed item refiltering task (used by reload endpoint)
+- `task.go`: Base task interface and implementation
+- `interfaces.go`: Task system interface definitions
+- **Constructor Pattern**: NewScheduler(feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
+- **Task Design**: Tasks parameterized by feed name, fetch fresh data from database on execution
+- **Failure Handling**: Failed tasks logged, will be retried on next scheduler tick based on next_fetch_at
 
 ### Application Configuration System (`app/cfg/`)
 - `types.go`: Application configuration structs and interface definitions
@@ -317,29 +311,24 @@ The system has evolved from using explicit `id` fields in YAML files to automati
 RSS Comb includes automatic content extraction for feeds that don't provide full article content in their RSS feeds. This feature uses intelligent HTML parsing to extract clean, readable content from article web pages.
 
 **Key Features:**
-- **Automatic Processing**: Runs in background after feed processing
+- **Inline Processing**: Runs during feed processing for new items
 - **Intelligent Extraction**: Uses Mozilla's Readability algorithm (go-shiori/go-readability library)
-- **Error Resilient**: Extraction failures don't affect feed processing
-- **Retry Logic**: Tracks attempts and prevents infinite loops (max 3 attempts)
+- **Error Resilient**: Extraction failures don't affect item storage
 - **Performance Optimized**: Only processes visible (non-filtered) items
 - **Configurable**: Per-feed enable/disable with timeout controls
 
 **Configuration Options:**
 - `extract_content: true/false` - Enable/disable content extraction
-- `max_items: 50` - Limits extraction to most recent N items per feed
+- `max_items: 50` - Limits items stored per feed
 
 **How It Works:**
-1. Feed processing completes normally
-2. If `extract_content: true`, an ExtractContentTask is automatically queued
-3. Content extractor fetches article URLs and extracts clean content
-4. Extracted content replaces original RSS content in database
-5. RSS output includes full article content via `<content:encoded>` tags
-
-**Database Tracking:**
-- `content_extraction_status`: pending, success, failed, skipped
-- `content_extracted_at`: Timestamp of successful extraction
-- `content_extraction_error`: Error message for failed extractions
-- `extraction_attempts`: Number of attempts to prevent infinite retries
+1. Feed processing fetches and parses RSS/Atom feed
+2. For each new, non-filtered item:
+   - If `extract_content: true`, fetch article URL
+   - Extract clean content using Readability algorithm
+   - Store extracted content in item.Content field
+3. Failed extractions are logged but don't block item storage
+4. Original RSS content used as fallback if extraction fails
 
 ### Environment Variables
 All configuration options support both environment variables and command-line flags:

@@ -11,19 +11,17 @@ import (
 
 type RefilterFeedTask struct {
 	Task
-	FeedConfig *feed.Config
-	filterer   *feed.Filterer
-	feedRepo   *database.FeedRepository
-	itemRepo   *database.ItemRepository
+	filterer *feed.Filterer
+	feedRepo *database.FeedRepository
+	itemRepo *database.ItemRepository
 }
 
-func NewRefilterFeedTask(feedName string, feedConfig *feed.Config, filterer *feed.Filterer, feedRepo *database.FeedRepository, itemRepo *database.ItemRepository) *RefilterFeedTask {
+func NewRefilterFeedTask(feedName string, filterer *feed.Filterer, feedRepo *database.FeedRepository, itemRepo *database.ItemRepository) *RefilterFeedTask {
 	return &RefilterFeedTask{
-		Task:       NewTask(TaskTypeRefilterFeed, feedName),
-		FeedConfig: feedConfig,
-		filterer:   filterer,
-		feedRepo:   feedRepo,
-		itemRepo:   itemRepo,
+		Task:     NewTask(TaskTypeRefilterFeed, feedName),
+		filterer: filterer,
+		feedRepo: feedRepo,
+		itemRepo: itemRepo,
 	}
 }
 
@@ -35,6 +33,27 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 	default:
 	}
 
+	dbFeed, err := t.feedRepo.GetFeed(t.FeedName)
+	if err != nil {
+		return fmt.Errorf("failed to get feed from database: %w", err)
+	}
+	if dbFeed == nil {
+		return fmt.Errorf("feed not found in database")
+	}
+
+	filters, err := dbFeed.GetFilters()
+	if err != nil {
+		return fmt.Errorf("failed to get feed filters: %w", err)
+	}
+
+	feedFilters := make([]feed.ConfigFilter, len(filters))
+	for i, f := range filters {
+		feedFilters[i] = feed.ConfigFilter{
+			Field:    f.Field,
+			Includes: f.Includes,
+			Excludes: f.Excludes,
+		}
+	}
 
 	items, err := t.itemRepo.GetAllItems(t.FeedName)
 	if err != nil {
@@ -57,7 +76,7 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 		}
 	}
 
-	filteredItems := t.filterer.Run(feedItems, t.FeedConfig)
+	filteredItems := t.filterer.Run(feedItems, feedFilters)
 
 	updatedCount := 0
 	errorCount := 0
@@ -76,12 +95,12 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 		}
 	}
 
-  slog.Info("Task completed",
-    "type", t.GetType(),
-    "feed", t.FeedName,
-    "duration", t.GetDuration(),
-    "success", updatedCount,
-    "errors", errorCount)
+	slog.Info("Task completed",
+		"type", t.GetType(),
+		"feed", t.FeedName,
+		"duration", t.GetDuration(),
+		"success", updatedCount,
+		"errors", errorCount)
 
 	return nil
 }

@@ -6,20 +6,20 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
-func NewHandler(configCache *feed.ConfigCache, feedRepo *database.FeedRepository,
+func NewHandler(feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository, filterer *feed.Filterer,
 	scheduler tasks.TaskSchedulerInterface) *Handler {
 	return &Handler{
-		feedRepo:    feedRepo,
-		itemRepo:    itemRepo,
-		configCache: configCache,
-		filterer:    filterer,
-		scheduler:   scheduler,
+		feedRepo:  feedRepo,
+		itemRepo:  itemRepo,
+		filterer:  filterer,
+		scheduler: scheduler,
 	}
 }
 
@@ -32,8 +32,6 @@ func (h *Handler) GetHealth(c *gin.Context) {
 		health["feeds"] = feedCount
 	}
 
-	health["loaded_configurations"] = h.configCache.GetConfigCount()
-
 	c.JSON(http.StatusOK, health)
 }
 
@@ -41,13 +39,6 @@ func (h *Handler) APIGetFeed(c *gin.Context) {
 	name := c.Param("name")
 	if name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing feed name parameter"})
-		return
-	}
-
-	feedConfig, err := h.configCache.GetConfig(name)
-	if err != nil {
-		slog.Error("Feed configuration not found", "feed", name, "error", err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Feed configuration not found"})
 		return
 	}
 
@@ -64,15 +55,29 @@ func (h *Handler) APIGetFeed(c *gin.Context) {
 		return
 	}
 
+	settings, err := feed.GetSettings()
+	if err != nil {
+		slog.Error("Failed to get feed settings", "feed", name, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get feed settings"})
+		return
+	}
+
+	filters, err := feed.GetFilters()
+	if err != nil {
+		slog.Error("Failed to get feed filters", "feed", name, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get feed filters"})
+		return
+	}
+
 	details := map[string]interface{}{
 		"name":             name,
-		"url":              feedConfig.URL,
+		"url":              feed.FeedURL,
 		"title":            feed.Title,
-		"enabled":          feedConfig.Settings.Enabled,
-		"max_items":        feedConfig.Settings.MaxItems,
-		"refresh_interval": (time.Duration(feedConfig.Settings.RefreshInterval) * time.Second).String(),
-		"timeout":          (time.Duration(feedConfig.Settings.Timeout) * time.Second).String(),
-		"filters":          feedConfig.Filters,
+		"enabled":          feed.IsEnabled,
+		"max_items":        settings.MaxItems,
+		"refresh_interval": (time.Duration(settings.RefreshInterval) * time.Second).String(),
+		"timeout":          (time.Duration(settings.Timeout) * time.Second).String(),
+		"filters":          filters,
 	}
 
 	details["database"] = map[string]interface{}{
@@ -102,35 +107,35 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		return
 	}
 
-	_, err := h.configCache.GetConfig(name)
+	cfg := cfg.Get()
+	feedConfig, hash, err := feed.LoadConfig(cfg.FeedsDir, name)
 	if err != nil {
-		slog.Error("Feed configuration not found", "feed", name, "error", err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Feed configuration not found"})
-		return
-	}
-
-	feedConfig, err := h.configCache.LoadConfig(name)
-	if err != nil {
-		slog.Error("Error reloading configuration", "feed", name, "error", err)
+		slog.Error("Error loading configuration", "feed", name, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to reload configuration",
+			"error":   "Failed to load configuration",
 			"details": err.Error(),
 		})
 		return
 	}
 
-	syncFeedTask := tasks.NewSyncFeedConfigTask(name, feedConfig, h.feedRepo)
-	err = h.scheduler.EnqueueTask(syncFeedTask)
+	err = h.feedRepo.UpsertFeedConfig(
+		feedConfig.Name,
+		feedConfig.URL,
+		feedConfig.Settings.Enabled,
+		feedConfig.Settings,
+		feedConfig.Filters,
+		hash,
+	)
 	if err != nil {
-		slog.Error("Error enqueueing sync task", "feed", name, "error", err)
+		slog.Error("Error upserting feed config to database", "feed", name, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to enqueue sync task",
+			"error":   "Failed to save configuration to database",
 			"details": err.Error(),
 		})
 		return
 	}
 
-	refilterFeedTask := tasks.NewRefilterFeedTask(name, feedConfig, h.filterer, h.feedRepo, h.itemRepo)
+	refilterFeedTask := tasks.NewRefilterFeedTask(name, h.filterer, h.feedRepo, h.itemRepo)
 	err = h.scheduler.EnqueueTask(refilterFeedTask)
 	if err != nil {
 		slog.Error("Error enqueueing refilter task", "feed", name, "error", err)
@@ -143,16 +148,12 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 
 	response := gin.H{
 		"success": true,
-		"message": "Configuration reloaded and tasks enqueued successfully",
+		"message": "Configuration reloaded and refilter task enqueued successfully",
 		"feed": gin.H{
 			"name": name,
 			"url":  feedConfig.URL,
 		},
 		"tasks": []gin.H{
-			{
-				"id":   syncFeedTask.ID,
-				"type": syncFeedTask.Type,
-			},
 			{
 				"id":   refilterFeedTask.ID,
 				"type": refilterFeedTask.Type,

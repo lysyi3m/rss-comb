@@ -7,9 +7,8 @@ import (
 )
 
 type Handler struct {
-	feedRepo    *database.FeedRepository
-	itemRepo    *database.ItemRepository
-	configCache *feed.ConfigCache
-	filterer    *feed.Filterer
-	scheduler   tasks.TaskSchedulerInterface
+	feedRepo  *database.FeedRepository
+	itemRepo  *database.ItemRepository
+	filterer  *feed.Filterer
+	scheduler tasks.TaskSchedulerInterface
 }

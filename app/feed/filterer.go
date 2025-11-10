@@ -10,14 +10,14 @@ func NewFilterer() *Filterer {
 	return &Filterer{}
 }
 
-func (f *Filterer) Run(items []Item, feedConfig *Config) []Item {
-	if len(feedConfig.Filters) == 0 {
+func (f *Filterer) Run(items []Item, filters []ConfigFilter) []Item {
+	if len(filters) == 0 {
 		return items
 	}
 
 	filtered := make([]Item, 0, len(items))
 	for _, item := range items {
-		item.IsFiltered = f.applyFilters(item, feedConfig.Filters)
+		item.IsFiltered = f.applyFilters(item, filters)
 		filtered = append(filtered, item)
 	}
 

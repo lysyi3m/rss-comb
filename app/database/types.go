@@ -1,6 +1,8 @@
 package database
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -20,6 +22,53 @@ type Feed struct {
 	ContentHash     *string    // SHA-256 hash of raw feed content for change detection
 	CreatedAt       time.Time
 	UpdatedAt       time.Time // Tracks last successful processing (replaces last_success)
+
+	// Configuration fields
+	IsEnabled  bool            // Whether the feed is enabled
+	Settings   json.RawMessage // JSONB feed settings
+	Filters    json.RawMessage // JSONB feed filters
+	ConfigHash *string         // SHA-256 hash of config file for change detection
+}
+
+func (f *Feed) GetSettings() (*FeedSettings, error) {
+	if f.Settings == nil {
+		return &FeedSettings{
+			RefreshInterval: 1800,
+			MaxItems:        50,
+			Timeout:         30,
+		}, nil
+	}
+
+	var settings FeedSettings
+	if err := json.Unmarshal(f.Settings, &settings); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
+	}
+	return &settings, nil
+}
+
+func (f *Feed) GetFilters() ([]FeedFilter, error) {
+	if f.Filters == nil {
+		return []FeedFilter{}, nil
+	}
+
+	var filters []FeedFilter
+	if err := json.Unmarshal(f.Filters, &filters); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal filters: %w", err)
+	}
+	return filters, nil
+}
+
+type FeedSettings struct {
+	RefreshInterval int  `json:"refresh_interval"`
+	MaxItems        int  `json:"max_items"`
+	Timeout         int  `json:"timeout"`
+	ExtractContent  bool `json:"extract_content"`
+}
+
+type FeedFilter struct {
+	Field    string   `json:"field"`
+	Includes []string `json:"includes"`
+	Excludes []string `json:"excludes"`
 }
 
 type Item struct {
