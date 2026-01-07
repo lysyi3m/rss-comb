@@ -38,15 +38,6 @@ func RefilterFeed(
 		return fmt.Errorf("failed to get feed filters: %w", err)
 	}
 
-	feedFilters := make([]feed.ConfigFilter, len(filters))
-	for i, f := range filters {
-		feedFilters[i] = feed.ConfigFilter{
-			Field:    f.Field,
-			Includes: f.Includes,
-			Excludes: f.Excludes,
-		}
-	}
-
 	items, err := itemRepo.GetAllItems(feedName)
 	if err != nil {
 		return fmt.Errorf("failed to get feed items: %w", err)
@@ -68,7 +59,7 @@ func RefilterFeed(
 		}
 	}
 
-	filteredItems := filterer.Run(feedItems, feedFilters)
+	filteredItems := filterer.Run(feedItems, filters)
 
 	updatedCount := 0
 	errorCount := 0

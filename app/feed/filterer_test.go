@@ -3,6 +3,8 @@ package feed
 import (
 	"testing"
 	"time"
+
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 func TestFilterer_ApplyFilters_NoFilters(t *testing.T) {
@@ -14,7 +16,7 @@ func TestFilterer_ApplyFilters_NoFilters(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{}, // No filters
+		Filters: []types.Filter{}, // No filters
 	}
 
 	result := filterer.Run(items, feedConfig.Filters)
@@ -41,7 +43,7 @@ func TestFilterer_ApplyFilters_TitleIncludeFilter(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"news", "update"},
@@ -81,7 +83,7 @@ func TestFilterer_ApplyFilters_TitleExcludeFilter(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Excludes: []string{"advertisement", "ad"},
@@ -120,7 +122,7 @@ func TestFilterer_ApplyFilters_CombinedIncludeExclude(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"tech", "news"},
@@ -162,7 +164,7 @@ func TestFilterer_ApplyFilters_MultipleFields(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"news"},
@@ -201,7 +203,7 @@ func TestFilterer_ApplyFilters_AuthorsField(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "authors",
 				Includes: []string{"john", "jane"},
@@ -231,7 +233,7 @@ func TestFilterer_ApplyFilters_CategoriesField(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "categories",
 				Includes: []string{"technology", "news"},
@@ -262,7 +264,7 @@ func TestFilterer_ApplyFilters_CaseInsensitive(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"News", "TECH"},
@@ -296,7 +298,7 @@ func TestFilterer_ApplyFilters_UnknownField(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "unknown_field",
 				Includes: []string{"test"},
@@ -321,7 +323,7 @@ func TestFilterer_ApplyFilters_EmptyValues(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"test"},
@@ -362,7 +364,7 @@ func TestFilterer_ApplyFilters_PreservesOriginalData(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"test"},
@@ -484,7 +486,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 
 	// This should match only the exact "C Category" element, not as substring of joined string
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "categories",
 				Includes: []string{"C Category"},
@@ -523,7 +525,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 	}
 
 	feedConfig3 := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "authors",
 				Includes: []string{"jo@example.com"}, // Should match exactly, not as substring
@@ -553,7 +555,7 @@ func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
 	// This should NOT match because "Tech" and "News" are in same element "Tech News"
 	// but "News Breaking" doesn't exist as single element
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "categories",
 				Includes: []string{"News Breaking"}, // This should not match
@@ -570,7 +572,7 @@ func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
 
 	// Test positive case - should match "Tech News" exactly
 	feedConfig2 := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "categories",
 				Includes: []string{"Tech News"},

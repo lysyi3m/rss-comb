@@ -2,6 +2,8 @@ package feed
 
 import (
 	"time"
+
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 // Feed processing types
@@ -39,21 +41,7 @@ type Item struct {
 type Config struct {
 	Name     string         // Derived from filename (without .yml extension)
 	URL      string         `yaml:"url"`
-	Settings ConfigSettings `yaml:"settings"`
-	Filters  []ConfigFilter `yaml:"filters"`
-}
-
-
-type ConfigSettings struct {
-	Enabled         bool `yaml:"enabled"`
-	RefreshInterval int  `yaml:"refresh_interval"` // seconds
-	MaxItems        int  `yaml:"max_items"`
-	Timeout         int  `yaml:"timeout"`         // seconds
-	ExtractContent  bool `yaml:"extract_content"` // enable content extraction
-}
-
-type ConfigFilter struct {
-	Field    string   `yaml:"field"`
-	Includes []string `yaml:"includes"`
-	Excludes []string `yaml:"excludes"`
+	Enabled  bool           `yaml:"enabled"`
+	Settings types.Settings `yaml:"settings"`
+	Filters  []types.Filter `yaml:"filters"`
 }

@@ -169,7 +169,7 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		err = feedRepo.UpsertFeedConfig(
 			config.Name,
 			config.URL,
-			config.Settings.Enabled,
+			config.Enabled,
 			config.Settings,
 			config.Filters,
 			hash,
@@ -179,7 +179,7 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		}
 
 		totalCount++
-		if config.Settings.Enabled {
+		if config.Enabled {
 			enabledCount++
 			enabledNames = append(enabledNames, feedName)
 		}

@@ -2,6 +2,8 @@ package feed
 
 import (
 	"strings"
+
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 type Filterer struct{}
@@ -10,7 +12,7 @@ func NewFilterer() *Filterer {
 	return &Filterer{}
 }
 
-func (f *Filterer) Run(items []Item, filters []ConfigFilter) []Item {
+func (f *Filterer) Run(items []Item, filters []types.Filter) []Item {
 	if len(filters) == 0 {
 		return items
 	}
@@ -24,7 +26,7 @@ func (f *Filterer) Run(items []Item, filters []ConfigFilter) []Item {
 	return filtered
 }
 
-func (f *Filterer) applyFilters(item Item, filters []ConfigFilter) bool {
+func (f *Filterer) applyFilters(item Item, filters []types.Filter) bool {
 	for _, filter := range filters {
 		for _, exclude := range filter.Excludes {
 			if f.matchesFieldFilter(item, filter.Field, exclude) {

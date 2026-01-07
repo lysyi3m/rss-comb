@@ -58,7 +58,7 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 	err = h.feedRepo.UpsertFeedConfig(
 		feedConfig.Name,
 		feedConfig.URL,
-		feedConfig.Settings.Enabled,
+		feedConfig.Enabled,
 		feedConfig.Settings,
 		feedConfig.Filters,
 		hash,

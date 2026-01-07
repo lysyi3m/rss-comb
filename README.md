@@ -118,8 +118,9 @@ Create YAML configuration files in the `feeds/` directory. Feed names are derive
 ```yaml
 url: "https://example.com/feed.xml"
 
+enabled: true
+
 settings:
-  enabled: true
   refresh_interval: 1800       # 30 minutes
   max_items: 50                # Limits RSS output items (all items stored in database)
   timeout: 30                  # seconds

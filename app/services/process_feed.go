@@ -13,6 +13,7 @@ import (
 
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 func ProcessFeed(
@@ -54,15 +55,6 @@ func ProcessFeed(
 	filters, err := dbFeed.GetFilters()
 	if err != nil {
 		return fmt.Errorf("failed to get feed filters: %w", err)
-	}
-
-	feedFilters := make([]feed.ConfigFilter, len(filters))
-	for i, f := range filters {
-		feedFilters[i] = feed.ConfigFilter{
-			Field:    f.Field,
-			Includes: f.Includes,
-			Excludes: f.Excludes,
-		}
 	}
 
 	metadata, items, contentHash, newContentHash, err := fetchAndParseFeed(ctx, feedName, dbFeed.FeedURL, settings, feedRepo, httpClient, parser, userAgent)
@@ -112,7 +104,7 @@ func ProcessFeed(
 			continue
 		}
 
-		filteredItems := filterer.Run([]feed.Item{item}, feedFilters)
+		filteredItems := filterer.Run([]feed.Item{item}, filters)
 		processedItem := filteredItems[0]
 
 		if processedItem.IsFiltered {
@@ -192,7 +184,7 @@ func fetchAndParseFeed(
 	ctx context.Context,
 	feedName string,
 	feedURL string,
-	settings *database.FeedSettings,
+	settings *types.Settings,
 	feedRepo *database.FeedRepository,
 	httpClient *http.Client,
 	parser *feed.Parser,
@@ -224,7 +216,7 @@ func storeFeedMetadataWithHash(
 	feedName string,
 	metadata *feed.Metadata,
 	contentHash string,
-	settings *database.FeedSettings,
+	settings *types.Settings,
 	feedRepo *database.FeedRepository,
 ) error {
 	now := time.Now().UTC()
@@ -275,7 +267,7 @@ func fetchContent(ctx context.Context, url string, timeout int, httpClient *http
 func fetchAndExtractContent(
 	ctx context.Context,
 	item feed.Item,
-	settings *database.FeedSettings,
+	settings *types.Settings,
 	httpClient *http.Client,
 	contentExtractor *feed.ContentExtractor,
 	userAgent string,

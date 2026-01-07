@@ -321,12 +321,10 @@ make dev-clean
 
 ### Feed Configuration Format (`feeds/*.yml`)
 ```yaml
-feed:
-  url: "https://example.com/feed.xml"
-  title: "Feed Title"
+url: "https://example.com/feed.xml"
+enabled: true
 
 settings:
-  enabled: true
   refresh_interval: 1800  # 30 minutes (recommended)
   max_items: 50              # Limits RSS output items (all items stored in database)
   timeout: 30            # seconds

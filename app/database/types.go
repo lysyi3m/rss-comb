@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 type Feed struct {
@@ -30,45 +32,32 @@ type Feed struct {
 	ConfigHash *string         // SHA-256 hash of config file for change detection
 }
 
-func (f *Feed) GetSettings() (*FeedSettings, error) {
+func (f *Feed) GetSettings() (*types.Settings, error) {
 	if f.Settings == nil {
-		return &FeedSettings{
+		return &types.Settings{
 			RefreshInterval: 1800,
 			MaxItems:        50,
 			Timeout:         30,
 		}, nil
 	}
 
-	var settings FeedSettings
+	var settings types.Settings
 	if err := json.Unmarshal(f.Settings, &settings); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
 	}
 	return &settings, nil
 }
 
-func (f *Feed) GetFilters() ([]FeedFilter, error) {
+func (f *Feed) GetFilters() ([]types.Filter, error) {
 	if f.Filters == nil {
-		return []FeedFilter{}, nil
+		return []types.Filter{}, nil
 	}
 
-	var filters []FeedFilter
+	var filters []types.Filter
 	if err := json.Unmarshal(f.Filters, &filters); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal filters: %w", err)
 	}
 	return filters, nil
-}
-
-type FeedSettings struct {
-	RefreshInterval int  `json:"refresh_interval"`
-	MaxItems        int  `json:"max_items"`
-	Timeout         int  `json:"timeout"`
-	ExtractContent  bool `json:"extract_content"`
-}
-
-type FeedFilter struct {
-	Field    string   `json:"field"`
-	Includes []string `json:"includes"`
-	Excludes []string `json:"excludes"`
 }
 
 type Item struct {
