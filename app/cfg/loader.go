@@ -36,8 +36,6 @@ type rawCfg struct {
 	Timezone  string `long:"timezone" env:"TZ" default:"UTC" description:"Timezone for timestamps (e.g., UTC, America/New_York)"`
 }
 
-var globalCfg *Cfg
-
 func Load() (*Cfg, error) {
 	var raw rawCfg
 
@@ -73,16 +71,7 @@ func Load() (*Cfg, error) {
 		fmt.Printf("Warning: Invalid timezone '%s', using system default: %v\n", cfg.Timezone, err)
 	}
 
-	globalCfg = cfg
-
 	return cfg, nil
-}
-
-func Get() *Cfg {
-	if globalCfg == nil {
-		panic("configuration not loaded - call cfg.Load() first")
-	}
-	return globalCfg
 }
 
 func applyTimezone(timezone string) error {

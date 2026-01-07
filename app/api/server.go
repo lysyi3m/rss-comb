@@ -11,7 +11,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/cfg"
 )
 
-func NewServer(handler *Handler) *gin.Engine {
+func NewServer(handler *Handler, cfg *cfg.Cfg) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
@@ -47,7 +47,6 @@ func NewServer(handler *Handler) *gin.Engine {
 		c.Next()
 	})
 
-	cfg := cfg.Get()
 	setupRoutes(r, handler, cfg)
 
 	return r

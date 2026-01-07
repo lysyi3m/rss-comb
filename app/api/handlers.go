@@ -12,10 +12,15 @@ import (
 	"github.com/lysyi3m/rss-comb/app/tasks"
 )
 
-func NewHandler(feedRepo *database.FeedRepository,
-	itemRepo *database.ItemRepository, filterer *feed.Filterer,
-	scheduler tasks.TaskSchedulerInterface) *Handler {
+func NewHandler(
+	cfg *cfg.Cfg,
+	feedRepo *database.FeedRepository,
+	itemRepo *database.ItemRepository,
+	filterer *feed.Filterer,
+	scheduler tasks.TaskSchedulerInterface,
+) *Handler {
 	return &Handler{
+		cfg:       cfg,
 		feedRepo:  feedRepo,
 		itemRepo:  itemRepo,
 		filterer:  filterer,
@@ -107,8 +112,7 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		return
 	}
 
-	cfg := cfg.Get()
-	feedConfig, hash, err := feed.LoadConfig(cfg.FeedsDir, name)
+	feedConfig, hash, err := feed.LoadConfig(h.cfg.FeedsDir, name)
 	if err != nil {
 		slog.Error("Error loading configuration", "feed", name, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{

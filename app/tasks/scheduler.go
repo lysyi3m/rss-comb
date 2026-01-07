@@ -31,11 +31,16 @@ type Scheduler struct {
 	taskQueue        chan TaskInterface
 }
 
-func NewScheduler(feedRepo *database.FeedRepository,
-	itemRepo *database.ItemRepository, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer,
-	contentExtractor *feed.ContentExtractor) TaskSchedulerInterface {
+func NewScheduler(
+	cfg *cfg.Cfg,
+	feedRepo *database.FeedRepository,
+	itemRepo *database.ItemRepository,
+	httpClient *http.Client,
+	parser *feed.Parser,
+	filterer *feed.Filterer,
+	contentExtractor *feed.ContentExtractor,
+) TaskSchedulerInterface {
 	ctx, cancel := context.WithCancel(context.Background())
-	cfg := cfg.Get()
 
 	return &Scheduler{
 		feedRepo:         feedRepo,

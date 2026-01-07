@@ -73,12 +73,12 @@ func main() {
 	filterer := feed.NewFilterer()
 	contentExtractor := feed.NewContentExtractor()
 
-	scheduler := tasks.NewScheduler(feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
+	scheduler := tasks.NewScheduler(cfg, feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
 	scheduler.Start()
 	defer scheduler.Stop()
 
-	apiHandler := api.NewHandler(feedRepo, itemRepo, filterer, scheduler)
-	server := api.NewServer(apiHandler)
+	apiHandler := api.NewHandler(cfg, feedRepo, itemRepo, filterer, scheduler)
+	server := api.NewServer(apiHandler, cfg)
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      server,
