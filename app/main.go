@@ -227,20 +227,17 @@ func processDueFeeds(
 		return
 	}
 
-	now := time.Now().UTC()
 	for _, feed := range feeds {
-		if feed.NextFetchAt.Before(now) || feed.NextFetchAt.Equal(now) {
-			err := services.ProcessFeed(
-				ctx,
-				feed.Name,
-				feedRepo,
-				itemRepo,
-				httpClient,
-				cfg.UserAgent,
-			)
-			if err != nil {
-				slog.Error("Failed to process feed", "feed", feed.Name, "error", err)
-			}
+		err := services.ProcessFeed(
+			ctx,
+			feed.Name,
+			feedRepo,
+			itemRepo,
+			httpClient,
+			cfg.UserAgent,
+		)
+		if err != nil {
+			slog.Error("Failed to process feed", "feed", feed.Name, "error", err)
 		}
 	}
 }
