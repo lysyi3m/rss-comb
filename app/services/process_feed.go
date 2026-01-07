@@ -124,9 +124,9 @@ func ProcessFeed(
 			}
 		}
 
-		err = storeItem(ctx, feedName, processedItem, itemRepo)
+		err = itemRepo.UpsertItem(feedName, processedItem)
 		if err != nil {
-			return fmt.Errorf("failed to store item: %w", err)
+			return fmt.Errorf("failed to upsert item: %w", err)
 		}
 	}
 
@@ -257,11 +257,3 @@ func fetchAndExtractContent(
 	return extractedContent, nil
 }
 
-func storeItem(ctx context.Context, feedName string, item types.Item, itemRepo *database.ItemRepository) error {
-	err := itemRepo.UpsertItem(feedName, item)
-	if err != nil {
-		return fmt.Errorf("failed to upsert item: %w", err)
-	}
-
-	return nil
-}
