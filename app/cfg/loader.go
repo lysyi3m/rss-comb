@@ -11,10 +11,6 @@ import (
 // Version is set at build time via -ldflags
 var Version = "dev"
 
-func GetVersion() string {
-	return cmp.Or(Version, "unknown")
-}
-
 func Load() (*Cfg, error) {
 	cfg := &Cfg{}
 
@@ -35,7 +31,7 @@ func Load() (*Cfg, error) {
 		loc = time.UTC
 	}
 
-	cfg.Version = GetVersion()
+	cfg.Version = cmp.Or(Version, "unknown")
 	cfg.Location = loc
 
 	return cfg, nil
