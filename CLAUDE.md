@@ -8,6 +8,61 @@ RSS Comb is a Go server application that acts as a proxy between existing RSS/At
 
 The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, optimizing configuration management, and implementing intelligent feed content hash optimization for significant performance improvements.
 
+## Project Philosophy & Scope
+
+### What RSS Comb IS
+- **Single-purpose tool** - Fetch, filter, deduplicate, and serve RSS feeds
+- **Personal/small-scale** - Designed for 10-50 feeds, not thousands
+- **Self-hosted** - Single instance deployment (Docker/Docker Compose)
+- **Simple operations** - Manual intervention is acceptable and expected
+- **Minimalist** - Favor simplicity and maintainability over enterprise patterns
+
+### What RSS Comb is NOT
+- ❌ Not a SaaS platform requiring 99.99% uptime
+- ❌ Not a distributed system with microservices
+- ❌ Not handling thousands of feeds or millions of requests
+- ❌ Not requiring automated recovery from all failure scenarios
+- ❌ Not a system where manual intervention is prohibitive
+
+### Design Principles
+
+**KISS (Keep It Simple, Stupid)**
+- Prefer simple solutions over clever abstractions
+- Logs are often sufficient instead of metrics dashboards
+- Manual fixes are acceptable for rare failures
+- Restart-on-failure is a valid strategy
+
+**YAGNI (You Ain't Gonna Need It)**
+- Don't add enterprise patterns "just in case"
+- No circuit breakers, retry logic, or distributed tracing unless actually needed
+- Avoid over-engineering for hypothetical scale
+
+**Pragmatic Trade-offs**
+- Favor code clarity over performance micro-optimizations
+- Simple error messages over structured error hierarchies
+- Direct solutions over abstraction layers
+- Fewer dependencies over framework convenience
+
+### When to Add Complexity
+
+Only add complexity when you have **actual evidence** of need:
+- ✅ Remove duplication when it creates maintenance burden
+- ✅ Add abstractions when you have 3+ identical implementations
+- ✅ Optimize when you measure actual performance problems
+- ❌ Don't add patterns because they're "best practices" in enterprise contexts
+
+### Scale Assumptions
+
+Current design assumes:
+- ~10-50 feeds total
+- Feeds refresh every 15-60 minutes
+- Single server instance
+- Manual monitoring via logs
+- Downtime measured in minutes/hours is acceptable
+- One maintainer/operator
+
+If these assumptions change significantly, revisit architectural decisions.
+
 ## Development Environment
 
 ### Prerequisites
