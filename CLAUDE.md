@@ -121,12 +121,12 @@ rss-comb/
 ├── Dockerfile                 # Production container build
 ├── Makefile                  # Development commands
 ├── app/                      # Main application code
-│   ├── main.go              # Application entry point
+│   ├── main.go              # Application entry point with ticker-based feed processing
 │   ├── api/                 # HTTP handlers and server
 │   ├── cfg/                 # Application configuration management
 │   ├── database/            # Database connections, repositories, and embedded migrations
 │   ├── feed/                # Feed processing logic and configuration management
-│   └── tasks/               # Generic task scheduling system
+│   └── services/            # Feed processing service functions
 ├── feeds/                    # Feed configuration files (*.yml)
 ├── docker-compose.yml       # Development database service
 ├── .github/workflows/       # CI/CD automation
@@ -143,7 +143,7 @@ rss-comb/
 
 2. **Application Configuration System** (`app/cfg/`)
    - Centralized application configuration management
-   - Global configuration access via `cfg.Get()` interface
+   - Configuration passed explicitly via dependency injection (no global state)
    - Environment variable and command-line flag parsing using go-flags
    - Version management and build-time version injection
    - Timezone configuration and application-wide settings
@@ -169,11 +169,12 @@ rss-comb/
    - Optimized queries with proper indexing
    - Embedded migrations with automatic execution on startup
 
-6. **Task Scheduling System** (`app/tasks/`)
-   - FIFO task queue system
-   - Worker pool for concurrent task execution
+6. **Feed Processing Services** (`app/services/`)
+   - Simple service functions without task abstractions
+   - `ProcessFeed`: Fetches, parses, filters, extracts content, and stores feed items
+   - `RefilterFeed`: Re-applies filters to all items for a feed (used by reload endpoint)
+   - Sequential processing via ticker in main.go
    - Database-driven scheduling with next_fetch timestamps
-   - Graceful shutdown handling
 
 7. **HTTP API** (`app/api/`)
    - RESTful endpoints for feed access
@@ -183,15 +184,15 @@ rss-comb/
 
 ### Data Flow
 
-1. **Application Initialization**: `cfg.Load()` loads application configuration with global access pattern
+1. **Application Initialization**: `cfg.Load()` loads application configuration, passed explicitly to all components
 2. **Feed Configuration Loading**: YAML files loaded from `feeds/*.yml` and stored in database at startup
 3. **Database Sync**: Configuration changes automatically registered in database with hash-based change detection via PostgreSQL UPSERT
-4. **Task Scheduling**: Scheduler queries database for enabled feeds with `next_fetch` due, enqueues processing tasks
-5. **Feed Processing**: Tasks fetch fresh feed data from database, parse RSS/Atom, filter, and deduplicate items with content hash optimization
+4. **Feed Processing Loop**: Ticker (every 30 seconds) queries database for enabled feeds with `next_fetch` due
+5. **Feed Processing**: `services.ProcessFeed()` fetches feed data, parses RSS/Atom, filters, and deduplicates items with content hash optimization
 6. **Content Extraction**: During processing, content extractor fetches and extracts full article content when `extract_content: true`
 7. **Storage**: Items stored with filter status and content hashes for deduplication
 8. **API Access**: API handlers serve feed details directly from database
-9. **Configuration Reload**: `/reload` API endpoint reloads YAML, updates database, and refilters existing items
+9. **Configuration Reload**: `/reload` API endpoint reloads YAML, updates database, and synchronously refilters existing items
 
 ### Database Schema
 
@@ -236,21 +237,26 @@ rss-comb/
 - `migrations/`: SQL files (001-006) handling schema evolution
 - Interface segregation principle: separate interfaces for different responsibilities
 
-### Task Management Layer (`app/tasks/`)
-- `scheduler.go`: Task scheduling and worker pool management
-- `process_feed_task.go`: Feed processing task (fetches, parses, filters, extracts content inline)
-- `refilter_feed_task.go`: Feed item refiltering task (used by reload endpoint)
-- `task.go`: Base task interface and implementation
-- `interfaces.go`: Task system interface definitions
-- **Constructor Pattern**: NewScheduler(feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
-- **Task Design**: Tasks parameterized by feed name, fetch fresh data from database on execution
-- **Failure Handling**: Failed tasks logged, will be retried on next scheduler tick based on next_fetch_at
+### Feed Processing Services Layer (`app/services/`)
+- `process_feed.go`: Feed processing service function
+  - Fetches RSS/Atom feed data
+  - Parses and normalizes feed content
+  - Applies filters and deduplication
+  - Extracts full content when configured
+  - Stores items in database
+- `refilter_feed.go`: Feed refiltering service function (used by reload endpoint)
+  - Retrieves all items for a feed
+  - Re-applies current filters
+  - Updates filter status in database
+- **Design**: Simple service functions, no task abstractions or queues
+- **Processing**: Sequential execution via ticker in main.go
+- **Failure Handling**: Errors logged, feed will be retried on next ticker interval based on next_fetch_at
 
 ### Application Configuration System (`app/cfg/`)
 - `types.go`: Application configuration structs and interface definitions
-- `loader.go`: Configuration loading with environment/command-line parsing and global access
+- `loader.go`: Configuration loading with environment/command-line parsing
 - `loader_test.go`: Comprehensive tests for configuration loading and interface compliance
-- Centralized application configuration with `cfg.Get()` global access pattern
+- Configuration passed explicitly via dependency injection (no global state)
 - Integrated version management and timezone configuration
 
 
@@ -399,8 +405,7 @@ All configuration options support both environment variables and command-line fl
 - `FEEDS_DIR` (default: ./feeds) - Directory containing feed configuration files
 - `PORT` (default: 8080) - HTTP server port
 - `BASE_URL` (optional) - Public base URL for the service (e.g., https://feeds.example.com). When set, RSS feeds use this URL for self-referencing links instead of localhost:port. Ideal for production deployments behind proxies.
-- `WORKER_COUNT` (default: 5) - Number of background workers for feed processing
-- `SCHEDULER_INTERVAL` (default: 30) - Scheduler interval in seconds
+- `SCHEDULER_INTERVAL` (default: 30) - Feed processing ticker interval in seconds
 - `API_ACCESS_KEY` (optional) - API access key for authentication
 - `USER_AGENT` (default: "RSS Comb/1.0") - User agent string for HTTP requests
 - `TZ` (default: "UTC") - Timezone for display timestamps in API responses and RSS feeds (e.g., UTC, America/New_York, Europe/London). Database operations always use UTC for consistency.
@@ -503,7 +508,7 @@ go test -v ./app/database
 ### Feed Not Updating
 - Check feed configuration `enabled: true`
 - Verify `next_fetch` timestamp in database
-- Check scheduler logs for processing errors
+- Check application logs for processing errors
 - Validate feed URL accessibility
 
 ### Missing Items
@@ -531,5 +536,5 @@ go test -v ./app/database
 
 #### `POST /api/feeds/<name>/reload`
 - Reloads the configuration file for the specified feed and re-applies filters to all items
-- Returns immediately with task information (non-blocking)
+- Processes synchronously and returns when complete (typically fast)
 - Requires X-API-Key header or Authorization: Bearer token

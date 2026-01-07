@@ -14,7 +14,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 - **Content Extraction**: Intelligent full-text content extraction using [go-shiori/go-readability](https://github.com/go-shiori/go-readability)
 - **Flexible Filtering**: Configurable content filtering using include/exclude rules
 - **Background Processing**: Automated feed updates with configurable refresh intervals
-- **Task Scheduling**: FIFO task queue with retry logic and background workers
+- **Simple Architecture**: Ticker-based processing with straightforward service functions
 - **Statistics & Monitoring**: Built-in stats endpoint and comprehensive logging
 - **API Authentication**: Secure API endpoints with configurable access keys
 - **Docker Ready**: Fully containerized with optimized multi-stage builds
@@ -106,8 +106,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 | `FEEDS_DIR` | ./feeds | Directory containing feed configuration files |
 | `PORT` | 8080 | HTTP server port |
 | `BASE_URL` | *empty* | Base URL for RSS self-referencing links |
-| `WORKER_COUNT` | 5 | Number of background workers |
-| `SCHEDULER_INTERVAL` | 30 | Scheduler interval in seconds |
+| `SCHEDULER_INTERVAL` | 30 | Feed processing ticker interval in seconds |
 | `API_ACCESS_KEY` | *optional* | API access key for authentication |
 | `USER_AGENT` | "RSS Comb/1.0" | User agent for HTTP requests |
 | `TZ` | UTC | Timezone for timestamps |
