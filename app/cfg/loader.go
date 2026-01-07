@@ -15,31 +15,10 @@ func GetVersion() string {
 	return cmp.Or(Version, "unknown")
 }
 
-type rawCfg struct {
-	// Database configuration
-	DBHost     string `long:"db-host" env:"DB_HOST" default:"localhost" description:"Database host"`
-	DBPort     string `long:"db-port" env:"DB_PORT" default:"5432" description:"Database port"`
-	DBUser     string `long:"db-user" env:"DB_USER" default:"rss_user" description:"Database user"`
-	DBPassword string `long:"db-password" env:"DB_PASSWORD" default:"rss_password" description:"Database password (required)" required:"true"`
-	DBName     string `long:"db-name" env:"DB_NAME" default:"rss_comb" description:"Database name"`
-
-	// Application configuration
-	FeedsDir          string `long:"feeds-dir" env:"FEEDS_DIR" default:"./feeds" description:"Directory containing feed configuration files"`
-	Port              string `long:"port" env:"PORT" default:"8080" description:"HTTP server port"`
-	BaseUrl           string `long:"base-url" env:"BASE_URL" description:"Public base URL for the service (e.g., https://feeds.example.com)"`
-	WorkerCount       int    `long:"worker-count" env:"WORKER_COUNT" default:"5" description:"Number of background workers for feed processing"`
-	SchedulerInterval int    `long:"scheduler-interval" env:"SCHEDULER_INTERVAL" default:"30" description:"Scheduler interval in seconds"`
-	APIAccessKey      string `long:"api-key" env:"API_ACCESS_KEY" description:"API access key for authentication (optional)"`
-
-	// Application metadata
-	UserAgent string `long:"user-agent" env:"USER_AGENT" default:"RSS Comb/1.0" description:"User agent string for HTTP requests"`
-	Timezone  string `long:"timezone" env:"TZ" default:"UTC" description:"Timezone for timestamps (e.g., UTC, America/New_York)"`
-}
-
 func Load() (*Cfg, error) {
-	var raw rawCfg
+	cfg := &Cfg{}
 
-	parser := flags.NewParser(&raw, flags.Default)
+	parser := flags.NewParser(cfg, flags.Default)
 
 	if _, err := parser.Parse(); err != nil {
 		if flagsErr, ok := err.(*flags.Error); ok {
@@ -50,29 +29,14 @@ func Load() (*Cfg, error) {
 		return nil, fmt.Errorf("failed to parse configuration: %w", err)
 	}
 
-	loc, err := loadTimezone(raw.Timezone)
+	loc, err := loadTimezone(cfg.Timezone)
 	if err != nil {
-		fmt.Printf("Warning: Invalid timezone '%s', using UTC: %v\n", raw.Timezone, err)
+		fmt.Printf("Warning: Invalid timezone '%s', using UTC: %v\n", cfg.Timezone, err)
 		loc = time.UTC
 	}
 
-	cfg := &Cfg{
-		DBHost:            raw.DBHost,
-		DBPort:            raw.DBPort,
-		DBUser:            raw.DBUser,
-		DBPassword:        raw.DBPassword,
-		DBName:            raw.DBName,
-		FeedsDir:          raw.FeedsDir,
-		Port:              raw.Port,
-		BaseUrl:           raw.BaseUrl,
-		WorkerCount:       raw.WorkerCount,
-		SchedulerInterval: raw.SchedulerInterval,
-		APIAccessKey:      raw.APIAccessKey,
-		UserAgent:         raw.UserAgent,
-		Timezone:          raw.Timezone,
-		Version:           GetVersion(),
-		Location:          loc,
-	}
+	cfg.Version = GetVersion()
+	cfg.Location = loc
 
 	return cfg, nil
 }
