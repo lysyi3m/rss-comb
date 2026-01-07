@@ -8,6 +8,7 @@ import (
 
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 func RefilterFeed(
@@ -43,20 +44,9 @@ func RefilterFeed(
 		return fmt.Errorf("failed to get feed items: %w", err)
 	}
 
-	feedItems := make([]feed.Item, len(items))
+	feedItems := make([]types.Item, len(items))
 	for i, item := range items {
-		feedItems[i] = feed.Item{
-			GUID:        item.GUID,
-			Title:       item.Title,
-			Link:        item.Link,
-			Description: item.Description,
-			Content:     item.Content,
-			PublishedAt: item.PublishedAt,
-			UpdatedAt:   item.UpdatedAt,
-			Authors:     item.Authors,
-			Categories:  item.Categories,
-			ContentHash: item.ContentHash,
-		}
+		feedItems[i] = item.Item
 	}
 
 	filteredItems := filterer.Run(feedItems, filters)

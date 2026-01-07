@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/lib/pq"
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 type ItemRepository struct {
@@ -55,7 +56,7 @@ func (r *ItemRepository) GetItemStats(feedName string) (total, visible, filtered
 	return total, visible, filtered, nil
 }
 
-func (r *ItemRepository) UpsertItem(feedName string, item FeedItem) error {
+func (r *ItemRepository) UpsertItem(feedName string, item types.Item) error {
 	authors := item.Authors
 	if authors == nil {
 		authors = []string{}

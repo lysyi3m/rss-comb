@@ -12,12 +12,12 @@ func NewFilterer() *Filterer {
 	return &Filterer{}
 }
 
-func (f *Filterer) Run(items []Item, filters []types.Filter) []Item {
+func (f *Filterer) Run(items []types.Item, filters []types.Filter) []types.Item {
 	if len(filters) == 0 {
 		return items
 	}
 
-	filtered := make([]Item, 0, len(items))
+	filtered := make([]types.Item, 0, len(items))
 	for _, item := range items {
 		item.IsFiltered = f.applyFilters(item, filters)
 		filtered = append(filtered, item)
@@ -26,7 +26,7 @@ func (f *Filterer) Run(items []Item, filters []types.Filter) []Item {
 	return filtered
 }
 
-func (f *Filterer) applyFilters(item Item, filters []types.Filter) bool {
+func (f *Filterer) applyFilters(item types.Item, filters []types.Filter) bool {
 	for _, filter := range filters {
 		for _, exclude := range filter.Excludes {
 			if f.matchesFieldFilter(item, filter.Field, exclude) {
@@ -51,7 +51,7 @@ func (f *Filterer) applyFilters(item Item, filters []types.Filter) bool {
 	return false
 }
 
-func (f *Filterer) matchesFieldFilter(item Item, field, pattern string) bool {
+func (f *Filterer) matchesFieldFilter(item types.Item, field, pattern string) bool {
 	switch field {
 	case "title":
 		return f.matchesPattern(item.Title, pattern)

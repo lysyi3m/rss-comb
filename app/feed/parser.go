@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lysyi3m/rss-comb/app/types"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -24,7 +25,7 @@ func NewParser() *Parser {
 	}
 }
 
-func (p *Parser) Run(data []byte) (*Metadata, []Item, error) {
+func (p *Parser) Run(data []byte) (*Metadata, []types.Item, error) {
 	feed, err := p.gofeedParser.Parse(bytes.NewReader(data))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse feed: %w", err)
@@ -48,7 +49,7 @@ func (p *Parser) Run(data []byte) (*Metadata, []Item, error) {
 	if feed.UpdatedParsed != nil {
 		metadata.FeedUpdatedAt = feed.UpdatedParsed
 	}
-	items := make([]Item, 0, len(feed.Items))
+	items := make([]types.Item, 0, len(feed.Items))
 	for _, item := range feed.Items {
 		normalized := p.normalizeItem(item)
 		normalized.ContentHash = p.generateContentHash(normalized)
@@ -99,10 +100,10 @@ func (p *Parser) normalizeURL(rawURL string) string {
 	return parsedURL.String()
 }
 
-func (p *Parser) normalizeItem(item *gofeed.Item) Item {
+func (p *Parser) normalizeItem(item *gofeed.Item) types.Item {
 	normalizedLink := p.normalizeURL(item.Link)
 
-	normalized := Item{
+	normalized := types.Item{
 		GUID:        cmp.Or(item.GUID, normalizedLink),
 		Title:       p.decodeHTMLEntities(item.Title),
 		Link:        normalizedLink,
@@ -141,7 +142,7 @@ func (p *Parser) normalizeItem(item *gofeed.Item) Item {
 	return normalized
 }
 
-func (p *Parser) generateContentHash(item Item) string {
+func (p *Parser) generateContentHash(item types.Item) string {
 	content := fmt.Sprintf("%s|%s",
 		item.Title,
 		item.Link)

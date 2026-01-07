@@ -61,21 +61,8 @@ func (f *Feed) GetFilters() ([]types.Filter, error) {
 }
 
 type Item struct {
-	ID                      string
-	FeedID                  string
-	GUID                    string
-	Link                    string
-	Title                   string
-	Description             string
-	Content                 string
-	PublishedAt             time.Time // Changed from *time.Time to time.Time (NOT NULL)
-	UpdatedAt               *time.Time
-	Authors                 []string // Multiple authors in format "email (name)" or "name"
-	Categories              []string
-	IsFiltered      bool
-	ContentHash     string
-	CreatedAt       time.Time
-	EnclosureURL    string // RSS enclosure URL
-	EnclosureLength int64  // RSS enclosure length in bytes
-	EnclosureType   string // RSS enclosure MIME type
+	ID        string
+	FeedID    string
+	CreatedAt time.Time
+	types.Item
 }

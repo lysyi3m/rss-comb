@@ -2,6 +2,8 @@ package feed
 
 import (
 	"testing"
+
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 func TestParseRSS2(t *testing.T) {
@@ -193,17 +195,17 @@ func TestParseInvalidFeed(t *testing.T) {
 func TestContentHashGeneration(t *testing.T) {
 	parser := NewParser()
 
-	item1 := Item{
+	item1 := types.Item{
 		Title: "Test Title",
 		Link:  "https://example.com/item1",
 	}
 
-	item2 := Item{
+	item2 := types.Item{
 		Title: "Test Title",
 		Link:  "https://example.com/item1",
 	}
 
-	item3 := Item{
+	item3 := types.Item{
 		Title: "Different Title",
 		Link:  "https://example.com/item1",
 	}

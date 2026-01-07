@@ -104,7 +104,7 @@ func ProcessFeed(
 			continue
 		}
 
-		filteredItems := filterer.Run([]feed.Item{item}, filters)
+		filteredItems := filterer.Run([]types.Item{item}, filters)
 		processedItem := filteredItems[0]
 
 		if processedItem.IsFiltered {
@@ -189,7 +189,7 @@ func fetchAndParseFeed(
 	httpClient *http.Client,
 	parser *feed.Parser,
 	userAgent string,
-) (*feed.Metadata, []feed.Item, *string, string, error) {
+) (*feed.Metadata, []types.Item, *string, string, error) {
 	data, err := fetchFeed(ctx, feedURL, settings.Timeout, httpClient, userAgent)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("failed to fetch feed: %w", err)
@@ -266,7 +266,7 @@ func fetchContent(ctx context.Context, url string, timeout int, httpClient *http
 
 func fetchAndExtractContent(
 	ctx context.Context,
-	item feed.Item,
+	item types.Item,
 	settings *types.Settings,
 	httpClient *http.Client,
 	contentExtractor *feed.ContentExtractor,
@@ -289,25 +289,8 @@ func fetchAndExtractContent(
 	return extractedContent, nil
 }
 
-func storeItem(ctx context.Context, feedName string, item feed.Item, itemRepo *database.ItemRepository) error {
-	dbItem := database.FeedItem{
-		GUID:            item.GUID,
-		Link:            item.Link,
-		Title:           item.Title,
-		Description:     item.Description,
-		Content:         item.Content,
-		PublishedAt:     item.PublishedAt,
-		UpdatedAt:       item.UpdatedAt,
-		Authors:         item.Authors,
-		Categories:      item.Categories,
-		IsFiltered:      item.IsFiltered,
-		ContentHash:     item.ContentHash,
-		EnclosureURL:    item.EnclosureURL,
-		EnclosureLength: item.EnclosureLength,
-		EnclosureType:   item.EnclosureType,
-	}
-
-	err := itemRepo.UpsertItem(feedName, dbItem)
+func storeItem(ctx context.Context, feedName string, item types.Item, itemRepo *database.ItemRepository) error {
+	err := itemRepo.UpsertItem(feedName, item)
 	if err != nil {
 		return fmt.Errorf("failed to upsert item: %w", err)
 	}

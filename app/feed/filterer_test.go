@@ -10,7 +10,7 @@ import (
 func TestFilterer_ApplyFilters_NoFilters(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "Test Item 1", Description: "Test description"},
 		{Title: "Test Item 2", Description: "Another description"},
 	}
@@ -36,7 +36,7 @@ func TestFilterer_ApplyFilters_NoFilters(t *testing.T) {
 func TestFilterer_ApplyFilters_TitleIncludeFilter(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "Breaking News: Important Update", Description: "News description"},
 		{Title: "Sports Update", Description: "Sports description"},
 		{Title: "Weather Report", Description: "Weather description"},
@@ -76,7 +76,7 @@ func TestFilterer_ApplyFilters_TitleIncludeFilter(t *testing.T) {
 func TestFilterer_ApplyFilters_TitleExcludeFilter(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "Breaking News", Description: "News description"},
 		{Title: "Sports Update", Description: "Sports description"},
 		{Title: "Advertisement: Buy Now!", Description: "Ad description"},
@@ -114,7 +114,7 @@ func TestFilterer_ApplyFilters_TitleExcludeFilter(t *testing.T) {
 func TestFilterer_ApplyFilters_CombinedIncludeExclude(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "Tech News Update", Description: "Technology news"},
 		{Title: "Tech Advertisement", Description: "Technology ad"},
 		{Title: "Sports News", Description: "Sports update"},
@@ -157,7 +157,7 @@ func TestFilterer_ApplyFilters_CombinedIncludeExclude(t *testing.T) {
 func TestFilterer_ApplyFilters_MultipleFields(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "News Update", Description: "Technology article", Authors: []string{"tech@example.com (Tech Writer)"}},
 		{Title: "Random Article", Description: "Random content", Authors: []string{"spam@example.com (Spammer)"}},
 		{Title: "Sports News", Description: "Sports update", Authors: []string{"sports@example.com (Sports Writer)"}},
@@ -197,7 +197,7 @@ func TestFilterer_ApplyFilters_MultipleFields(t *testing.T) {
 func TestFilterer_ApplyFilters_AuthorsField(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "Article 1", Authors: []string{"john@example.com (John Doe)", "jane@example.com (Jane Smith)"}},
 		{Title: "Article 2", Authors: []string{"spammer@example.com (Spammer)"}},
 	}
@@ -227,7 +227,7 @@ func TestFilterer_ApplyFilters_AuthorsField(t *testing.T) {
 func TestFilterer_ApplyFilters_CategoriesField(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "Article 1", Categories: []string{"Technology", "News"}},
 		{Title: "Article 2", Categories: []string{"Sports", "Entertainment"}},
 	}
@@ -257,7 +257,7 @@ func TestFilterer_ApplyFilters_CategoriesField(t *testing.T) {
 func TestFilterer_ApplyFilters_CaseInsensitive(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "BREAKING NEWS UPDATE"},
 		{Title: "tech announcement"},
 		{Title: "Sports Report"},
@@ -293,7 +293,7 @@ func TestFilterer_ApplyFilters_CaseInsensitive(t *testing.T) {
 func TestFilterer_ApplyFilters_UnknownField(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "Test Article", Description: "Test description"},
 	}
 
@@ -317,7 +317,7 @@ func TestFilterer_ApplyFilters_UnknownField(t *testing.T) {
 func TestFilterer_ApplyFilters_EmptyValues(t *testing.T) {
 	filterer := NewFilterer()
 
-	items := []Item{
+	items := []types.Item{
 		{Title: "", Description: "", Content: ""},
 		{Title: "Test", Description: "Test", Content: "Test"},
 	}
@@ -348,7 +348,7 @@ func TestFilterer_ApplyFilters_PreservesOriginalData(t *testing.T) {
 	filterer := NewFilterer()
 
 	originalTime := time.Now()
-	items := []Item{
+	items := []types.Item{
 		{
 			GUID:        "test-guid-1",
 			Title:       "Test Article",
@@ -421,7 +421,7 @@ func TestFilterer_ApplyFilters_PreservesOriginalData(t *testing.T) {
 func TestFilterer_MatchesFieldFilter(t *testing.T) {
 	filterer := NewFilterer()
 
-	item := Item{
+	item := types.Item{
 		Title:       "Test Title",
 		Description: "Test Description",
 		Content:     "Test Content",
@@ -477,7 +477,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 	filterer := NewFilterer()
 
 	// Test the specific bug case you mentioned
-	items := []Item{
+	items := []types.Item{
 		{
 			Title:      "Test Article",
 			Categories: []string{"Category ABC", "Category XYZ", "C Category"},
@@ -502,7 +502,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 	}
 
 	// Test case that should be filtered
-	items2 := []Item{
+	items2 := []types.Item{
 		{
 			Title:      "Test Article 2",
 			Categories: []string{"Category ABC", "Category XYZ"}, // No "C Category"
@@ -517,7 +517,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 	}
 
 	// Test authors field with similar issue
-	items3 := []Item{
+	items3 := []types.Item{
 		{
 			Title:   "Test Article 3",
 			Authors: []string{"john@example.com (John Doe)", "jane@example.com (Jane Smith)", "jo@example.com (Jo)"},
@@ -545,7 +545,7 @@ func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
 	filterer := NewFilterer()
 
 	// Test that we match individual elements, not joined strings
-	items := []Item{
+	items := []types.Item{
 		{
 			Title:      "Test Article",
 			Categories: []string{"Tech News", "Breaking"},
