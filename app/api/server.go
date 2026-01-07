@@ -59,7 +59,6 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 		api := r.Group("/api")
 		api.Use(authMiddleware(cfg.APIAccessKey))
 		{
-			api.GET("/feeds/:name", handler.APIGetFeed)
 			api.POST("/feeds/:name/reload", handler.APIReloadFeed)
 		}
 	}
@@ -71,7 +70,6 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 		}
 
 		if cfg.APIAccessKey != "" {
-			endpoints["feed"] = "/api/feeds/<name> (requires X-API-Key header)"
 			endpoints["reload"] = "/api/feeds/<name>/reload (POST, requires X-API-Key header)"
 		}
 

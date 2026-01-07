@@ -474,11 +474,6 @@ go test -v ./app/database
 
 ### API Endpoints (require API key)
 
-#### `GET /api/feeds/<name>`
-- Returns information about a specific feed by name
-- Includes configuration, database status, and item statistics
-- Requires X-API-Key header or Authorization: Bearer token
-
 #### `POST /api/feeds/<name>/reload`
 - Reloads the configuration file for the specified feed and re-applies filters to all items
 - Returns immediately with task information (non-blocking)
