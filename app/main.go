@@ -68,23 +68,20 @@ func main() {
 			MaxIdleConnsPerHost: 5,
 		},
 	}
-	parser := feed.NewParser()
-	filterer := feed.NewFilterer()
-	contentExtractor := feed.NewContentExtractor()
 
 	tickerCtx, tickerCancel := context.WithCancel(context.Background())
 	var tickerWg sync.WaitGroup
 	tickerWg.Add(1)
 	go func() {
 		defer tickerWg.Done()
-		processFeedsTicker(tickerCtx, cfg, feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
+		processFeedsTicker(tickerCtx, cfg, feedRepo, itemRepo, httpClient)
 	}()
 	defer func() {
 		tickerCancel()
 		tickerWg.Wait()
 	}()
 
-	apiHandler := api.NewHandler(cfg, feedRepo, itemRepo, filterer)
+	apiHandler := api.NewHandler(cfg, feedRepo, itemRepo)
 	server := api.NewServer(apiHandler, cfg)
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -200,9 +197,6 @@ func processFeedsTicker(
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
 	httpClient *http.Client,
-	parser *feed.Parser,
-	filterer *feed.Filterer,
-	contentExtractor *feed.ContentExtractor,
 ) {
 	ticker := time.NewTicker(time.Duration(cfg.SchedulerInterval) * time.Second)
 	defer ticker.Stop()
@@ -215,7 +209,7 @@ func processFeedsTicker(
 			slog.Info("Feed processing ticker stopped")
 			return
 		case <-ticker.C:
-			processDueFeeds(ctx, cfg, feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
+			processDueFeeds(ctx, cfg, feedRepo, itemRepo, httpClient)
 		}
 	}
 }
@@ -226,9 +220,6 @@ func processDueFeeds(
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
 	httpClient *http.Client,
-	parser *feed.Parser,
-	filterer *feed.Filterer,
-	contentExtractor *feed.ContentExtractor,
 ) {
 	feeds, err := feedRepo.GetDueFeeds()
 	if err != nil {
@@ -245,9 +236,6 @@ func processDueFeeds(
 				feedRepo,
 				itemRepo,
 				httpClient,
-				parser,
-				filterer,
-				contentExtractor,
 				cfg.UserAgent,
 			)
 			if err != nil {

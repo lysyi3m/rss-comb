@@ -156,12 +156,12 @@ rss-comb/
    - Feed-specific settings and filter management
 
 4. **Feed Processing System** (`app/feed/`)
-   - **Parser**: Universal RSS/Atom feed parsing using gofeed and normalization
-   - **Generator**: RSS 2.0 XML output generation for API responses
-   - **Content Extractor**: Intelligent full-text content extraction using go-shiori/go-readability for feeds lacking <content:encoded>
-   - **Filterer**: Configurable content filtering with include/exclude rules
+   - **Parsing** (`parsing.go`): `feed.Parse()` - Universal RSS/Atom feed parsing using gofeed and normalization
+   - **Generation** (`generator.go`): RSS 2.0 XML output generation for API responses
+   - **Extraction** (`extraction.go`): `feed.Extract()` - Intelligent full-text content extraction using go-shiori/go-readability for feeds lacking <content:encoded>
+   - **Filtering** (`filtering.go`): `feed.Filter()` - Configurable content filtering with include/exclude rules
    - **Performance Optimization**: Feed content hash comparison skips item processing when content unchanged
-   - Clean separation of concerns with focused interfaces
+   - Simple stateless functions without struct wrappers
 
 5. **Database Layer** (`app/database/`)
    - PostgreSQL with UUID primary keys
@@ -220,12 +220,14 @@ rss-comb/
 
 ### Feed Processing Layer (`app/feed/`)
 - `config_loader.go`: Pure functions for loading and validating YAML configuration files
-- `parser.go`: RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps
-- `content_extractor.go`: Intelligent HTML content extraction using go-shiori/go-readability library
-- `filterer.go`: Configurable content filtering with include/exclude rules
+- `parsing.go`: `feed.Parse()` - RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps
+- `extraction.go`: `feed.Extract()` - Intelligent HTML content extraction using go-shiori/go-readability library
+- `filtering.go`: `feed.Filter()` - Configurable content filtering with include/exclude rules
+- `generator.go`: RSS 2.0 XML output generation
 - `types.go`: Feed data structures and models, configuration types
 - **Performance**: Intelligent content hash comparison skips processing when feed unchanged
 - **Architecture**: Database is single source of truth at runtime, YAML files loaded only at startup/reload
+- **Design**: Simple stateless functions instead of struct wrappers for better Go idioms
 
 ### Repository Layer (`app/database/`)
 - `connection.go`: PostgreSQL connection management with pooling

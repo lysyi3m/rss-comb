@@ -16,8 +16,7 @@ func RefilterFeed(
 	feedName string,
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
-	filterer *feed.Filterer,
-) error {
+) error{
 	start := time.Now()
 
 	select {
@@ -49,7 +48,7 @@ func RefilterFeed(
 		feedItems[i] = item.Item
 	}
 
-	filteredItems := filterer.Run(feedItems, filters)
+	filteredItems := feed.Filter(feedItems, filters)
 
 	updatedCount := 0
 	errorCount := 0

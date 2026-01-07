@@ -6,7 +6,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/types"
 )
 
-func TestParseRSS2(t *testing.T) {
+func TestParseFeedRSS2(t *testing.T) {
 	rssData := `<?xml version="1.0"?>
 <rss version="2.0">
   <channel>
@@ -40,8 +40,7 @@ func TestParseRSS2(t *testing.T) {
   </channel>
 </rss>`
 
-	parser := NewParser()
-	metadata, items, err := parser.Run([]byte(rssData))
+	metadata, items, err := Parse([]byte(rssData))
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -112,8 +111,7 @@ func TestParseAtom(t *testing.T) {
   </entry>
 </feed>`
 
-	parser := NewParser()
-	metadata, items, err := parser.Run([]byte(atomData))
+	metadata, items, err := Parse([]byte(atomData))
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -163,8 +161,7 @@ func TestParseRSSWithPubDate(t *testing.T) {
   </channel>
 </rss>`
 
-	parser := NewParser()
-	metadata, items, err := parser.Run([]byte(rssData))
+	metadata, items, err := Parse([]byte(rssData))
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -184,8 +181,7 @@ func TestParseRSSWithPubDate(t *testing.T) {
 }
 
 func TestParseInvalidFeed(t *testing.T) {
-	parser := NewParser()
-	_, _, err := parser.Run([]byte("invalid xml"))
+	_, _, err := Parse([]byte("invalid xml"))
 
 	if err == nil {
 		t.Error("Expected error for invalid XML")
@@ -193,8 +189,6 @@ func TestParseInvalidFeed(t *testing.T) {
 }
 
 func TestContentHashGeneration(t *testing.T) {
-	parser := NewParser()
-
 	item1 := types.Item{
 		Title: "Test Title",
 		Link:  "https://example.com/item1",
@@ -210,9 +204,9 @@ func TestContentHashGeneration(t *testing.T) {
 		Link:  "https://example.com/item1",
 	}
 
-	hash1 := parser.generateContentHash(item1)
-	hash2 := parser.generateContentHash(item2)
-	hash3 := parser.generateContentHash(item3)
+	hash1 := generateContentHash(item1)
+	hash2 := generateContentHash(item2)
+	hash3 := generateContentHash(item3)
 
 	if hash1 != hash2 {
 		t.Error("Expected same hash for identical items")
@@ -224,8 +218,6 @@ func TestContentHashGeneration(t *testing.T) {
 }
 
 func TestParseRSSWithEnclosure(t *testing.T) {
-	parser := NewParser()
-	
 	// Sample RSS 2.0 feed with enclosure
 	rssData := `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -244,7 +236,7 @@ func TestParseRSSWithEnclosure(t *testing.T) {
 </channel>
 </rss>`
 
-	metadata, items, err := parser.Run([]byte(rssData))
+	metadata, items, err := Parse([]byte(rssData))
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -283,8 +275,6 @@ func TestParseRSSWithEnclosure(t *testing.T) {
 }
 
 func TestParseRSSWithoutEnclosure(t *testing.T) {
-	parser := NewParser()
-	
 	// Sample RSS 2.0 feed without enclosure
 	rssData := `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -302,7 +292,7 @@ func TestParseRSSWithoutEnclosure(t *testing.T) {
 </channel>
 </rss>`
 
-	_, items, err := parser.Run([]byte(rssData))
+	_, items, err := Parse([]byte(rssData))
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -328,8 +318,6 @@ func TestParseRSSWithoutEnclosure(t *testing.T) {
 }
 
 func TestParseRSSWithMultipleEnclosures(t *testing.T) {
-	parser := NewParser()
-	
 	// Sample RSS 2.0 feed with multiple enclosures (should only pick first one)
 	rssData := `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -349,7 +337,7 @@ func TestParseRSSWithMultipleEnclosures(t *testing.T) {
 </channel>
 </rss>`
 
-	_, items, err := parser.Run([]byte(rssData))
+	_, items, err := Parse([]byte(rssData))
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -374,9 +362,7 @@ func TestParseRSSWithMultipleEnclosures(t *testing.T) {
 	}
 }
 
-func TestParser_normalizeURL(t *testing.T) {
-	parser := NewParser()
-
+func TestNormalizeURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -431,7 +417,7 @@ func TestParser_normalizeURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parser.normalizeURL(tt.input)
+			result := normalizeURL(tt.input)
 			if result != tt.expected {
 				t.Errorf("normalizeURL(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
@@ -439,9 +425,7 @@ func TestParser_normalizeURL(t *testing.T) {
 	}
 }
 
-func TestParser_normalizeItem_WithTrackingParams(t *testing.T) {
-	parser := NewParser()
-	
+func TestNormalizeItem_WithTrackingParams(t *testing.T) {
 	// Test RSS data with tracking parameters
 	rssData := `<?xml version="1.0"?>
 <rss version="2.0">
@@ -458,7 +442,7 @@ func TestParser_normalizeItem_WithTrackingParams(t *testing.T) {
   </channel>
 </rss>`
 
-	_, items, err := parser.Run([]byte(rssData))
+	_, items, err := Parse([]byte(rssData))
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -497,8 +481,7 @@ func TestParseRSSWithHTMLEntities(t *testing.T) {
   </channel>
 </rss>`
 
-	parser := NewParser()
-	metadata, items, err := parser.Run([]byte(rssData))
+	metadata, items, err := Parse([]byte(rssData))
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)

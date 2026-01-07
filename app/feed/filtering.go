@@ -6,30 +6,24 @@ import (
 	"github.com/lysyi3m/rss-comb/app/types"
 )
 
-type Filterer struct{}
-
-func NewFilterer() *Filterer {
-	return &Filterer{}
-}
-
-func (f *Filterer) Run(items []types.Item, filters []types.Filter) []types.Item {
+func Filter(items []types.Item, filters []types.Filter) []types.Item {
 	if len(filters) == 0 {
 		return items
 	}
 
 	filtered := make([]types.Item, 0, len(items))
 	for _, item := range items {
-		item.IsFiltered = f.applyFilters(item, filters)
+		item.IsFiltered = applyFilters(item, filters)
 		filtered = append(filtered, item)
 	}
 
 	return filtered
 }
 
-func (f *Filterer) applyFilters(item types.Item, filters []types.Filter) bool {
+func applyFilters(item types.Item, filters []types.Filter) bool {
 	for _, filter := range filters {
 		for _, exclude := range filter.Excludes {
-			if f.matchesFieldFilter(item, filter.Field, exclude) {
+			if matchesFieldFilter(item, filter.Field, exclude) {
 				return true
 			}
 		}
@@ -37,7 +31,7 @@ func (f *Filterer) applyFilters(item types.Item, filters []types.Filter) bool {
 		if len(filter.Includes) > 0 {
 			matched := false
 			for _, include := range filter.Includes {
-				if f.matchesFieldFilter(item, filter.Field, include) {
+				if matchesFieldFilter(item, filter.Field, include) {
 					matched = true
 					break
 				}
@@ -51,26 +45,26 @@ func (f *Filterer) applyFilters(item types.Item, filters []types.Filter) bool {
 	return false
 }
 
-func (f *Filterer) matchesFieldFilter(item types.Item, field, pattern string) bool {
+func matchesFieldFilter(item types.Item, field, pattern string) bool {
 	switch field {
 	case "title":
-		return f.matchesPattern(item.Title, pattern)
+		return matchesPattern(item.Title, pattern)
 	case "description":
-		return f.matchesPattern(item.Description, pattern)
+		return matchesPattern(item.Description, pattern)
 	case "content":
-		return f.matchesPattern(item.Content, pattern)
+		return matchesPattern(item.Content, pattern)
 	case "link":
-		return f.matchesPattern(item.Link, pattern)
+		return matchesPattern(item.Link, pattern)
 	case "authors":
 		for _, author := range item.Authors {
-			if f.matchesPattern(author, pattern) {
+			if matchesPattern(author, pattern) {
 				return true
 			}
 		}
 		return false
 	case "categories":
 		for _, category := range item.Categories {
-			if f.matchesPattern(category, pattern) {
+			if matchesPattern(category, pattern) {
 				return true
 			}
 		}
@@ -80,7 +74,7 @@ func (f *Filterer) matchesFieldFilter(item types.Item, field, pattern string) bo
 	}
 }
 
-func (f *Filterer) matchesPattern(value, pattern string) bool {
+func matchesPattern(value, pattern string) bool {
 	return strings.Contains(strings.ToLower(value), strings.ToLower(pattern))
 }
 

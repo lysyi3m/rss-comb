@@ -16,13 +16,11 @@ func NewHandler(
 	cfg *cfg.Cfg,
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
-	filterer *feed.Filterer,
 ) *Handler {
 	return &Handler{
 		cfg:      cfg,
 		feedRepo: feedRepo,
 		itemRepo: itemRepo,
-		filterer: filterer,
 	}
 }
 
@@ -72,7 +70,7 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		return
 	}
 
-	err = services.RefilterFeed(c.Request.Context(), name, h.feedRepo, h.itemRepo, h.filterer)
+	err = services.RefilterFeed(c.Request.Context(), name, h.feedRepo, h.itemRepo)
 	if err != nil {
 		slog.Error("Error refiltering feed", "feed", name, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{

@@ -7,13 +7,7 @@ import (
 	"github.com/go-shiori/go-readability"
 )
 
-type ContentExtractor struct{}
-
-func NewContentExtractor() *ContentExtractor {
-	return &ContentExtractor{}
-}
-
-func (e *ContentExtractor) Run(data []byte) (string, error) {
+func Extract(data []byte) (string, error) {
 	if len(data) == 0 {
 		return "", fmt.Errorf("HTML data is empty")
 	}

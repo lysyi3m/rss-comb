@@ -22,9 +22,6 @@ func ProcessFeed(
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
 	httpClient *http.Client,
-	parser *feed.Parser,
-	filterer *feed.Filterer,
-	contentExtractor *feed.ContentExtractor,
 	userAgent string,
 ) error {
 	start := time.Now()
@@ -57,7 +54,7 @@ func ProcessFeed(
 		return fmt.Errorf("failed to get feed filters: %w", err)
 	}
 
-	metadata, items, contentHash, newContentHash, err := fetchAndParseFeed(ctx, feedName, dbFeed.FeedURL, settings, feedRepo, httpClient, parser, userAgent)
+	metadata, items, contentHash, newContentHash, err := fetchAndParseFeed(ctx, feedName, dbFeed.FeedURL, settings, feedRepo, httpClient, userAgent)
 	if err != nil {
 		return err
 	}
@@ -104,7 +101,7 @@ func ProcessFeed(
 			continue
 		}
 
-		filteredItems := filterer.Run([]types.Item{item}, filters)
+		filteredItems := feed.Filter([]types.Item{item}, filters)
 		processedItem := filteredItems[0]
 
 		if processedItem.IsFiltered {
@@ -114,7 +111,7 @@ func ProcessFeed(
 		}
 
 		if !processedItem.IsFiltered && settings.ExtractContent {
-			extractedContent, extractionErr := fetchAndExtractContent(ctx, processedItem, settings, httpClient, contentExtractor, userAgent)
+			extractedContent, extractionErr := fetchAndExtractContent(ctx, processedItem, settings, httpClient, userAgent)
 			if extractionErr != nil {
 				slog.Warn("Failed to extract content for item",
 					"feed", feedName,
@@ -187,7 +184,6 @@ func fetchAndParseFeed(
 	settings *types.Settings,
 	feedRepo *database.FeedRepository,
 	httpClient *http.Client,
-	parser *feed.Parser,
 	userAgent string,
 ) (*feed.Metadata, []types.Item, *string, string, error) {
 	data, err := fetchFeed(ctx, feedURL, settings.Timeout, httpClient, userAgent)
@@ -195,7 +191,7 @@ func fetchAndParseFeed(
 		return nil, nil, nil, "", fmt.Errorf("failed to fetch feed: %w", err)
 	}
 
-	metadata, items, err := parser.Run(data)
+	metadata, items, err := feed.Parse(data)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("failed to parse feed: %w", err)
 	}
@@ -269,7 +265,6 @@ func fetchAndExtractContent(
 	item types.Item,
 	settings *types.Settings,
 	httpClient *http.Client,
-	contentExtractor *feed.ContentExtractor,
 	userAgent string,
 ) (string, error) {
 	if item.Link == "" {
@@ -281,7 +276,7 @@ func fetchAndExtractContent(
 		return "", fmt.Errorf("failed to fetch article content: %w", err)
 	}
 
-	extractedContent, err := contentExtractor.Run(data)
+	extractedContent, err := feed.Extract(data)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract content: %w", err)
 	}
