@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
-	"github.com/lysyi3m/rss-comb/app/tasks"
+	"github.com/lysyi3m/rss-comb/app/services"
 )
 
 func main() {
@@ -53,13 +54,11 @@ func main() {
 	feedRepo := database.NewFeedRepository(db)
 	itemRepo := database.NewItemRepository(db)
 
-	// Load feed configurations from YAML files into database
 	if err := loadFeedConfigurations(cfg.FeedsDir, feedRepo); err != nil {
 		slog.Error("Configuration loading failed", "directory", cfg.FeedsDir, "error", err)
 		os.Exit(1)
 	}
 
-	// Create feed processing components
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			MaxIdleConns:        10,
@@ -73,11 +72,19 @@ func main() {
 	filterer := feed.NewFilterer()
 	contentExtractor := feed.NewContentExtractor()
 
-	scheduler := tasks.NewScheduler(cfg, feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
-	scheduler.Start()
-	defer scheduler.Stop()
+	tickerCtx, tickerCancel := context.WithCancel(context.Background())
+	var tickerWg sync.WaitGroup
+	tickerWg.Add(1)
+	go func() {
+		defer tickerWg.Done()
+		processFeedsTicker(tickerCtx, cfg, feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
+	}()
+	defer func() {
+		tickerCancel()
+		tickerWg.Wait()
+	}()
 
-	apiHandler := api.NewHandler(cfg, feedRepo, itemRepo, filterer, scheduler)
+	apiHandler := api.NewHandler(cfg, feedRepo, itemRepo, filterer)
 	server := api.NewServer(apiHandler, cfg)
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -185,4 +192,67 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		"directory", feedsDir)
 
 	return nil
+}
+
+func processFeedsTicker(
+	ctx context.Context,
+	cfg *cfg.Cfg,
+	feedRepo *database.FeedRepository,
+	itemRepo *database.ItemRepository,
+	httpClient *http.Client,
+	parser *feed.Parser,
+	filterer *feed.Filterer,
+	contentExtractor *feed.ContentExtractor,
+) {
+	ticker := time.NewTicker(time.Duration(cfg.SchedulerInterval) * time.Second)
+	defer ticker.Stop()
+
+	slog.Info("Feed processing ticker started", "interval_seconds", cfg.SchedulerInterval)
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("Feed processing ticker stopped")
+			return
+		case <-ticker.C:
+			processDueFeeds(ctx, cfg, feedRepo, itemRepo, httpClient, parser, filterer, contentExtractor)
+		}
+	}
+}
+
+func processDueFeeds(
+	ctx context.Context,
+	cfg *cfg.Cfg,
+	feedRepo *database.FeedRepository,
+	itemRepo *database.ItemRepository,
+	httpClient *http.Client,
+	parser *feed.Parser,
+	filterer *feed.Filterer,
+	contentExtractor *feed.ContentExtractor,
+) {
+	feeds, err := feedRepo.GetDueFeeds()
+	if err != nil {
+		slog.Error("Failed to get due feeds", "error", err)
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, feed := range feeds {
+		if feed.NextFetchAt.Before(now) || feed.NextFetchAt.Equal(now) {
+			err := services.ProcessFeed(
+				ctx,
+				feed.Name,
+				feedRepo,
+				itemRepo,
+				httpClient,
+				parser,
+				filterer,
+				contentExtractor,
+				cfg.UserAgent,
+			)
+			if err != nil {
+				slog.Error("Failed to process feed", "feed", feed.Name, "error", err)
+			}
+		}
+	}
 }

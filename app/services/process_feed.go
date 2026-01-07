@@ -1,4 +1,4 @@
-package tasks
+package services
 
 import (
 	"context"
@@ -15,38 +15,26 @@ import (
 	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
-type ProcessFeedTask struct {
-	Task
-	httpClient       *http.Client
-	parser           *feed.Parser
-	filterer         *feed.Filterer
-	contentExtractor *feed.ContentExtractor
-	feedRepo         *database.FeedRepository
-	itemRepo         *database.ItemRepository
-	userAgent        string
-}
+func ProcessFeed(
+	ctx context.Context,
+	feedName string,
+	feedRepo *database.FeedRepository,
+	itemRepo *database.ItemRepository,
+	httpClient *http.Client,
+	parser *feed.Parser,
+	filterer *feed.Filterer,
+	contentExtractor *feed.ContentExtractor,
+	userAgent string,
+) error {
+	start := time.Now()
 
-func NewProcessFeedTask(feedName string, httpClient *http.Client, parser *feed.Parser, filterer *feed.Filterer, contentExtractor *feed.ContentExtractor, feedRepo *database.FeedRepository, itemRepo *database.ItemRepository, userAgent string) *ProcessFeedTask {
-	return &ProcessFeedTask{
-		Task:             NewTask(TaskTypeProcessFeed, feedName),
-		httpClient:       httpClient,
-		parser:           parser,
-		filterer:         filterer,
-		contentExtractor: contentExtractor,
-		feedRepo:         feedRepo,
-		itemRepo:         itemRepo,
-		userAgent:        userAgent,
-	}
-}
-
-func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 
-	dbFeed, err := t.feedRepo.GetFeed(t.FeedName)
+	dbFeed, err := feedRepo.GetFeed(feedName)
 	if err != nil {
 		return fmt.Errorf("failed to get feed from database: %w", err)
 	}
@@ -77,20 +65,20 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 		}
 	}
 
-	metadata, items, contentHash, newContentHash, err := t.fetchAndParseFeed(ctx, dbFeed.FeedURL, settings)
+	metadata, items, contentHash, newContentHash, err := fetchAndParseFeed(ctx, feedName, dbFeed.FeedURL, settings, feedRepo, httpClient, parser, userAgent)
 	if err != nil {
 		return err
 	}
 
-	err = t.storeFeedMetadataWithHash(ctx, t.FeedName, metadata, newContentHash, settings)
+	err = storeFeedMetadataWithHash(ctx, feedName, metadata, newContentHash, settings, feedRepo)
 	if err != nil {
 		return fmt.Errorf("failed to store feed metadata with hash: %w", err)
 	}
 
 	if contentHash != nil && *contentHash == newContentHash {
 		slog.Info("Feed unchanged, skipping item processing",
-			"feed", t.FeedName,
-			"duration", t.GetDuration())
+			"feed", feedName,
+			"duration", time.Since(start))
 		return nil
 	}
 
@@ -102,8 +90,8 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 
 	if len(items) == 0 {
 		slog.Info("No parsed items found, skipping item processing",
-			"feed", t.FeedName,
-			"duration", t.GetDuration())
+			"feed", feedName,
+			"duration", time.Since(start))
 		return nil
 	}
 
@@ -114,7 +102,7 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 		default:
 		}
 
-		isDuplicate, _, err := t.itemRepo.CheckDuplicate(t.FeedName, item.ContentHash)
+		isDuplicate, _, err := itemRepo.CheckDuplicate(feedName, item.ContentHash)
 		if err != nil {
 			return fmt.Errorf("failed to check for duplicates: %w", err)
 		}
@@ -124,7 +112,7 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 			continue
 		}
 
-		filteredItems := t.filterer.Run([]feed.Item{item}, feedFilters)
+		filteredItems := filterer.Run([]feed.Item{item}, feedFilters)
 		processedItem := filteredItems[0]
 
 		if processedItem.IsFiltered {
@@ -134,10 +122,10 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 		}
 
 		if !processedItem.IsFiltered && settings.ExtractContent {
-			extractedContent, extractionErr := t.fetchAndExtractContent(ctx, processedItem, settings)
+			extractedContent, extractionErr := fetchAndExtractContent(ctx, processedItem, settings, httpClient, contentExtractor, userAgent)
 			if extractionErr != nil {
 				slog.Warn("Failed to extract content for item",
-					"feed", t.FeedName,
+					"feed", feedName,
 					"item_link", processedItem.Link,
 					"error", extractionErr)
 				extractionFailureCount++
@@ -147,16 +135,15 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 			}
 		}
 
-		err = t.storeItem(ctx, processedItem)
+		err = storeItem(ctx, feedName, processedItem, itemRepo)
 		if err != nil {
 			return fmt.Errorf("failed to store item: %w", err)
 		}
 	}
 
 	logData := []interface{}{
-		"type", t.GetType(),
-		"feed", t.FeedName,
-		"duration", t.GetDuration(),
+		"feed", feedName,
+		"duration", time.Since(start),
 		"total", len(items),
 		"duplicates", duplicateCount,
 		"filtered", filteredCount,
@@ -167,12 +154,12 @@ func (t *ProcessFeedTask) Execute(ctx context.Context) error {
 		logData = append(logData, "extraction_success", extractionSuccessCount, "extraction_failure", extractionFailureCount)
 	}
 
-	slog.Info("Task completed", logData...)
+	slog.Info("Feed processed", logData...)
 
 	return nil
 }
 
-func (t *ProcessFeedTask) fetchFeed(ctx context.Context, url string, timeout int) ([]byte, error) {
+func fetchFeed(ctx context.Context, url string, timeout int, httpClient *http.Client, userAgent string) ([]byte, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
@@ -181,9 +168,9 @@ func (t *ProcessFeedTask) fetchFeed(ctx context.Context, url string, timeout int
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", t.userAgent)
+	req.Header.Set("User-Agent", userAgent)
 
-	resp, err := t.httpClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch feed: %w", err)
 	}
@@ -201,18 +188,27 @@ func (t *ProcessFeedTask) fetchFeed(ctx context.Context, url string, timeout int
 	return data, nil
 }
 
-func (t *ProcessFeedTask) fetchAndParseFeed(ctx context.Context, feedURL string, settings *database.FeedSettings) (*feed.Metadata, []feed.Item, *string, string, error) {
-	data, err := t.fetchFeed(ctx, feedURL, settings.Timeout)
+func fetchAndParseFeed(
+	ctx context.Context,
+	feedName string,
+	feedURL string,
+	settings *database.FeedSettings,
+	feedRepo *database.FeedRepository,
+	httpClient *http.Client,
+	parser *feed.Parser,
+	userAgent string,
+) (*feed.Metadata, []feed.Item, *string, string, error) {
+	data, err := fetchFeed(ctx, feedURL, settings.Timeout, httpClient, userAgent)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("failed to fetch feed: %w", err)
 	}
 
-	metadata, items, err := t.parser.Run(data)
+	metadata, items, err := parser.Run(data)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("failed to parse feed: %w", err)
 	}
 
-	contentHash, err := t.feedRepo.GetFeedContentHash(t.FeedName)
+	contentHash, err := feedRepo.GetFeedContentHash(feedName)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("failed to get stored content hash: %w", err)
 	}
@@ -223,11 +219,18 @@ func (t *ProcessFeedTask) fetchAndParseFeed(ctx context.Context, feedURL string,
 	return metadata, items, contentHash, newContentHash, nil
 }
 
-func (t *ProcessFeedTask) storeFeedMetadataWithHash(ctx context.Context, feedName string, metadata *feed.Metadata, contentHash string, settings *database.FeedSettings) error {
+func storeFeedMetadataWithHash(
+	ctx context.Context,
+	feedName string,
+	metadata *feed.Metadata,
+	contentHash string,
+	settings *database.FeedSettings,
+	feedRepo *database.FeedRepository,
+) error {
 	now := time.Now().UTC()
 	nextFetch := now.Add(time.Duration(settings.RefreshInterval) * time.Second)
 
-	err := t.feedRepo.UpdateFeedMetadataWithHash(feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, contentHash, nextFetch)
+	err := feedRepo.UpdateFeedMetadataWithHash(feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, contentHash, nextFetch)
 	if err != nil {
 		return fmt.Errorf("failed to update feed metadata with hash and next fetch time: %w", err)
 	}
@@ -235,7 +238,7 @@ func (t *ProcessFeedTask) storeFeedMetadataWithHash(ctx context.Context, feedNam
 	return nil
 }
 
-func (t *ProcessFeedTask) fetchContent(ctx context.Context, url string, timeout int) ([]byte, error) {
+func fetchContent(ctx context.Context, url string, timeout int, httpClient *http.Client, userAgent string) ([]byte, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
@@ -244,9 +247,9 @@ func (t *ProcessFeedTask) fetchContent(ctx context.Context, url string, timeout 
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", t.userAgent)
+	req.Header.Set("User-Agent", userAgent)
 
-	resp, err := t.httpClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch URL: %w", err)
 	}
@@ -269,17 +272,24 @@ func (t *ProcessFeedTask) fetchContent(ctx context.Context, url string, timeout 
 	return data, nil
 }
 
-func (t *ProcessFeedTask) fetchAndExtractContent(ctx context.Context, item feed.Item, settings *database.FeedSettings) (string, error) {
+func fetchAndExtractContent(
+	ctx context.Context,
+	item feed.Item,
+	settings *database.FeedSettings,
+	httpClient *http.Client,
+	contentExtractor *feed.ContentExtractor,
+	userAgent string,
+) (string, error) {
 	if item.Link == "" {
 		return "", fmt.Errorf("item has no link")
 	}
 
-	data, err := t.fetchContent(ctx, item.Link, settings.Timeout)
+	data, err := fetchContent(ctx, item.Link, settings.Timeout, httpClient, userAgent)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch article content: %w", err)
 	}
 
-	extractedContent, err := t.contentExtractor.Run(data)
+	extractedContent, err := contentExtractor.Run(data)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract content: %w", err)
 	}
@@ -287,7 +297,7 @@ func (t *ProcessFeedTask) fetchAndExtractContent(ctx context.Context, item feed.
 	return extractedContent, nil
 }
 
-func (t *ProcessFeedTask) storeItem(ctx context.Context, item feed.Item) error {
+func storeItem(ctx context.Context, feedName string, item feed.Item, itemRepo *database.ItemRepository) error {
 	dbItem := database.FeedItem{
 		GUID:            item.GUID,
 		Link:            item.Link,
@@ -305,7 +315,7 @@ func (t *ProcessFeedTask) storeItem(ctx context.Context, item feed.Item) error {
 		EnclosureType:   item.EnclosureType,
 	}
 
-	err := t.itemRepo.UpsertItem(t.FeedName, dbItem)
+	err := itemRepo.UpsertItem(feedName, dbItem)
 	if err != nil {
 		return fmt.Errorf("failed to upsert item: %w", err)
 	}

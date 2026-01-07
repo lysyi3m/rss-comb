@@ -1,31 +1,23 @@
-package tasks
+package services
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
-type RefilterFeedTask struct {
-	Task
-	filterer *feed.Filterer
-	feedRepo *database.FeedRepository
-	itemRepo *database.ItemRepository
-}
-
-func NewRefilterFeedTask(feedName string, filterer *feed.Filterer, feedRepo *database.FeedRepository, itemRepo *database.ItemRepository) *RefilterFeedTask {
-	return &RefilterFeedTask{
-		Task:     NewTask(TaskTypeRefilterFeed, feedName),
-		filterer: filterer,
-		feedRepo: feedRepo,
-		itemRepo: itemRepo,
-	}
-}
-
-func (t *RefilterFeedTask) Execute(ctx context.Context) error {
+func RefilterFeed(
+	ctx context.Context,
+	feedName string,
+	feedRepo *database.FeedRepository,
+	itemRepo *database.ItemRepository,
+	filterer *feed.Filterer,
+) error {
+	start := time.Now()
 
 	select {
 	case <-ctx.Done():
@@ -33,7 +25,7 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 	default:
 	}
 
-	dbFeed, err := t.feedRepo.GetFeed(t.FeedName)
+	dbFeed, err := feedRepo.GetFeed(feedName)
 	if err != nil {
 		return fmt.Errorf("failed to get feed from database: %w", err)
 	}
@@ -55,7 +47,7 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 		}
 	}
 
-	items, err := t.itemRepo.GetAllItems(t.FeedName)
+	items, err := itemRepo.GetAllItems(feedName)
 	if err != nil {
 		return fmt.Errorf("failed to get feed items: %w", err)
 	}
@@ -76,7 +68,7 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 		}
 	}
 
-	filteredItems := t.filterer.Run(feedItems, feedFilters)
+	filteredItems := filterer.Run(feedItems, feedFilters)
 
 	updatedCount := 0
 	errorCount := 0
@@ -85,7 +77,7 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 		originalItem := items[i]
 
 		if originalItem.IsFiltered != filteredItem.IsFiltered {
-			err := t.itemRepo.UpdateItemFilterStatus(originalItem.ID, filteredItem.IsFiltered)
+			err := itemRepo.UpdateItemFilterStatus(originalItem.ID, filteredItem.IsFiltered)
 			if err != nil {
 				slog.Error("Failed to update item filter status", "item_id", originalItem.ID, "error", err)
 				errorCount++
@@ -95,10 +87,9 @@ func (t *RefilterFeedTask) Execute(ctx context.Context) error {
 		}
 	}
 
-	slog.Info("Task completed",
-		"type", t.GetType(),
-		"feed", t.FeedName,
-		"duration", t.GetDuration(),
+	slog.Info("Feed refiltered",
+		"feed", feedName,
+		"duration", time.Since(start),
 		"success", updatedCount,
 		"errors", errorCount)
 

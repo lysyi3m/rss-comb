@@ -154,7 +154,7 @@ type FeedScheduleInfo struct {
 	NextFetchAt *time.Time
 }
 
-func (r *FeedRepository) GetEnabledFeedsForScheduling() ([]FeedScheduleInfo, error) {
+func (r *FeedRepository) GetDueFeeds() ([]FeedScheduleInfo, error) {
 	rows, err := r.db.Query(`
 		SELECT name, next_fetch_at
 		FROM feeds
@@ -162,7 +162,7 @@ func (r *FeedRepository) GetEnabledFeedsForScheduling() ([]FeedScheduleInfo, err
 		ORDER BY name
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get enabled feeds for scheduling: %w", err)
+		return nil, fmt.Errorf("failed to get due feeds: %w", err)
 	}
 	defer rows.Close()
 

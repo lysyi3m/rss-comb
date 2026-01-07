@@ -9,7 +9,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
-	"github.com/lysyi3m/rss-comb/app/tasks"
+	"github.com/lysyi3m/rss-comb/app/services"
 )
 
 func NewHandler(
@@ -17,14 +17,12 @@ func NewHandler(
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
 	filterer *feed.Filterer,
-	scheduler tasks.TaskSchedulerInterface,
 ) *Handler {
 	return &Handler{
-		cfg:       cfg,
-		feedRepo:  feedRepo,
-		itemRepo:  itemRepo,
-		filterer:  filterer,
-		scheduler: scheduler,
+		cfg:      cfg,
+		feedRepo: feedRepo,
+		itemRepo: itemRepo,
+		filterer: filterer,
 	}
 }
 
@@ -74,12 +72,11 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		return
 	}
 
-	refilterFeedTask := tasks.NewRefilterFeedTask(name, h.filterer, h.feedRepo, h.itemRepo)
-	err = h.scheduler.EnqueueTask(refilterFeedTask)
+	err = services.RefilterFeed(c.Request.Context(), name, h.feedRepo, h.itemRepo, h.filterer)
 	if err != nil {
-		slog.Error("Error enqueueing refilter task", "feed", name, "error", err)
+		slog.Error("Error refiltering feed", "feed", name, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to enqueue refilter task",
+			"error":   "Failed to refilter feed items",
 			"details": err.Error(),
 		})
 		return
@@ -87,16 +84,10 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 
 	response := gin.H{
 		"success": true,
-		"message": "Configuration reloaded and refilter task enqueued successfully",
+		"message": "Configuration reloaded and feed items refiltered successfully",
 		"feed": gin.H{
 			"name": name,
 			"url":  feedConfig.URL,
-		},
-		"tasks": []gin.H{
-			{
-				"id":   refilterFeedTask.ID,
-				"type": refilterFeedTask.Type,
-			},
 		},
 	}
 
