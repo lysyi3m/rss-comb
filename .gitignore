@@ -31,6 +31,9 @@ coverage.out
 tmp/
 temp/
 
+# Personal task tracking
+TODO.md
+
 # Debug tools
 debug_*.go
 

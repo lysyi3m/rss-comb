@@ -3,21 +3,21 @@ package feed
 import (
 	"testing"
 	"time"
+
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 func TestFilterer_ApplyFilters_NoFilters(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "Test Item 1", Description: "Test description"},
 		{Title: "Test Item 2", Description: "Another description"},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{}, // No filters
+		Filters: []types.Filter{}, // No filters
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	if len(result) != 2 {
 		t.Errorf("Expected 2 items, got %d", len(result))
@@ -32,16 +32,14 @@ func TestFilterer_ApplyFilters_NoFilters(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_TitleIncludeFilter(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "Breaking News: Important Update", Description: "News description"},
 		{Title: "Sports Update", Description: "Sports description"},
 		{Title: "Weather Report", Description: "Weather description"},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"news", "update"},
@@ -49,7 +47,7 @@ func TestFilterer_ApplyFilters_TitleIncludeFilter(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	if len(result) != 3 {
 		t.Errorf("Expected 3 items, got %d", len(result))
@@ -72,16 +70,14 @@ func TestFilterer_ApplyFilters_TitleIncludeFilter(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_TitleExcludeFilter(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "Breaking News", Description: "News description"},
 		{Title: "Sports Update", Description: "Sports description"},
 		{Title: "Advertisement: Buy Now!", Description: "Ad description"},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Excludes: []string{"advertisement", "ad"},
@@ -89,7 +85,7 @@ func TestFilterer_ApplyFilters_TitleExcludeFilter(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	if len(result) != 3 {
 		t.Errorf("Expected 3 items, got %d", len(result))
@@ -110,9 +106,7 @@ func TestFilterer_ApplyFilters_TitleExcludeFilter(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_CombinedIncludeExclude(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "Tech News Update", Description: "Technology news"},
 		{Title: "Tech Advertisement", Description: "Technology ad"},
 		{Title: "Sports News", Description: "Sports update"},
@@ -120,7 +114,7 @@ func TestFilterer_ApplyFilters_CombinedIncludeExclude(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"tech", "news"},
@@ -129,7 +123,7 @@ func TestFilterer_ApplyFilters_CombinedIncludeExclude(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// First item: contains "tech" and "news" (included) and doesn't contain excludes -> pass
 	if result[0].IsFiltered {
@@ -153,16 +147,14 @@ func TestFilterer_ApplyFilters_CombinedIncludeExclude(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_MultipleFields(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "News Update", Description: "Technology article", Authors: []string{"tech@example.com (Tech Writer)"}},
 		{Title: "Random Article", Description: "Random content", Authors: []string{"spam@example.com (Spammer)"}},
 		{Title: "Sports News", Description: "Sports update", Authors: []string{"sports@example.com (Sports Writer)"}},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"news"},
@@ -174,7 +166,7 @@ func TestFilterer_ApplyFilters_MultipleFields(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// First item: title contains "news" and author doesn't contain "spam" -> pass
 	if result[0].IsFiltered {
@@ -193,15 +185,13 @@ func TestFilterer_ApplyFilters_MultipleFields(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_AuthorsField(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "Article 1", Authors: []string{"john@example.com (John Doe)", "jane@example.com (Jane Smith)"}},
 		{Title: "Article 2", Authors: []string{"spammer@example.com (Spammer)"}},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "authors",
 				Includes: []string{"john", "jane"},
@@ -209,7 +199,7 @@ func TestFilterer_ApplyFilters_AuthorsField(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// First item: authors contain "john" and "jane" -> pass
 	if result[0].IsFiltered {
@@ -223,15 +213,13 @@ func TestFilterer_ApplyFilters_AuthorsField(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_CategoriesField(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "Article 1", Categories: []string{"Technology", "News"}},
 		{Title: "Article 2", Categories: []string{"Sports", "Entertainment"}},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "categories",
 				Includes: []string{"technology", "news"},
@@ -239,7 +227,7 @@ func TestFilterer_ApplyFilters_CategoriesField(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// First item: categories contain "technology" and "news" -> pass
 	if result[0].IsFiltered {
@@ -253,16 +241,14 @@ func TestFilterer_ApplyFilters_CategoriesField(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_CaseInsensitive(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "BREAKING NEWS UPDATE"},
 		{Title: "tech announcement"},
 		{Title: "Sports Report"},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"News", "TECH"},
@@ -270,7 +256,7 @@ func TestFilterer_ApplyFilters_CaseInsensitive(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// First item: title contains "NEWS" (case insensitive match with "News") -> pass
 	if result[0].IsFiltered {
@@ -289,14 +275,12 @@ func TestFilterer_ApplyFilters_CaseInsensitive(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_UnknownField(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "Test Article", Description: "Test description"},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "unknown_field",
 				Includes: []string{"test"},
@@ -304,7 +288,7 @@ func TestFilterer_ApplyFilters_UnknownField(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// Item should be filtered because unknown field returns empty string
 	if !result[0].IsFiltered {
@@ -313,15 +297,13 @@ func TestFilterer_ApplyFilters_UnknownField(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_EmptyValues(t *testing.T) {
-	filterer := NewFilterer()
-
-	items := []Item{
+	items := []types.Item{
 		{Title: "", Description: "", Content: ""},
 		{Title: "Test", Description: "Test", Content: "Test"},
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"test"},
@@ -329,7 +311,7 @@ func TestFilterer_ApplyFilters_EmptyValues(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// First item: empty title doesn't contain "test" -> filtered
 	if !result[0].IsFiltered {
@@ -343,10 +325,8 @@ func TestFilterer_ApplyFilters_EmptyValues(t *testing.T) {
 }
 
 func TestFilterer_ApplyFilters_PreservesOriginalData(t *testing.T) {
-	filterer := NewFilterer()
-
 	originalTime := time.Now()
-	items := []Item{
+	items := []types.Item{
 		{
 			GUID:        "test-guid-1",
 			Title:       "Test Article",
@@ -362,7 +342,7 @@ func TestFilterer_ApplyFilters_PreservesOriginalData(t *testing.T) {
 	}
 
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "title",
 				Includes: []string{"test"},
@@ -370,7 +350,7 @@ func TestFilterer_ApplyFilters_PreservesOriginalData(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 item, got %d", len(result))
@@ -416,10 +396,8 @@ func TestFilterer_ApplyFilters_PreservesOriginalData(t *testing.T) {
 	}
 }
 
-func TestFilterer_MatchesFieldFilter(t *testing.T) {
-	filterer := NewFilterer()
-
-	item := Item{
+func TestMatchesFieldFilter(t *testing.T) {
+	item := types.Item{
 		Title:       "Test Title",
 		Description: "Test Description",
 		Content:     "Test Content",
@@ -443,39 +421,37 @@ func TestFilterer_MatchesFieldFilter(t *testing.T) {
 	}
 
 	for _, test := range stringTests {
-		result := filterer.matchesFieldFilter(item, test.field, test.pattern)
+		result := matchesFieldFilter(item, test.field, test.pattern)
 		if result != test.expected {
 			t.Errorf("matchesFieldFilter(%s, %s): expected %v, got %v", test.field, test.pattern, test.expected, result)
 		}
 	}
 
 	// Test array fields
-	if !filterer.matchesFieldFilter(item, "authors", "author1") {
+	if !matchesFieldFilter(item, "authors", "author1") {
 		t.Errorf("Should match first author")
 	}
-	if !filterer.matchesFieldFilter(item, "authors", "author2") {
+	if !matchesFieldFilter(item, "authors", "author2") {
 		t.Errorf("Should match second author")
 	}
-	if filterer.matchesFieldFilter(item, "authors", "nonexistent") {
+	if matchesFieldFilter(item, "authors", "nonexistent") {
 		t.Errorf("Should not match nonexistent author")
 	}
 
-	if !filterer.matchesFieldFilter(item, "categories", "cat1") {
+	if !matchesFieldFilter(item, "categories", "cat1") {
 		t.Errorf("Should match first category")
 	}
-	if !filterer.matchesFieldFilter(item, "categories", "cat2") {
+	if !matchesFieldFilter(item, "categories", "cat2") {
 		t.Errorf("Should match second category")
 	}
-	if filterer.matchesFieldFilter(item, "categories", "nonexistent") {
+	if matchesFieldFilter(item, "categories", "nonexistent") {
 		t.Errorf("Should not match nonexistent category")
 	}
 }
 
 func TestFilterer_ArrayFilterBugFix(t *testing.T) {
-	filterer := NewFilterer()
-
 	// Test the specific bug case you mentioned
-	items := []Item{
+	items := []types.Item{
 		{
 			Title:      "Test Article",
 			Categories: []string{"Category ABC", "Category XYZ", "C Category"},
@@ -484,7 +460,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 
 	// This should match only the exact "C Category" element, not as substring of joined string
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "categories",
 				Includes: []string{"C Category"},
@@ -492,7 +468,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// Item should NOT be filtered because "C Category" exists as exact match
 	if result[0].IsFiltered {
@@ -500,14 +476,14 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 	}
 
 	// Test case that should be filtered
-	items2 := []Item{
+	items2 := []types.Item{
 		{
 			Title:      "Test Article 2",
 			Categories: []string{"Category ABC", "Category XYZ"}, // No "C Category"
 		},
 	}
 
-	result2 := filterer.Run(items2, feedConfig)
+	result2 := Filter(items2, feedConfig.Filters)
 
 	// This item should be filtered because "C Category" doesn't exist as exact match
 	if !result2[0].IsFiltered {
@@ -515,7 +491,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 	}
 
 	// Test authors field with similar issue
-	items3 := []Item{
+	items3 := []types.Item{
 		{
 			Title:   "Test Article 3",
 			Authors: []string{"john@example.com (John Doe)", "jane@example.com (Jane Smith)", "jo@example.com (Jo)"},
@@ -523,7 +499,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 	}
 
 	feedConfig3 := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "authors",
 				Includes: []string{"jo@example.com"}, // Should match exactly, not as substring
@@ -531,7 +507,7 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 		},
 	}
 
-	result3 := filterer.Run(items3, feedConfig3)
+	result3 := Filter(items3, feedConfig3.Filters)
 
 	// Should NOT be filtered because "jo@example.com" exists as substring in the third author
 	if result3[0].IsFiltered {
@@ -540,10 +516,8 @@ func TestFilterer_ArrayFilterBugFix(t *testing.T) {
 }
 
 func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
-	filterer := NewFilterer()
-
 	// Test that we match individual elements, not joined strings
-	items := []Item{
+	items := []types.Item{
 		{
 			Title:      "Test Article",
 			Categories: []string{"Tech News", "Breaking"},
@@ -553,7 +527,7 @@ func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
 	// This should NOT match because "Tech" and "News" are in same element "Tech News"
 	// but "News Breaking" doesn't exist as single element
 	feedConfig := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "categories",
 				Includes: []string{"News Breaking"}, // This should not match
@@ -561,7 +535,7 @@ func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
 		},
 	}
 
-	result := filterer.Run(items, feedConfig)
+	result := Filter(items, feedConfig.Filters)
 
 	// Should be filtered because "News Breaking" doesn't exist as exact element
 	if !result[0].IsFiltered {
@@ -570,7 +544,7 @@ func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
 
 	// Test positive case - should match "Tech News" exactly
 	feedConfig2 := &Config{
-		Filters: []ConfigFilter{
+		Filters: []types.Filter{
 			{
 				Field:    "categories",
 				Includes: []string{"Tech News"},
@@ -578,7 +552,7 @@ func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
 		},
 	}
 
-	result2 := filterer.Run(items, feedConfig2)
+	result2 := Filter(items, feedConfig2.Filters)
 
 	// Should NOT be filtered because "Tech News" exists as exact element
 	if result2[0].IsFiltered {
@@ -587,8 +561,6 @@ func TestFilterer_ArrayFilterExactMatch(t *testing.T) {
 }
 
 func TestFilterer_MatchesPattern(t *testing.T) {
-	filterer := NewFilterer()
-
 	tests := []struct {
 		value    string
 		pattern  string
@@ -604,7 +576,7 @@ func TestFilterer_MatchesPattern(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := filterer.matchesPattern(test.value, test.pattern)
+		result := matchesPattern(test.value, test.pattern)
 		if result != test.expected {
 			t.Errorf("matchesPattern('%s', '%s'): expected %v, got %v", test.value, test.pattern, test.expected, result)
 		}

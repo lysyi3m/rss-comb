@@ -14,7 +14,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 - **Content Extraction**: Intelligent full-text content extraction using [go-shiori/go-readability](https://github.com/go-shiori/go-readability)
 - **Flexible Filtering**: Configurable content filtering using include/exclude rules
 - **Background Processing**: Automated feed updates with configurable refresh intervals
-- **Task Scheduling**: FIFO task queue with retry logic and background workers
+- **Simple Architecture**: Ticker-based processing with straightforward service functions
 - **Statistics & Monitoring**: Built-in stats endpoint and comprehensive logging
 - **API Authentication**: Secure API endpoints with configurable access keys
 - **Docker Ready**: Fully containerized with optimized multi-stage builds
@@ -71,7 +71,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 
 3. **Access your feeds**:
    - Health check: `http://localhost:8080/health`
-   - Feed example: `http://localhost:8080/feeds/your-feed-name` (based on YAML filename)
+   - API endpoints require authentication (see API Endpoints section below)
 
 ### Development Setup
 
@@ -106,12 +106,10 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 | `FEEDS_DIR` | ./feeds | Directory containing feed configuration files |
 | `PORT` | 8080 | HTTP server port |
 | `BASE_URL` | *empty* | Base URL for RSS self-referencing links |
-| `WORKER_COUNT` | 5 | Number of background workers |
-| `SCHEDULER_INTERVAL` | 30 | Scheduler interval in seconds |
+| `SCHEDULER_INTERVAL` | 30 | Feed processing ticker interval in seconds |
 | `API_ACCESS_KEY` | *optional* | API access key for authentication |
 | `USER_AGENT` | "RSS Comb/1.0" | User agent for HTTP requests |
 | `TZ` | UTC | Timezone for timestamps |
-| `DEBUG` | false | Enable debug logging |
 
 ### Feed Configuration
 
@@ -120,8 +118,9 @@ Create YAML configuration files in the `feeds/` directory. Feed names are derive
 ```yaml
 url: "https://example.com/feed.xml"
 
+enabled: true
+
 settings:
-  enabled: true
   refresh_interval: 1800       # 30 minutes
   max_items: 50                # Limits RSS output items (all items stored in database)
   timeout: 30                  # seconds
@@ -147,7 +146,6 @@ filters:
 
 **Key Configuration Notes:**
 - Feed names are derived from filenames (remove `.yml` extension)
-- Feed names are used in URLs: `/feeds/<name>`
 - Feed names must be unique and URL-safe
 - Feed titles are automatically extracted from the RSS/Atom source (no manual configuration needed)
 - `max_items` limits RSS output only - all feed items are stored in database
@@ -159,15 +157,12 @@ filters:
 
 ### Public Endpoints
 
-- **`GET /feeds/<name>`** - Get processed RSS feed by feed name (derived from filename)
 - **`GET /health`** - Application health check and statistics
 
 ### Authenticated Endpoints
 
 Require `X-API-Key` header or `Authorization: Bearer <token>`:
 
-- **`GET /api/feeds`** - List all configured feeds with status
-- **`GET /api/feeds/<name>/details`** - Detailed feed information and statistics
 - **`POST /api/feeds/<name>/reload`** - Reload configuration and re-apply filters to all feed items
 
 ### Example API Usage
@@ -175,12 +170,6 @@ Require `X-API-Key` header or `Authorization: Bearer <token>`:
 ```bash
 # Get health check and statistics
 curl http://localhost:8080/health
-
-# Access processed feed (name derived from filename tech-news.yml)
-curl http://localhost:8080/feeds/tech-news
-
-# List all feeds (with API key)
-curl -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds
 
 # Reload configuration and re-apply filters
 curl -X POST -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds/tech-news/reload

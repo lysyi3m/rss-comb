@@ -1,7 +1,11 @@
 package database
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
+
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 type Feed struct {
@@ -20,28 +24,45 @@ type Feed struct {
 	ContentHash     *string    // SHA-256 hash of raw feed content for change detection
 	CreatedAt       time.Time
 	UpdatedAt       time.Time // Tracks last successful processing (replaces last_success)
+
+	// Configuration fields
+	IsEnabled  bool            // Whether the feed is enabled
+	Settings   json.RawMessage // JSONB feed settings
+	Filters    json.RawMessage // JSONB feed filters
+	ConfigHash *string         // SHA-256 hash of config file for change detection
+}
+
+func (f *Feed) GetSettings() (*types.Settings, error) {
+	if f.Settings == nil {
+		return &types.Settings{
+			RefreshInterval: 1800,
+			MaxItems:        50,
+			Timeout:         30,
+		}, nil
+	}
+
+	var settings types.Settings
+	if err := json.Unmarshal(f.Settings, &settings); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
+	}
+	return &settings, nil
+}
+
+func (f *Feed) GetFilters() ([]types.Filter, error) {
+	if f.Filters == nil {
+		return []types.Filter{}, nil
+	}
+
+	var filters []types.Filter
+	if err := json.Unmarshal(f.Filters, &filters); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal filters: %w", err)
+	}
+	return filters, nil
 }
 
 type Item struct {
-	ID                      string
-	FeedID                  string
-	GUID                    string
-	Link                    string
-	Title                   string
-	Description             string
-	Content                 string
-	PublishedAt             time.Time // Changed from *time.Time to time.Time (NOT NULL)
-	UpdatedAt               *time.Time
-	Authors                 []string // Multiple authors in format "email (name)" or "name"
-	Categories              []string
-	IsFiltered              bool
-	ContentHash             string
-	CreatedAt               time.Time
-	ContentExtractedAt      *time.Time
-	ContentExtractionStatus string // pending, success, failed, skipped
-	ContentExtractionError  string
-	ExtractionAttempts      int
-	EnclosureURL            string // RSS enclosure URL
-	EnclosureLength         int64  // RSS enclosure length in bytes
-	EnclosureType           string // RSS enclosure MIME type
+	ID        string
+	FeedID    string
+	CreatedAt time.Time
+	types.Item
 }

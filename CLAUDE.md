@@ -8,6 +8,61 @@ RSS Comb is a Go server application that acts as a proxy between existing RSS/At
 
 The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, optimizing configuration management, and implementing intelligent feed content hash optimization for significant performance improvements.
 
+## Project Philosophy & Scope
+
+### What RSS Comb IS
+- **Single-purpose tool** - Fetch, filter, deduplicate, and serve RSS feeds
+- **Personal/small-scale** - Designed for 10-50 feeds, not thousands
+- **Self-hosted** - Single instance deployment (Docker/Docker Compose)
+- **Simple operations** - Manual intervention is acceptable and expected
+- **Minimalist** - Favor simplicity and maintainability over enterprise patterns
+
+### What RSS Comb is NOT
+- ❌ Not a SaaS platform requiring 99.99% uptime
+- ❌ Not a distributed system with microservices
+- ❌ Not handling thousands of feeds or millions of requests
+- ❌ Not requiring automated recovery from all failure scenarios
+- ❌ Not a system where manual intervention is prohibitive
+
+### Design Principles
+
+**KISS (Keep It Simple, Stupid)**
+- Prefer simple solutions over clever abstractions
+- Logs are often sufficient instead of metrics dashboards
+- Manual fixes are acceptable for rare failures
+- Restart-on-failure is a valid strategy
+
+**YAGNI (You Ain't Gonna Need It)**
+- Don't add enterprise patterns "just in case"
+- No circuit breakers, retry logic, or distributed tracing unless actually needed
+- Avoid over-engineering for hypothetical scale
+
+**Pragmatic Trade-offs**
+- Favor code clarity over performance micro-optimizations
+- Simple error messages over structured error hierarchies
+- Direct solutions over abstraction layers
+- Fewer dependencies over framework convenience
+
+### When to Add Complexity
+
+Only add complexity when you have **actual evidence** of need:
+- ✅ Remove duplication when it creates maintenance burden
+- ✅ Add abstractions when you have 3+ identical implementations
+- ✅ Optimize when you measure actual performance problems
+- ❌ Don't add patterns because they're "best practices" in enterprise contexts
+
+### Scale Assumptions
+
+Current design assumes:
+- ~10-50 feeds total
+- Feeds refresh every 15-60 minutes
+- Single server instance
+- Manual monitoring via logs
+- Downtime measured in minutes/hours is acceptable
+- One maintainer/operator
+
+If these assumptions change significantly, revisit architectural decisions.
+
 ## Development Environment
 
 ### Prerequisites
@@ -66,12 +121,12 @@ rss-comb/
 ├── Dockerfile                 # Production container build
 ├── Makefile                  # Development commands
 ├── app/                      # Main application code
-│   ├── main.go              # Application entry point
+│   ├── main.go              # Application entry point with ticker-based feed processing
 │   ├── api/                 # HTTP handlers and server
 │   ├── cfg/                 # Application configuration management
 │   ├── database/            # Database connections, repositories, and embedded migrations
 │   ├── feed/                # Feed processing logic and configuration management
-│   └── tasks/               # Generic task scheduling system
+│   └── services/            # Feed processing service functions
 ├── feeds/                    # Feed configuration files (*.yml)
 ├── docker-compose.yml       # Development database service
 ├── .github/workflows/       # CI/CD automation
@@ -88,7 +143,7 @@ rss-comb/
 
 2. **Application Configuration System** (`app/cfg/`)
    - Centralized application configuration management
-   - Global configuration access via `cfg.Get()` interface
+   - Configuration passed explicitly via dependency injection (no global state)
    - Environment variable and command-line flag parsing using go-flags
    - Version management and build-time version injection
    - Timezone configuration and application-wide settings
@@ -101,12 +156,12 @@ rss-comb/
    - Feed-specific settings and filter management
 
 4. **Feed Processing System** (`app/feed/`)
-   - **Parser**: Universal RSS/Atom feed parsing using gofeed and normalization
-   - **Generator**: RSS 2.0 XML output generation for API responses
-   - **Content Extractor**: Intelligent full-text content extraction using go-shiori/go-readability for feeds lacking <content:encoded>
-   - **Filterer**: Configurable content filtering with include/exclude rules
+   - **Parsing** (`parsing.go`): `feed.Parse()` - Universal RSS/Atom feed parsing using gofeed and normalization
+   - **Generation** (`generator.go`): RSS 2.0 XML output generation for API responses
+   - **Extraction** (`extraction.go`): `feed.Extract()` - Intelligent full-text content extraction using go-shiori/go-readability for feeds lacking <content:encoded>
+   - **Filtering** (`filtering.go`): `feed.Filter()` - Configurable content filtering with include/exclude rules
    - **Performance Optimization**: Feed content hash comparison skips item processing when content unchanged
-   - Clean separation of concerns with focused interfaces
+   - Simple stateless functions without struct wrappers
 
 5. **Database Layer** (`app/database/`)
    - PostgreSQL with UUID primary keys
@@ -114,13 +169,12 @@ rss-comb/
    - Optimized queries with proper indexing
    - Embedded migrations with automatic execution on startup
 
-6. **Task Scheduling System** (`app/tasks/`)
-   - FIFO task queue system with retry logic
-   - Worker pool for concurrent task execution
-   - Configuration management and resolution for processing tasks
+6. **Feed Processing Services** (`app/services/`)
+   - Simple service functions without task abstractions
+   - `ProcessFeed`: Fetches, parses, filters, extracts content, and stores feed items
+   - `RefilterFeed`: Re-applies filters to all items for a feed (used by reload endpoint)
+   - Sequential processing via ticker in main.go
    - Database-driven scheduling with next_fetch timestamps
-   - **Content Extraction Tasks**: Automatic background content extraction after feed processing
-   - Graceful shutdown handling
 
 7. **HTTP API** (`app/api/`)
    - RESTful endpoints for feed access
@@ -130,49 +184,50 @@ rss-comb/
 
 ### Data Flow
 
-1. **Application Initialization**: `cfg.Load()` loads application configuration with global access pattern
-2. **Feed Configuration Loading**: `feed.ConfigCache` validates YAML files from `feeds/*.yml`
-3. **Database Sync**: Configuration changes automatically registered in database with URL change detection via PostgreSQL UPSERT
-4. **Task Scheduling**: FIFO task scheduler queues feed processing based on `next_fetch` timestamps
-5. **Feed Processing**: Task-based processing fetches, parses, filters, and deduplicates items with content hash optimization
-6. **Content Extraction**: `content_extractor` automatically extracts full article content when `extract_content: true`
-7. **Storage**: Items stored with filter status, content hashes, and extraction tracking for deduplication
-8. **API Access**: `api/handlers` serve processed feeds with extracted content and management endpoints
-9. **Configuration Reload**: Manual configuration reloading via `/reload` API endpoint
+1. **Application Initialization**: `cfg.Load()` loads application configuration, passed explicitly to all components
+2. **Feed Configuration Loading**: YAML files loaded from `feeds/*.yml` and stored in database at startup
+3. **Database Sync**: Configuration changes automatically registered in database with hash-based change detection via PostgreSQL UPSERT
+4. **Feed Processing Loop**: Ticker (every 30 seconds) queries database for enabled feeds with `next_fetch` due
+5. **Feed Processing**: `services.ProcessFeed()` fetches feed data, parses RSS/Atom, filters, and deduplicates items with content hash optimization
+6. **Content Extraction**: During processing, content extractor fetches and extracts full article content when `extract_content: true`
+7. **Storage**: Items stored with filter status and content hashes for deduplication
+8. **API Access**: API handlers serve feed details directly from database
+9. **Configuration Reload**: `/reload` API endpoint reloads YAML, updates database, and synchronously refilters existing items
 
 ### Database Schema
 
 **feeds table:**
 - Stores feed metadata and processing status
-- Tracks last_fetched, last_success, next_fetch timestamps
+- Tracks last_fetched_at, next_fetch_at timestamps
 - Stores content_hash for feed change detection optimization
+- Stores configuration (settings JSONB, filters JSONB, is_enabled, config_hash)
 - Uses `name` field to match with configuration files
 
 **feed_items table:**
 - Normalized item data with content hashing
 - Filtering and deduplication flags
-- Content extraction tracking (status, attempts, errors, timestamps)
-- Optimized indexes for common queries and content extraction
+- RSS enclosure support (url, length, type)
+- Optimized indexes for common queries
 
 ## Detailed Architecture
 
 ### Database Schema Details
-- **feeds table**: id, name, feed_url, title, link, image_url, language, enabled, last_fetched, last_success, next_fetch
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, created_at, content_extracted_at, content_extraction_status, content_extraction_error, extraction_attempts
+- **feeds table**: id, name, feed_url, title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, content_hash, is_enabled, settings (JSONB), filters (JSONB), config_hash, created_at, updated_at
+- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, created_at
 - **Key relationships**: feeds.id → feed_items.feed_id (UUID primary keys)
-- **Indexes**: feed_id, published_at, content_hash, content_extraction_status, extraction_attempts for optimized queries
+- **Indexes**: feed_id, published_at, content_hash, is_enabled for optimized queries
 - **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
 
 ### Feed Processing Layer (`app/feed/`)
-- `config_cache.go`: YAML-based feed configuration loading, validation, and in-memory caching
-- `parser.go`: RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps
-- `generator.go`: RSS 2.0 XML output generation for API responses
-- `content_extractor.go`: Intelligent HTML content extraction using go-shiori/go-readability library
-- `filterer.go`: Configurable content filtering with include/exclude rules
-- `types.go`: Feed data structures and models, consolidated configuration types
+- `config_loader.go`: Pure functions for loading and validating YAML configuration files
+- `parsing.go`: `feed.Parse()` - RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps
+- `extraction.go`: `feed.Extract()` - Intelligent HTML content extraction using go-shiori/go-readability library
+- `filtering.go`: `feed.Filter()` - Configurable content filtering with include/exclude rules
+- `generator.go`: RSS 2.0 XML output generation
+- `types.go`: Feed data structures and models, configuration types
 - **Performance**: Intelligent content hash comparison skips processing when feed unchanged
-- **Architecture**: Direct use of database repository interfaces, no unnecessary alias layers
-- Consolidated from separate packages for better cohesion
+- **Architecture**: Database is single source of truth at runtime, YAML files loaded only at startup/reload
+- **Design**: Simple stateless functions instead of struct wrappers for better Go idioms
 
 ### Repository Layer (`app/database/`)
 - `connection.go`: PostgreSQL connection management with pooling
@@ -180,28 +235,30 @@ rss-comb/
 - `item_repository.go`: Item operations implementing all repository interfaces
 - `types.go`: Database model structs (Feed, FeedItem, Item)
 - `interfaces.go`: Clean interface definitions with segregated responsibilities
-- `migrations.go`: Embedded migration management with 18 migration files
-- `migrations/`: SQL files (001-018) handling schema evolution including content extraction support
+- `migrations.go`: Embedded migration management with 6 migration files
+- `migrations/`: SQL files (001-006) handling schema evolution
 - Interface segregation principle: separate interfaces for different responsibilities
 
-### Task Management Layer (`app/tasks/`)
-- `scheduler.go`: Main task scheduling and worker pool management with standardized constructor pattern and retry logic
-- `process_feed_task.go`: Individual feed processing task implementation
-- `extract_content_task.go`: Content extraction task implementation for background processing
-- `refilter_feed_task.go`: Feed item refiltering task implementation (internal task)
-- `sync_feed_config_task.go`: Feed configuration sync task implementation
-- `task.go`: Base task interface and implementation with retry support
-- `interfaces.go`: Task system interface definitions with updated constructor documentation
-- Configuration resolution and task creation coordination
-- **Constructor Pattern**: NewScheduler(configCache, feedRepo, processor, contentExtractor)
-- **Retry Mechanism**: Automatic task retry with exponential backoff (max 2-5 attempts based on priority)
-- **Failure Handling**: Failed tasks are re-enqueued with delay to handle transient issues
+### Feed Processing Services Layer (`app/services/`)
+- `process_feed.go`: Feed processing service function
+  - Fetches RSS/Atom feed data
+  - Parses and normalizes feed content
+  - Applies filters and deduplication
+  - Extracts full content when configured
+  - Stores items in database
+- `refilter_feed.go`: Feed refiltering service function (used by reload endpoint)
+  - Retrieves all items for a feed
+  - Re-applies current filters
+  - Updates filter status in database
+- **Design**: Simple service functions, no task abstractions or queues
+- **Processing**: Sequential execution via ticker in main.go
+- **Failure Handling**: Errors logged, feed will be retried on next ticker interval based on next_fetch_at
 
 ### Application Configuration System (`app/cfg/`)
 - `types.go`: Application configuration structs and interface definitions
-- `loader.go`: Configuration loading with environment/command-line parsing and global access
+- `loader.go`: Configuration loading with environment/command-line parsing
 - `loader_test.go`: Comprehensive tests for configuration loading and interface compliance
-- Centralized application configuration with `cfg.Get()` global access pattern
+- Configuration passed explicitly via dependency injection (no global state)
 - Integrated version management and timezone configuration
 
 
@@ -266,12 +323,10 @@ make dev-clean
 
 ### Feed Configuration Format (`feeds/*.yml`)
 ```yaml
-feed:
-  url: "https://example.com/feed.xml"
-  title: "Feed Title"
+url: "https://example.com/feed.xml"
+enabled: true
 
 settings:
-  enabled: true
   refresh_interval: 1800  # 30 minutes (recommended)
   max_items: 50              # Limits RSS output items (all items stored in database)
   timeout: 30            # seconds
@@ -288,7 +343,7 @@ filters:
 
 **Important Notes:**
 - The feed name is automatically derived from the filename (without `.yml` extension)
-- Feed names must be unique and are used in the URL schema: `/feeds/<name>`
+- Feed names must be unique
 - Filenames should be URL-safe (alphanumeric, hyphens, underscores) since they become the feed name
 - Feed URLs can be updated in configuration files at any time - the system automatically detects and applies URL changes
 - Feeds with query parameters are fully supported since routing is based on feed names derived from filenames
@@ -317,29 +372,24 @@ The system has evolved from using explicit `id` fields in YAML files to automati
 RSS Comb includes automatic content extraction for feeds that don't provide full article content in their RSS feeds. This feature uses intelligent HTML parsing to extract clean, readable content from article web pages.
 
 **Key Features:**
-- **Automatic Processing**: Runs in background after feed processing
+- **Inline Processing**: Runs during feed processing for new items
 - **Intelligent Extraction**: Uses Mozilla's Readability algorithm (go-shiori/go-readability library)
-- **Error Resilient**: Extraction failures don't affect feed processing
-- **Retry Logic**: Tracks attempts and prevents infinite loops (max 3 attempts)
+- **Error Resilient**: Extraction failures don't affect item storage
 - **Performance Optimized**: Only processes visible (non-filtered) items
 - **Configurable**: Per-feed enable/disable with timeout controls
 
 **Configuration Options:**
 - `extract_content: true/false` - Enable/disable content extraction
-- `max_items: 50` - Limits extraction to most recent N items per feed
+- `max_items: 50` - Limits items stored per feed
 
 **How It Works:**
-1. Feed processing completes normally
-2. If `extract_content: true`, an ExtractContentTask is automatically queued
-3. Content extractor fetches article URLs and extracts clean content
-4. Extracted content replaces original RSS content in database
-5. RSS output includes full article content via `<content:encoded>` tags
-
-**Database Tracking:**
-- `content_extraction_status`: pending, success, failed, skipped
-- `content_extracted_at`: Timestamp of successful extraction
-- `content_extraction_error`: Error message for failed extractions
-- `extraction_attempts`: Number of attempts to prevent infinite retries
+1. Feed processing fetches and parses RSS/Atom feed
+2. For each new, non-filtered item:
+   - If `extract_content: true`, fetch article URL
+   - Extract clean content using Readability algorithm
+   - Store extracted content in item.Content field
+3. Failed extractions are logged but don't block item storage
+4. Original RSS content used as fallback if extraction fails
 
 ### Environment Variables
 All configuration options support both environment variables and command-line flags:
@@ -355,8 +405,7 @@ All configuration options support both environment variables and command-line fl
 - `FEEDS_DIR` (default: ./feeds) - Directory containing feed configuration files
 - `PORT` (default: 8080) - HTTP server port
 - `BASE_URL` (optional) - Public base URL for the service (e.g., https://feeds.example.com). When set, RSS feeds use this URL for self-referencing links instead of localhost:port. Ideal for production deployments behind proxies.
-- `WORKER_COUNT` (default: 5) - Number of background workers for feed processing
-- `SCHEDULER_INTERVAL` (default: 30) - Scheduler interval in seconds
+- `SCHEDULER_INTERVAL` (default: 30) - Feed processing ticker interval in seconds
 - `API_ACCESS_KEY` (optional) - API access key for authentication
 - `USER_AGENT` (default: "RSS Comb/1.0") - User agent string for HTTP requests
 - `TZ` (default: "UTC") - Timezone for display timestamps in API responses and RSS feeds (e.g., UTC, America/New_York, Europe/London). Database operations always use UTC for consistency.
@@ -390,7 +439,7 @@ go test -v ./app/database
 1. Enable the example feed in `feeds/example.yml` (set `enabled: true`)
 2. Start services with `make run`
 3. Monitor logs for feed processing
-4. Test API endpoint: `curl "http://localhost:${PORT:-8080}/feeds/example"`
+4. Test API endpoint: `curl -H "X-API-Key: your-key" "http://localhost:${PORT:-8080}/api/feeds/example"`
 5. Reset example feed to disabled when done testing
 
 ## Deployment
@@ -459,7 +508,7 @@ go test -v ./app/database
 ### Feed Not Updating
 - Check feed configuration `enabled: true`
 - Verify `next_fetch` timestamp in database
-- Check scheduler logs for processing errors
+- Check application logs for processing errors
 - Validate feed URL accessibility
 
 ### Missing Items
@@ -479,28 +528,13 @@ go test -v ./app/database
 
 ### Public Endpoints
 
-#### `GET /feeds/<name>`
-- Returns processed RSS feed by feed name
-- Returns HTTP 404 for unknown feed names
-- Returns HTTP 202 Accepted for registered feeds that haven't been processed yet
-
 #### `GET /health`
 - Returns application health status and statistics
 - Includes feed counts and processing metrics
 
 ### API Endpoints (require API key)
 
-#### `GET /api/feeds`
-- Lists all configured feeds
-- Returns feed configuration and status information
-- Requires X-API-Key header or Authorization: Bearer token
-
-#### `GET /api/feeds/<name>/details`
-- Returns detailed information about a specific feed by name
-- Includes configuration, database status, and item statistics
-- Requires X-API-Key header or Authorization: Bearer token
-
 #### `POST /api/feeds/<name>/reload`
 - Reloads the configuration file for the specified feed and re-applies filters to all items
-- Returns immediately with task information (non-blocking)
+- Processes synchronously and returns when complete (typically fast)
 - Requires X-API-Key header or Authorization: Bearer token

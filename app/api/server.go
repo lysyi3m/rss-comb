@@ -3,7 +3,6 @@ package api
 import (
 	"cmp"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -12,7 +11,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/cfg"
 )
 
-func NewServer(handler *Handler) *gin.Engine {
+func NewServer(handler *Handler, cfg *cfg.Cfg) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
@@ -48,39 +47,29 @@ func NewServer(handler *Handler) *gin.Engine {
 		c.Next()
 	})
 
-	cfg := cfg.Get()
 	setupRoutes(r, handler, cfg)
 
 	return r
 }
 
 func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
-	r.GET("/feeds/:name", handler.GetFeed)
-
 	r.GET("/health", handler.GetHealth)
 
 	if cfg.APIAccessKey != "" {
 		api := r.Group("/api")
 		api.Use(authMiddleware(cfg.APIAccessKey))
 		{
-			api.GET("/feeds", handler.APIListFeeds)
-			api.GET("/feeds/:name/details", handler.APIGetFeedDetails)
 			api.POST("/feeds/:name/reload", handler.APIReloadFeed)
 		}
-	} else {
-		slog.Info("API endpoints disabled", "reason", "API_ACCESS_KEY not set")
 	}
 
 	// Root endpoint with basic information
 	r.GET("/", func(c *gin.Context) {
 		endpoints := map[string]string{
-			"feed":   "/feeds/<name>",
 			"health": "/health",
 		}
 
 		if cfg.APIAccessKey != "" {
-			endpoints["feeds"] = "/api/feeds (requires X-API-Key header)"
-			endpoints["details"] = "/api/feeds/<name>/details (requires X-API-Key header)"
 			endpoints["reload"] = "/api/feeds/<name>/reload (POST, requires X-API-Key header)"
 		}
 

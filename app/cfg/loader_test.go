@@ -4,20 +4,6 @@ import (
 	"testing"
 )
 
-func TestGetVersion(t *testing.T) {
-	// Test default version
-	if GetVersion() == "" {
-		t.Error("GetVersion should never return empty string")
-	}
-
-	// Test that version is at least "dev" or "unknown"
-	version := GetVersion()
-	if version != "dev" && version != "unknown" {
-		// This is fine, version could be set at build time
-		t.Logf("Version: %s", version)
-	}
-}
-
 func TestConfigFields(t *testing.T) {
 	// Create a config instance to test field access
 	cfg := &Cfg{
@@ -35,7 +21,6 @@ func TestConfigFields(t *testing.T) {
 		DBPassword:        "test_password",
 		DBName:            "test_db",
 		Timezone:          "UTC",
-		Debug:             true,
 	}
 
 	// Test direct field access
@@ -80,8 +65,5 @@ func TestConfigFields(t *testing.T) {
 	}
 	if cfg.Timezone != "UTC" {
 		t.Errorf("Expected timezone 'UTC', got '%s'", cfg.Timezone)
-	}
-	if !cfg.Debug {
-		t.Error("Expected debug to be enabled")
 	}
 }

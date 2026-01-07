@@ -6,8 +6,6 @@ import (
 )
 
 func TestContentExtractor_ExtractContent_ValidHTML(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	htmlContent := `
 	<!DOCTYPE html>
 	<html>
@@ -38,7 +36,7 @@ func TestContentExtractor_ExtractContent_ValidHTML(t *testing.T) {
 	</html>
 	`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -64,8 +62,6 @@ func TestContentExtractor_ExtractContent_ValidHTML(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_ArticleWithMetadata(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	htmlContent := `
 	<!DOCTYPE html>
 	<html>
@@ -91,7 +87,7 @@ func TestContentExtractor_ExtractContent_ArticleWithMetadata(t *testing.T) {
 	</html>
 	`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -112,8 +108,6 @@ func TestContentExtractor_ExtractContent_ArticleWithMetadata(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_BlogPost(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	htmlContent := `
 	<!DOCTYPE html>
 	<html>
@@ -152,7 +146,7 @@ func TestContentExtractor_ExtractContent_BlogPost(t *testing.T) {
 	</html>
 	`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -173,9 +167,7 @@ func TestContentExtractor_ExtractContent_BlogPost(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_EmptyData(t *testing.T) {
-	extractor := NewContentExtractor()
-
-	result, err := extractor.Run([]byte{})
+	result, err := Extract([]byte{})
 
 	if err == nil {
 		t.Errorf("Expected error for empty data")
@@ -192,9 +184,7 @@ func TestContentExtractor_ExtractContent_EmptyData(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_NilData(t *testing.T) {
-	extractor := NewContentExtractor()
-
-	result, err := extractor.Run(nil)
+	result, err := Extract(nil)
 
 	if err == nil {
 		t.Errorf("Expected error for nil data")
@@ -211,12 +201,10 @@ func TestContentExtractor_ExtractContent_NilData(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_InvalidHTML(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	// Malformed HTML
 	htmlContent := `<html><body><p>Unclosed paragraph<div>Malformed content</body>`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	// The go-readability library should handle malformed HTML gracefully
 	// It might succeed with partial content or fail, both are acceptable
@@ -234,12 +222,10 @@ func TestContentExtractor_ExtractContent_InvalidHTML(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_MinimalHTML(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	// Very minimal HTML that might not meet character threshold
 	htmlContent := `<html><body><p>Short text</p></body></html>`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	// This might fail due to character threshold (250 chars minimum)
 	// or succeed with the minimal content
@@ -257,8 +243,6 @@ func TestContentExtractor_ExtractContent_MinimalHTML(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_NoMainContent(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	// HTML with only navigation and footer, no main content
 	htmlContent := `
 	<!DOCTYPE html>
@@ -279,7 +263,7 @@ func TestContentExtractor_ExtractContent_NoMainContent(t *testing.T) {
 	</html>
 	`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	// Should fail because there's no substantial content
 	if err == nil && result == "" {
@@ -291,8 +275,6 @@ func TestContentExtractor_ExtractContent_NoMainContent(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_LongArticle(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	// Create a long article that definitely meets character threshold
 	var paragraphs []string
 	for i := 0; i < 10; i++ {
@@ -322,7 +304,7 @@ func TestContentExtractor_ExtractContent_LongArticle(t *testing.T) {
 	</html>
 	`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	if err != nil {
 		t.Errorf("Expected no error for long article, got: %v", err)
@@ -344,8 +326,6 @@ func TestContentExtractor_ExtractContent_LongArticle(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_PreservesFormatting(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	htmlContent := `
 	<!DOCTYPE html>
 	<html>
@@ -367,7 +347,7 @@ func TestContentExtractor_ExtractContent_PreservesFormatting(t *testing.T) {
 	</html>
 	`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -392,8 +372,6 @@ func TestContentExtractor_ExtractContent_PreservesFormatting(t *testing.T) {
 }
 
 func TestContentExtractor_ExtractContent_ScriptAndStyleRemoval(t *testing.T) {
-	extractor := NewContentExtractor()
-
 	htmlContent := `
 	<!DOCTYPE html>
 	<html>
@@ -423,7 +401,7 @@ func TestContentExtractor_ExtractContent_ScriptAndStyleRemoval(t *testing.T) {
 	</html>
 	`
 
-	result, err := extractor.Run([]byte(htmlContent))
+	result, err := Extract([]byte(htmlContent))
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -453,18 +431,3 @@ func TestContentExtractor_ExtractContent_ScriptAndStyleRemoval(t *testing.T) {
 	}
 }
 
-func TestNewContentExtractor(t *testing.T) {
-	extractor := NewContentExtractor()
-
-	if extractor == nil {
-		t.Errorf("Expected non-nil ContentExtractor")
-	}
-
-	// Verify it's a valid instance by testing a method
-	result, err := extractor.Run([]byte("<html><body><p>test</p></body></html>"))
-
-	// Should either succeed or fail gracefully (due to character threshold)
-	if err != nil && result != "" {
-		t.Errorf("Inconsistent state: error but non-empty result")
-	}
-}
