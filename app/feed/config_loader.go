@@ -65,12 +65,13 @@ func validateConfig(config *Config) error {
 			"title":       true,
 			"description": true,
 			"content":     true,
+			"link":        true,
 			"authors":     true,
 			"categories":  true,
 		}
 
 		if !validFields[filter.Field] {
-			return fmt.Errorf("filter %d: invalid field '%s' (must be one of: title, description, content, authors, categories)", i, filter.Field)
+			return fmt.Errorf("filter %d: invalid field '%s' (must be one of: title, description, content, link, authors, categories)", i, filter.Field)
 		}
 	}
 
