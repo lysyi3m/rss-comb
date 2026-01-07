@@ -50,6 +50,12 @@ func Load() (*Cfg, error) {
 		return nil, fmt.Errorf("failed to parse configuration: %w", err)
 	}
 
+	loc, err := loadTimezone(raw.Timezone)
+	if err != nil {
+		fmt.Printf("Warning: Invalid timezone '%s', using UTC: %v\n", raw.Timezone, err)
+		loc = time.UTC
+	}
+
 	cfg := &Cfg{
 		DBHost:            raw.DBHost,
 		DBPort:            raw.DBPort,
@@ -65,23 +71,22 @@ func Load() (*Cfg, error) {
 		UserAgent:         raw.UserAgent,
 		Timezone:          raw.Timezone,
 		Version:           GetVersion(),
-	}
-
-	if err := applyTimezone(cfg.Timezone); err != nil {
-		fmt.Printf("Warning: Invalid timezone '%s', using system default: %v\n", cfg.Timezone, err)
+		Location:          loc,
 	}
 
 	return cfg, nil
 }
 
-func applyTimezone(timezone string) error {
-	if timezone != "" {
-		if loc, err := time.LoadLocation(timezone); err != nil {
-			return err
-		} else {
-			time.Local = loc
-			fmt.Printf("Timezone configured: %s\n", timezone)
-		}
+func loadTimezone(timezone string) (*time.Location, error) {
+	if timezone == "" {
+		return time.UTC, nil
 	}
-	return nil
+
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Timezone configured: %s\n", timezone)
+	return loc, nil
 }

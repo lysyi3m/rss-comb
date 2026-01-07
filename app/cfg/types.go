@@ -1,5 +1,7 @@
 package cfg
 
+import "time"
+
 type Cfg struct {
 	// Database configuration
 	DBHost     string
@@ -20,4 +22,5 @@ type Cfg struct {
 	UserAgent string
 	Timezone  string
 	Version   string
+	Location  *time.Location // Parsed timezone location
 }

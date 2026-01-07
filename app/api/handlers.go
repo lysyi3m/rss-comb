@@ -30,7 +30,7 @@ func NewHandler(
 
 func (h *Handler) GetHealth(c *gin.Context) {
 	health := map[string]interface{}{
-		"timestamp": time.Now().In(time.Local).Format(time.RFC3339),
+		"timestamp": time.Now().In(h.cfg.Location).Format(time.RFC3339),
 	}
 
 	if feedCount, err := h.feedRepo.GetFeedCount(); err == nil {
