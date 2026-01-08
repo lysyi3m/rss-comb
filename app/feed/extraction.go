@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-shiori/go-readability"
+	"codeberg.org/readeck/go-readability"
 )
 
 func Extract(data []byte) (string, error) {
