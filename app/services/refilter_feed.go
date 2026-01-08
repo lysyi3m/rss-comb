@@ -16,7 +16,7 @@ func RefilterFeed(
 	feedName string,
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
-) error{
+) error {
 	start := time.Now()
 
 	select {

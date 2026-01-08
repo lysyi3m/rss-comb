@@ -77,4 +77,3 @@ func matchesFieldFilter(item types.Item, field, pattern string) bool {
 func matchesPattern(value, pattern string) bool {
 	return strings.Contains(strings.ToLower(value), strings.ToLower(pattern))
 }
-

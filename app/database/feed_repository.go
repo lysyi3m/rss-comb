@@ -115,7 +115,7 @@ func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, isEna
 		slog.Info("Feed configuration updated", "feed", feedName)
 	}
 
-  settingsJSON, err := json.Marshal(settings)
+	settingsJSON, err := json.Marshal(settings)
 	if err != nil {
 		return fmt.Errorf("failed to marshal settings: %w", err)
 	}

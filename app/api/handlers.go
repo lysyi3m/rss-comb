@@ -13,6 +13,12 @@ import (
 	"github.com/lysyi3m/rss-comb/app/services"
 )
 
+type Handler struct {
+	cfg      *cfg.Cfg
+	feedRepo *database.FeedRepository
+	itemRepo *database.ItemRepository
+}
+
 func NewHandler(
 	cfg *cfg.Cfg,
 	feedRepo *database.FeedRepository,

@@ -256,4 +256,3 @@ func fetchAndExtractContent(
 
 	return extractedContent, nil
 }
-

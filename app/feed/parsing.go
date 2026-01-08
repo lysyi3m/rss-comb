@@ -183,4 +183,3 @@ func decodeHTMLEntities(s string) string {
 	}
 	return html.UnescapeString(s)
 }
-
