@@ -59,9 +59,11 @@ func ProcessFeed(
 		return err
 	}
 
-	err = storeFeedMetadataWithHash(ctx, feedName, metadata, newContentHash, settings, feedRepo)
+	now := time.Now().UTC()
+	nextFetch := now.Add(time.Duration(settings.RefreshInterval) * time.Second)
+	err = feedRepo.UpdateFeedMetadata(feedName, metadata, newContentHash, nextFetch)
 	if err != nil {
-		return fmt.Errorf("failed to store feed metadata with hash: %w", err)
+		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
 
 	if contentHash != nil && *contentHash == newContentHash {
@@ -212,25 +214,6 @@ func fetchAndParseFeed(
 	newContentHash := hex.EncodeToString(hash[:8])
 
 	return metadata, items, contentHash, newContentHash, nil
-}
-
-func storeFeedMetadataWithHash(
-	ctx context.Context,
-	feedName string,
-	metadata *feed.Metadata,
-	contentHash string,
-	settings *types.Settings,
-	feedRepo *database.FeedRepository,
-) error {
-	now := time.Now().UTC()
-	nextFetch := now.Add(time.Duration(settings.RefreshInterval) * time.Second)
-
-	err := feedRepo.UpdateFeedMetadata(feedName, metadata, contentHash, nextFetch)
-	if err != nil {
-		return fmt.Errorf("failed to update feed metadata: %w", err)
-	}
-
-	return nil
 }
 
 func fetchAndExtractContent(
