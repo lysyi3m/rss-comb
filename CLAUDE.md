@@ -157,7 +157,7 @@ rss-comb/
 
 4. **Feed Processing System** (`app/feed/`)
    - **Parsing** (`parsing.go`): `feed.Parse()` - Universal RSS/Atom feed parsing using gofeed and normalization
-   - **Generation** (`generator.go`): RSS 2.0 XML output generation for API responses
+   - **Generation** (`generator.go`): `feed.GenerateRSS()` - RSS 2.0 XML output generation for API responses
    - **Extraction** (`extraction.go`): `feed.Extract()` - Intelligent full-text content extraction using go-shiori/go-readability for feeds lacking <content:encoded>
    - **Filtering** (`filtering.go`): `feed.Filter()` - Configurable content filtering with include/exclude rules
    - **Performance Optimization**: Feed content hash comparison skips item processing when content unchanged
@@ -191,8 +191,8 @@ rss-comb/
 5. **Feed Processing**: `services.ProcessFeed()` fetches feed data, parses RSS/Atom, filters, and deduplicates items with content hash optimization
 6. **Content Extraction**: During processing, content extractor fetches and extracts full article content when `extract_content: true`
 7. **Storage**: Items stored with filter status and content hashes for deduplication
-8. **API Access**: API handlers serve feed details directly from database
-9. **Configuration Reload**: `/reload` API endpoint reloads YAML, updates database, and synchronously refilters existing items
+8. **RSS Feed Access**: `/feeds/:name` endpoint generates RSS 2.0 XML from database using `feed.GenerateRSS()` with visible items
+9. **Configuration Reload**: `/api/feeds/:name/reload` API endpoint reloads YAML, updates database, and synchronously refilters existing items
 
 ### Database Schema
 
@@ -223,7 +223,7 @@ rss-comb/
 - `parsing.go`: `feed.Parse()` - RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps
 - `extraction.go`: `feed.Extract()` - Intelligent HTML content extraction using go-shiori/go-readability library
 - `filtering.go`: `feed.Filter()` - Configurable content filtering with include/exclude rules
-- `generator.go`: RSS 2.0 XML output generation
+- `generator.go`: `feed.GenerateRSS()` - RSS 2.0 XML output generation for API responses
 - `types.go`: Feed data structures and models, configuration types
 - **Performance**: Intelligent content hash comparison skips processing when feed unchanged
 - **Architecture**: Database is single source of truth at runtime, YAML files loaded only at startup/reload
@@ -527,6 +527,13 @@ go test -v ./app/database
 ## API Endpoints
 
 ### Public Endpoints
+
+#### `GET /feeds/<name>`
+- Returns RSS 2.0 feed output for the specified feed
+- Generates RSS XML from database using feed.GenerateRSS()
+- Includes feed metadata and visible (non-filtered) items
+- Respects max_items setting from feed configuration
+- Returns with headers: Content-Type, X-Feed-Items, X-Feed-Name, X-Last-Updated
 
 #### `GET /health`
 - Returns application health status and statistics

@@ -157,6 +157,7 @@ filters:
 
 ### Public Endpoints
 
+- **`GET /feeds/<name>`** - Get RSS 2.0 feed output for the specified feed
 - **`GET /health`** - Application health check and statistics
 
 ### Authenticated Endpoints
@@ -168,6 +169,9 @@ Require `X-API-Key` header or `Authorization: Bearer <token>`:
 ### Example API Usage
 
 ```bash
+# Get RSS feed output
+curl http://localhost:8080/feeds/tech-news
+
 # Get health check and statistics
 curl http://localhost:8080/health
 

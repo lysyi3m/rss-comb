@@ -19,7 +19,7 @@ func NewFeedRepository(db *DB) *FeedRepository {
 func (r *FeedRepository) GetFeed(feedName string) (*Feed, error) {
 	var feed Feed
 	err := r.db.QueryRow(`
-		SELECT id, name, feed_url, COALESCE(link, ''), title, COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(language, ''),
+		SELECT id, name, feed_url, COALESCE(link, ''), COALESCE(title, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, created_at, updated_at,
 		       is_enabled, settings, filters, config_hash
 		FROM feeds
