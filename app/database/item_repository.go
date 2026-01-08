@@ -18,13 +18,14 @@ func NewItemRepository(db *DB) *ItemRepository {
 
 func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 	rows, err := r.db.Query(`
-		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''), 
+		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''),
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
-		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'), 
+		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'),
 		       COALESCE(fi.categories, '{}'),
 		       fi.is_filtered,
 		       fi.content_hash, fi.created_at,
-		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, '')
+		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, ''),
+		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, '')
 		FROM feed_items fi
 		JOIN feeds f ON fi.feed_id = f.id
 		WHERE f.name = $1
@@ -54,10 +55,11 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) error {
 			feed_id, guid, link, title, description, content,
 			published_at, updated_at, authors,
 			categories, is_filtered, content_hash,
-			enclosure_url, enclosure_length, enclosure_type
+			enclosure_url, enclosure_length, enclosure_type,
+			itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image
 		) VALUES (
 			(SELECT id FROM feeds WHERE name = $1),
-			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
 		)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
@@ -70,11 +72,17 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) error {
 			content_hash = EXCLUDED.content_hash,
 			enclosure_url = EXCLUDED.enclosure_url,
 			enclosure_length = EXCLUDED.enclosure_length,
-			enclosure_type = EXCLUDED.enclosure_type
+			enclosure_type = EXCLUDED.enclosure_type,
+			itunes_duration = EXCLUDED.itunes_duration,
+			itunes_episode = EXCLUDED.itunes_episode,
+			itunes_season = EXCLUDED.itunes_season,
+			itunes_episode_type = EXCLUDED.itunes_episode_type,
+			itunes_image = EXCLUDED.itunes_image
 	`, feedName, item.GUID, item.Link, item.Title, item.Description, item.Content,
 		item.PublishedAt, item.UpdatedAt, pq.Array(authors),
 		pq.Array(categories), item.IsFiltered,
-		item.ContentHash, item.EnclosureURL, item.EnclosureLength, item.EnclosureType)
+		item.ContentHash, item.EnclosureURL, item.EnclosureLength, item.EnclosureType,
+		item.ITunesDuration, item.ITunesEpisode, item.ITunesSeason, item.ITunesEpisodeType, item.ITunesImage)
 
 	if err != nil {
 		return fmt.Errorf("failed to upsert item: %w", err)
@@ -124,7 +132,8 @@ func (r *ItemRepository) GetVisibleItems(feedName string, limit int) ([]Item, er
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
 		       fi.published_at, fi.updated_at, fi.authors, fi.categories, fi.is_filtered,
 		       fi.content_hash, fi.created_at,
-		       COALESCE(fi.enclosure_url, ''), fi.enclosure_length, COALESCE(fi.enclosure_type, '')
+		       COALESCE(fi.enclosure_url, ''), fi.enclosure_length, COALESCE(fi.enclosure_type, ''),
+		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, '')
 		FROM feed_items fi
 		JOIN feeds f ON fi.feed_id = f.id
 		WHERE f.name = $1
@@ -151,6 +160,7 @@ func (r *ItemRepository) scanItemRows(rows *sql.Rows) ([]Item, error) {
 			&item.IsFiltered,
 			&item.ContentHash, &item.CreatedAt,
 			&item.EnclosureURL, &item.EnclosureLength, &item.EnclosureType,
+			&item.ITunesDuration, &item.ITunesEpisode, &item.ITunesSeason, &item.ITunesEpisodeType, &item.ITunesImage,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan item row: %w", err)

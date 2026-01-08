@@ -17,4 +17,10 @@ type Item struct {
 	EnclosureURL    string
 	EnclosureLength int64
 	EnclosureType   string
+	// iTunes podcast episode extension fields
+	ITunesDuration    int    // Duration in seconds
+	ITunesEpisode     int    // Episode number
+	ITunesSeason      int    // Season number
+	ITunesEpisodeType string // full/trailer/bonus
+	ITunesImage       string // Episode-specific artwork
 }

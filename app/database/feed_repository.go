@@ -23,7 +23,8 @@ func (r *FeedRepository) GetFeed(feedName string) (*Feed, error) {
 	err := r.db.QueryRow(`
 		SELECT id, name, feed_url, COALESCE(link, ''), COALESCE(title, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, created_at, updated_at,
-		       is_enabled, settings, filters, config_hash
+		       is_enabled, settings, filters, config_hash,
+		       COALESCE(itunes_author, ''), COALESCE(itunes_image, ''), COALESCE(itunes_explicit, ''), COALESCE(itunes_owner_name, ''), COALESCE(itunes_owner_email, '')
 		FROM feeds
 		WHERE name = $1
 	`, feedName).Scan(
@@ -31,6 +32,7 @@ func (r *FeedRepository) GetFeed(feedName string) (*Feed, error) {
 		&feed.LastFetchedAt, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.FeedUpdatedAt,
 		&feed.CreatedAt, &feed.UpdatedAt,
 		&feed.IsEnabled, &feed.Settings, &feed.Filters, &feed.ConfigHash,
+		&feed.ITunesAuthor, &feed.ITunesImage, &feed.ITunesExplicit, &feed.ITunesOwnerName, &feed.ITunesOwnerEmail,
 	)
 
 	if err == sql.ErrNoRows {
@@ -68,9 +70,11 @@ func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Met
 	_, err := r.db.Exec(`
 		UPDATE feeds
 		SET title = $2, link = $3, description = $4, image_url = $5, language = $6, feed_published_at = $7, feed_updated_at = $8,
-		    content_hash = $9, next_fetch_at = $10, last_fetched_at = NOW(), updated_at = NOW()
+		    content_hash = $9, next_fetch_at = $10, last_fetched_at = NOW(), updated_at = NOW(),
+		    itunes_author = $11, itunes_image = $12, itunes_explicit = $13, itunes_owner_name = $14, itunes_owner_email = $15
 		WHERE name = $1
-	`, feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, contentHash, nextFetchAt)
+	`, feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, contentHash, nextFetchAt,
+		metadata.ITunesAuthor, metadata.ITunesImage, metadata.ITunesExplicit, metadata.ITunesOwnerName, metadata.ITunesOwnerEmail)
 
 	if err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)

@@ -23,4 +23,10 @@ type Metadata struct {
 	Language        string
 	FeedPublishedAt *time.Time
 	FeedUpdatedAt   *time.Time
+	// iTunes podcast extension fields
+	ITunesAuthor     string
+	ITunesImage      string
+	ITunesExplicit   string
+	ITunesOwnerName  string
+	ITunesOwnerEmail string
 }

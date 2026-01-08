@@ -40,6 +40,18 @@ func Parse(data []byte) (*Metadata, []types.Item, error) {
 	if feed.UpdatedParsed != nil {
 		metadata.FeedUpdatedAt = feed.UpdatedParsed
 	}
+
+	// Extract iTunes podcast metadata
+	if feed.ITunesExt != nil {
+		metadata.ITunesAuthor = feed.ITunesExt.Author
+		metadata.ITunesImage = feed.ITunesExt.Image
+		metadata.ITunesExplicit = feed.ITunesExt.Explicit
+		if feed.ITunesExt.Owner != nil {
+			metadata.ITunesOwnerName = feed.ITunesExt.Owner.Name
+			metadata.ITunesOwnerEmail = feed.ITunesExt.Owner.Email
+		}
+	}
+
 	items := make([]types.Item, 0, len(feed.Items))
 	for _, item := range feed.Items {
 		normalized := normalizeItem(item)
@@ -126,6 +138,33 @@ func normalizeItem(item *gofeed.Item) types.Item {
 				normalized.EnclosureLength = length
 			}
 		}
+	}
+
+	// Extract iTunes podcast episode metadata
+	if item.ITunesExt != nil {
+		// Duration: gofeed normalizes to seconds string, but handle different formats
+		if item.ITunesExt.Duration != "" {
+			if duration, err := strconv.Atoi(item.ITunesExt.Duration); err == nil {
+				normalized.ITunesDuration = duration
+			}
+		}
+
+		// Episode and season numbers
+		if item.ITunesExt.Episode != "" {
+			if episode, err := strconv.Atoi(item.ITunesExt.Episode); err == nil {
+				normalized.ITunesEpisode = episode
+			}
+		}
+
+		if item.ITunesExt.Season != "" {
+			if season, err := strconv.Atoi(item.ITunesExt.Season); err == nil {
+				normalized.ITunesSeason = season
+			}
+		}
+
+		// Episode type and image
+		normalized.ITunesEpisodeType = item.ITunesExt.EpisodeType
+		normalized.ITunesImage = item.ITunesExt.Image
 	}
 
 	return normalized

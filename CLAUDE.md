@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RSS Comb is a Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, and content filtering capabilities through YAML-based configuration files.
+RSS Comb is a Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, content filtering, and full iTunes podcast support through YAML-based configuration files.
 
-The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, optimizing configuration management, and implementing intelligent feed content hash optimization for significant performance improvements.
+The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Recent architectural improvements have focused on eliminating code duplication, improving interface design, optimizing configuration management, implementing intelligent feed content hash optimization for significant performance improvements, and adding complete iTunes podcast RSS extension support.
 
 ## Project Philosophy & Scope
 
@@ -212,22 +212,24 @@ rss-comb/
 ## Detailed Architecture
 
 ### Database Schema Details
-- **feeds table**: id, name, feed_url, title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, content_hash, is_enabled, settings (JSONB), filters (JSONB), config_hash, created_at, updated_at
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, created_at
+- **feeds table**: id, name, feed_url, title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, content_hash, is_enabled, settings (JSONB), filters (JSONB), config_hash, itunes_author, itunes_image, itunes_explicit, itunes_owner_name, itunes_owner_email, created_at, updated_at
+- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image, created_at
 - **Key relationships**: feeds.id → feed_items.feed_id (UUID primary keys)
 - **Indexes**: feed_id, published_at, content_hash, is_enabled for optimized queries
 - **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
+- **iTunes Podcast Support**: All iTunes fields are nullable and automatically extracted from podcast RSS feeds via gofeed library's built-in iTunes extension support
 
 ### Feed Processing Layer (`app/feed/`)
 - `config_loader.go`: Pure functions for loading and validating YAML configuration files
-- `parsing.go`: `feed.Parse()` - RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps
+- `parsing.go`: `feed.Parse()` - RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps and iTunes podcast metadata
 - `extraction.go`: `feed.Extract()` - Intelligent HTML content extraction using go-shiori/go-readability library
 - `filtering.go`: `feed.Filter()` - Configurable content filtering with include/exclude rules
-- `generator.go`: `feed.GenerateRSS()` - RSS 2.0 XML output generation for API responses
+- `generator.go`: `feed.GenerateRSS()` - RSS 2.0 XML output generation with conditional iTunes podcast namespace (only when podcast data present) and tags for API responses
 - `types.go`: Feed data structures and models, configuration types
 - **Performance**: Intelligent content hash comparison skips processing when feed unchanged
 - **Architecture**: Database is single source of truth at runtime, YAML files loaded only at startup/reload
 - **Design**: Simple stateless functions instead of struct wrappers for better Go idioms
+- **iTunes Support**: Automatic extraction and generation of iTunes podcast RSS extensions (author, image, explicit, owner, duration, episode, season, type); iTunes namespace added conditionally only when podcast data is present
 
 ### Repository Layer (`app/database/`)
 - `connection.go`: PostgreSQL connection management with pooling
@@ -235,8 +237,8 @@ rss-comb/
 - `item_repository.go`: Item operations implementing all repository interfaces
 - `types.go`: Database model structs (Feed, FeedItem, Item)
 - `interfaces.go`: Clean interface definitions with segregated responsibilities
-- `migrations.go`: Embedded migration management with 6 migration files
-- `migrations/`: SQL files (001-006) handling schema evolution
+- `migrations.go`: Embedded migration management with 7 migration files
+- `migrations/`: SQL files (001-007) handling schema evolution, including iTunes podcast support (007)
 - Interface segregation principle: separate interfaces for different responsibilities
 
 ### Feed Processing Services Layer (`app/services/`)

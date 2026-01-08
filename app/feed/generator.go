@@ -16,9 +16,15 @@ import (
 func GenerateRSS(feed database.Feed, items []database.Item, cfg *cfg.Cfg) (string, error) {
 	var buf bytes.Buffer
 
+	hasPodcastData := hasITunesData(feed, items)
+
 	buf.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
 	buf.WriteString("\n")
-	buf.WriteString(`<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom">`)
+	if hasPodcastData {
+		buf.WriteString(`<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">`)
+	} else {
+		buf.WriteString(`<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom">`)
+	}
 	buf.WriteString("\n  <channel>\n")
 
 	writeElement(&buf, "title", feed.Title, 4)
@@ -59,6 +65,30 @@ func GenerateRSS(feed database.Feed, items []database.Item, cfg *cfg.Cfg) (strin
 		writeElement(&buf, "title", feed.Title, 6)
 		writeElement(&buf, "link", feed.Link, 6)
 		buf.WriteString("    </image>\n")
+	}
+
+	if feed.ITunesAuthor != "" {
+		writeElement(&buf, "itunes:author", feed.ITunesAuthor, 4)
+	}
+
+	if feed.ITunesImage != "" {
+		buf.WriteString(fmt.Sprintf("    <itunes:image href=\"%s\" />\n",
+			html.EscapeString(feed.ITunesImage)))
+	}
+
+	if feed.ITunesExplicit != "" {
+		writeElement(&buf, "itunes:explicit", feed.ITunesExplicit, 4)
+	}
+
+	if feed.ITunesOwnerName != "" || feed.ITunesOwnerEmail != "" {
+		buf.WriteString("    <itunes:owner>\n")
+		if feed.ITunesOwnerName != "" {
+			writeElement(&buf, "itunes:name", feed.ITunesOwnerName, 6)
+		}
+		if feed.ITunesOwnerEmail != "" {
+			writeElement(&buf, "itunes:email", feed.ITunesOwnerEmail, 6)
+		}
+		buf.WriteString("    </itunes:owner>\n")
 	}
 
 	for _, item := range items {
@@ -114,6 +144,27 @@ func writeItem(buf *bytes.Buffer, item database.Item, cfg *cfg.Cfg) {
 			html.EscapeString(item.EnclosureType)))
 	}
 
+	if item.ITunesDuration > 0 {
+		writeElement(buf, "itunes:duration", formatDuration(item.ITunesDuration), 6)
+	}
+
+	if item.ITunesEpisode > 0 {
+		writeElement(buf, "itunes:episode", fmt.Sprintf("%d", item.ITunesEpisode), 6)
+	}
+
+	if item.ITunesSeason > 0 {
+		writeElement(buf, "itunes:season", fmt.Sprintf("%d", item.ITunesSeason), 6)
+	}
+
+	if item.ITunesEpisodeType != "" {
+		writeElement(buf, "itunes:episodeType", item.ITunesEpisodeType, 6)
+	}
+
+	if item.ITunesImage != "" {
+		buf.WriteString(fmt.Sprintf("      <itunes:image href=\"%s\" />\n",
+			html.EscapeString(item.ITunesImage)))
+	}
+
 	buf.WriteString("    </item>\n")
 }
 
@@ -137,4 +188,35 @@ func writeElement(buf *bytes.Buffer, tag, content string, indent int) {
 
 func isURL(s string) bool {
 	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+}
+
+func formatDuration(seconds int) string {
+	if seconds <= 0 {
+		return ""
+	}
+
+	hours := seconds / 3600
+	minutes := (seconds % 3600) / 60
+	secs := seconds % 60
+
+	if hours > 0 {
+		return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
+	}
+	return fmt.Sprintf("%02d:%02d", minutes, secs)
+}
+
+func hasITunesData(feed database.Feed, items []database.Item) bool {
+	if feed.ITunesAuthor != "" || feed.ITunesImage != "" || feed.ITunesExplicit != "" ||
+		feed.ITunesOwnerName != "" || feed.ITunesOwnerEmail != "" {
+		return true
+	}
+
+	for _, item := range items {
+		if item.ITunesDuration > 0 || item.ITunesEpisode > 0 || item.ITunesSeason > 0 ||
+			item.ITunesEpisodeType != "" || item.ITunesImage != "" {
+			return true
+		}
+	}
+
+	return false
 }

@@ -5,11 +5,12 @@
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-RSS Comb is a high-performance Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, flexible filtering and content extraction capabilities through YAML-based configuration files.
+RSS Comb is a high-performance Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, flexible filtering, content extraction, and full iTunes podcast support through YAML-based configuration files.
 
 ## Features
 
 - **Feed Normalization**: Converts RSS 1.0, RSS 2.0, and Atom feeds to standardized RSS 2.0 format
+- **iTunes Podcast Support**: Full support for iTunes podcast RSS extensions (duration, episode, season, artwork, etc.) with conditional namespace generation
 - **Automatic Deduplication**: Automatically eliminates duplicate items based on content hashing
 - **Content Extraction**: Intelligent full-text content extraction using [go-shiori/go-readability](https://github.com/go-shiori/go-readability)
 - **Flexible Filtering**: Configurable content filtering using include/exclude rules

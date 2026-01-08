@@ -30,6 +30,13 @@ type Feed struct {
 	Settings   json.RawMessage // JSONB feed settings
 	Filters    json.RawMessage // JSONB feed filters
 	ConfigHash *string         // SHA-256 hash of config file for change detection
+
+	// iTunes podcast extension fields
+	ITunesAuthor     string
+	ITunesImage      string
+	ITunesExplicit   string
+	ITunesOwnerName  string
+	ITunesOwnerEmail string
 }
 
 func (f *Feed) GetSettings() (*types.Settings, error) {
