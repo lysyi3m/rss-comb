@@ -1,22 +1,9 @@
 package feed
 
-import (
-	"time"
+import "github.com/lysyi3m/rss-comb/app/types"
 
-	"github.com/lysyi3m/rss-comb/app/types"
-)
-
-// Feed processing types
-
-type Metadata struct {
-	Title           string
-	Link            string
-	Description     string
-	ImageURL        string
-	Language        string
-	FeedPublishedAt *time.Time
-	FeedUpdatedAt   *time.Time
-}
+// Type alias for feed metadata (actual definition in app/types/feed.go)
+type Metadata = types.Metadata
 
 // Configuration types
 

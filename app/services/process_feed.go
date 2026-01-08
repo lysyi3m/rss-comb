@@ -225,9 +225,9 @@ func storeFeedMetadataWithHash(
 	now := time.Now().UTC()
 	nextFetch := now.Add(time.Duration(settings.RefreshInterval) * time.Second)
 
-	err := feedRepo.UpdateFeedMetadataWithHash(feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, contentHash, nextFetch)
+	err := feedRepo.UpdateFeedMetadata(feedName, metadata, contentHash, nextFetch)
 	if err != nil {
-		return fmt.Errorf("failed to update feed metadata with hash and next fetch time: %w", err)
+		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
 
 	return nil

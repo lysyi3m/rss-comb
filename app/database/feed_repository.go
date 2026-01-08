@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"github.com/lysyi3m/rss-comb/app/types"
 )
 
 type FeedRepository struct {
@@ -62,16 +64,16 @@ func (r *FeedRepository) GetFeedContentHash(feedName string) (*string, error) {
 	return contentHash, nil
 }
 
-func (r *FeedRepository) UpdateFeedMetadataWithHash(feedName string, title string, link string, description string, imageURL string, language string, feedPublishedAt *time.Time, feedUpdatedAt *time.Time, contentHash string, nextFetchAt time.Time) error {
+func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Metadata, contentHash string, nextFetchAt time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
 		SET title = $2, link = $3, description = $4, image_url = $5, language = $6, feed_published_at = $7, feed_updated_at = $8,
 		    content_hash = $9, next_fetch_at = $10, last_fetched_at = NOW(), updated_at = NOW()
 		WHERE name = $1
-	`, feedName, title, link, description, imageURL, language, feedPublishedAt, feedUpdatedAt, contentHash, nextFetchAt)
+	`, feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, contentHash, nextFetchAt)
 
 	if err != nil {
-		return fmt.Errorf("failed to update feed metadata with hash: %w", err)
+		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
 
 	return nil
