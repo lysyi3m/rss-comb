@@ -50,27 +50,6 @@ func (r *FeedRepository) GetFeedCount() (int, error) {
 	return count, nil
 }
 
-func (r *FeedRepository) UpsertFeed(feedName, feedURL string) error {
-	_, err := r.db.Exec(`
-		INSERT INTO feeds (name, feed_url)
-		VALUES ($1, $2)
-		ON CONFLICT (name) DO UPDATE SET
-			feed_url = EXCLUDED.feed_url,
-			next_fetch_at = CASE
-				WHEN feeds.feed_url != EXCLUDED.feed_url
-				THEN NULL
-				ELSE feeds.next_fetch_at
-			END,
-			updated_at = NOW()
-	`, feedName, feedURL)
-
-	if err != nil {
-		return fmt.Errorf("failed to upsert feed config: %w", err)
-	}
-
-	return nil
-}
-
 func (r *FeedRepository) GetFeedContentHash(feedName string) (*string, error) {
 	var contentHash *string
 	err := r.db.QueryRow("SELECT content_hash FROM feeds WHERE name = $1", feedName).Scan(&contentHash)

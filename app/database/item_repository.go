@@ -38,24 +38,6 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 	return r.scanItemRows(rows)
 }
 
-func (r *ItemRepository) GetItemStats(feedName string) (total, visible, filtered int, err error) {
-	err = r.db.QueryRow(`
-		SELECT 
-			COUNT(*) as total,
-			SUM(CASE WHEN fi.is_filtered = false THEN 1 ELSE 0 END) as visible,
-			SUM(CASE WHEN fi.is_filtered = true THEN 1 ELSE 0 END) as filtered
-		FROM feed_items fi
-		JOIN feeds f ON fi.feed_id = f.id
-		WHERE f.name = $1
-	`, feedName).Scan(&total, &visible, &filtered)
-
-	if err != nil {
-		return 0, 0, 0, fmt.Errorf("failed to get item stats: %w", err)
-	}
-
-	return total, visible, filtered, nil
-}
-
 func (r *ItemRepository) UpsertItem(feedName string, item types.Item) error {
 	authors := item.Authors
 	if authors == nil {
