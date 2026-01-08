@@ -15,7 +15,6 @@ import (
 	"github.com/lysyi3m/rss-comb/app/api"
 	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
-	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/services"
 )
 
@@ -157,22 +156,10 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		fileName := filepath.Base(file)
 		feedName := fileName[:len(fileName)-4]
 
-		config, hash, err := feed.LoadConfig(feedsDir, feedName)
+		config, err := services.SyncFeedConfig(context.Background(), feedsDir, feedName, feedRepo)
 		if err != nil {
-			slog.Warn("Failed to load config, skipping", "file", file, "error", err)
+			slog.Warn("Failed to sync feed config, skipping", "file", file, "error", err)
 			continue
-		}
-
-		err = feedRepo.UpsertFeedConfig(
-			config.Name,
-			config.URL,
-			config.Enabled,
-			config.Settings,
-			config.Filters,
-			hash,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to save config for %s: %w", feedName, err)
 		}
 
 		totalCount++

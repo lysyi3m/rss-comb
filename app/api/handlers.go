@@ -99,28 +99,11 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		return
 	}
 
-	feedConfig, hash, err := feed.LoadConfig(h.cfg.FeedsDir, name)
+	config, err := services.SyncFeedConfig(c.Request.Context(), h.cfg.FeedsDir, name, h.feedRepo)
 	if err != nil {
-		slog.Error("Error loading configuration", "feed", name, "error", err)
+		slog.Error("Failed to sync feed config", "feed", name, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to load configuration",
-			"details": err.Error(),
-		})
-		return
-	}
-
-	err = h.feedRepo.UpsertFeedConfig(
-		feedConfig.Name,
-		feedConfig.URL,
-		feedConfig.Enabled,
-		feedConfig.Settings,
-		feedConfig.Filters,
-		hash,
-	)
-	if err != nil {
-		slog.Error("Error upserting feed config to database", "feed", name, "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to save configuration to database",
+			"error":   "Failed to reload configuration",
 			"details": err.Error(),
 		})
 		return
@@ -141,7 +124,7 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		"message": "Configuration reloaded and feed items refiltered successfully",
 		"feed": gin.H{
 			"name": name,
-			"url":  feedConfig.URL,
+			"url":  config.URL,
 		},
 	}
 
