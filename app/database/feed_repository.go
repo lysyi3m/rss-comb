@@ -144,7 +144,7 @@ func (r *FeedRepository) GetDueFeeds() ([]FeedScheduleInfo, error) {
 		SELECT name, next_fetch_at
 		FROM feeds
 		WHERE is_enabled = true
-		  AND next_fetch_at <= NOW()
+		  AND (next_fetch_at IS NULL OR next_fetch_at <= NOW())
 		ORDER BY name
 	`)
 	if err != nil {
