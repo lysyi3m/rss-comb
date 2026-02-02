@@ -2,6 +2,9 @@ package feed
 
 import (
 	"strings"
+	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/lysyi3m/rss-comb/app/types"
 )
@@ -75,5 +78,34 @@ func matchesFieldFilter(item types.Item, field, pattern string) bool {
 }
 
 func matchesPattern(value, pattern string) bool {
-	return strings.Contains(strings.ToLower(value), strings.ToLower(pattern))
+	// Normalize Unicode to canonical form (NFC)
+	normalizedValue := normalizeUnicode(normalizeWhitespace(strings.ToLower(value)))
+	normalizedPattern := normalizeUnicode(normalizeWhitespace(strings.ToLower(pattern)))
+	return strings.Contains(normalizedValue, normalizedPattern)
+}
+
+func normalizeUnicode(s string) string {
+	if !utf8.ValidString(s) {
+		return s
+	}
+	// Use NFC (Canonical Decomposition followed by Canonical Composition)
+	// This converts both "й" (U+0439) and "и+combining breve" (U+0438+U+0306) to the same form
+	return norm.NFC.String(s)
+}
+
+func normalizeWhitespace(s string) string {
+	// Replace all types of whitespace with regular spaces
+	s = strings.ReplaceAll(s, "\u00a0", " ") // non-breaking space
+	s = strings.ReplaceAll(s, "\u2009", " ") // thin space
+	s = strings.ReplaceAll(s, "\u202f", " ") // narrow no-break space
+	s = strings.ReplaceAll(s, "\t", " ")     // tab
+	s = strings.ReplaceAll(s, "\n", " ")     // newline
+	s = strings.ReplaceAll(s, "\r", " ")     // carriage return
+
+	// Collapse multiple spaces into single space
+	for strings.Contains(s, "  ") {
+		s = strings.ReplaceAll(s, "  ", " ")
+	}
+
+	return strings.TrimSpace(s)
 }

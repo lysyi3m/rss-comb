@@ -582,3 +582,193 @@ func TestFilterer_MatchesPattern(t *testing.T) {
 		}
 	}
 }
+
+func TestFilterer_WhitespaceNormalization(t *testing.T) {
+	// Test various whitespace scenarios
+	items := []types.Item{
+		{
+			Title: "Test\u00a0with\u00a0NBSP", // non-breaking spaces
+		},
+		{
+			Title: "Test  with  double  spaces",
+		},
+		{
+			Title: "Test\twith\ttabs",
+		},
+		{
+			Title: "Test\nwith\nnewlines",
+		},
+		{
+			Title: "Test\u2009with\u2009thin\u2009spaces", // thin spaces
+		},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"test with"},
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// All items should pass because after normalization they all contain "test with"
+	for i, item := range result {
+		if item.IsFiltered {
+			t.Errorf("Item %d should not be filtered after whitespace normalization. Title: %q", i, item.Title)
+		}
+	}
+}
+
+func TestFilterer_CyrillicWithNBSP(t *testing.T) {
+	// Test Cyrillic text with NBSP instead of regular space
+	items := []types.Item{
+		{
+			Title: "Тестовый\u00a0заголовок статьи", // Test title with NBSP
+		},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Excludes: []string{"Тестовый заголовок"}, // Filter with regular space
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// Item should be filtered even though the title has NBSP instead of regular space
+	if !result[0].IsFiltered {
+		t.Errorf("Item should be filtered despite NBSP in title")
+	}
+}
+
+func TestFilterer_MultipleConsecutiveSpaces(t *testing.T) {
+	items := []types.Item{
+		{
+			Title: "Breaking    News    Update", // multiple spaces
+		},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"breaking news update"},
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// Should match after collapsing multiple spaces
+	if result[0].IsFiltered {
+		t.Errorf("Item should not be filtered after collapsing multiple spaces")
+	}
+}
+
+func TestFilterer_LeadingTrailingWhitespace(t *testing.T) {
+	items := []types.Item{
+		{
+			Title: "  Breaking News  ",
+		},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"breaking news"},
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// Should match after trimming whitespace
+	if result[0].IsFiltered {
+		t.Errorf("Item should not be filtered after trimming whitespace")
+	}
+}
+
+func TestFilterer_UnicodeNormalization(t *testing.T) {
+	// Test Cyrillic 'й' which can be represented two ways:
+	// 1. As single character 'й' (U+0439) = composed form
+	// 2. As 'и' (U+0438) + combining breve (U+0306) = decomposed form
+
+	// Create test title with decomposed 'й' (и + combining breve)
+	// This is how it appears in some RSS feeds
+	titleDecomposedBytes := []byte{
+		// Новый (New)
+		208, 157, // Н
+		208, 190, // о
+		208, 178, // в
+		209, 139, // ы
+		208, 184, 204, 134, // й (decomposed: и + combining breve)
+		32, // space
+		// тест (test)
+		209, 130, // т
+		208, 181, // е
+		209, 129, // с
+		209, 130, // т
+	}
+
+	items := []types.Item{
+		{
+			// Title with composed 'й' (normal form)
+			Title: "Новый тест",
+		},
+		{
+			// Title with decomposed 'й' (и + combining breve)
+			Title: string(titleDecomposedBytes),
+		},
+	}
+
+	filters := []types.Filter{
+		{
+			Field: "title",
+			// Filter pattern with decomposed form
+			Excludes: []string{string(titleDecomposedBytes)},
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// Both items should be filtered despite different Unicode representations
+	for i, item := range result {
+		if !item.IsFiltered {
+			t.Errorf("Item %d should be filtered after Unicode normalization. Title: %q (bytes: %v)", i, item.Title, []byte(item.Title))
+		}
+	}
+}
+
+func TestFilterer_UnicodeNormalizationReverse(t *testing.T) {
+	// Test the reverse case: composed filter pattern, decomposed title
+
+	// Create title with decomposed 'й'
+	titleDecomposedBytes := []byte{
+		// Новый with decomposed й
+		208, 157, 208, 190, 208, 178, 209, 139,
+		208, 184, 204, 134, // й (decomposed)
+		32,                         // space
+		208, 177, 208, 187, 208, 190, 208, 179, // блог (blog)
+	}
+
+	items := []types.Item{
+		{
+			// Title with decomposed 'й'
+			Title: string(titleDecomposedBytes),
+		},
+	}
+
+	filters := []types.Filter{
+		{
+			Field: "title",
+			// Filter pattern with composed form (normal)
+			Excludes: []string{"Новый блог"},
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// Should be filtered after normalization
+	if !result[0].IsFiltered {
+		t.Errorf("Item should be filtered after Unicode normalization. Title bytes: %v", []byte(result[0].Title))
+	}
+}
