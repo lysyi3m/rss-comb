@@ -157,7 +157,10 @@ filters:
 - Filters support `title`, `description`, `content`, `authors`, `link`, and `categories` fields
 - **Filter patterns**: Use substring matching (`"text"`) or regex patterns (`"/pattern/"`) - both can be mixed together
 - **Regex features**: Automatically case-insensitive, compiled once and cached for performance
-- See `REGEX_PATTERNS.md` for comprehensive regex examples and pattern reference
+
+## Documentation
+
+- **[Regex Pattern Guide](docs/REGEX_PATTERNS.md)** - Comprehensive examples and regex pattern reference for advanced filtering
 
 ## API Endpoints
 

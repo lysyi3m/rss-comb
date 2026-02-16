@@ -368,16 +368,16 @@ RSS Comb supports two pattern matching modes that can be used together:
 ```yaml
 # Before: Multiple similar patterns
 excludes:
-  - "Мобильная разработка за неделю"
-  - "Новости кибербезопасности за неделю"
-  - "ТОП-5 ИБ-событий недели"
+  - "Mobile development weekly"
+  - "Security news weekly"
+  - "TOP-5 events of the week"
 
 # After: Single regex pattern
 excludes:
-  - "/за неделю|недели/"
+  - "/weekly|week/"
 ```
 
-See `REGEX_PATTERNS.md` for comprehensive examples and pattern reference.
+See `docs/REGEX_PATTERNS.md` for comprehensive examples and pattern reference.
 
 **Important Notes:**
 - The feed name is automatically derived from the filename (without `.yml` extension)
