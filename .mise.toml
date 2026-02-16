@@ -1,0 +1,5 @@
+# Project-specific tool versions
+# mise will automatically activate these when entering this directory
+
+[tools]
+go = "1.24.4"
