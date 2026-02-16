@@ -13,7 +13,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 - **iTunes Podcast Support**: Full support for iTunes podcast RSS extensions (duration, episode, season, artwork, etc.) with conditional namespace generation
 - **Automatic Deduplication**: Automatically eliminates duplicate items based on content hashing
 - **Content Extraction**: Intelligent full-text content extraction using [go-shiori/go-readability](https://github.com/go-shiori/go-readability)
-- **Flexible Filtering**: Configurable content filtering using include/exclude rules
+- **Flexible Filtering**: Powerful content filtering with both substring matching and regular expressions (regex)
 - **Background Processing**: Automated feed updates with configurable refresh intervals
 - **Simple Architecture**: Ticker-based processing with straightforward service functions
 - **Statistics & Monitoring**: Built-in stats endpoint and comprehensive logging
@@ -130,14 +130,16 @@ settings:
 filters:
   - field: "title"
     includes:
-      - "technology"
-      - "programming"
+      - "technology"           # Substring match (case-insensitive)
+      - "/^programming/"       # Regex: starts with "programming"
     excludes:
       - "advertisement"
       - "sponsored"
+      - "/weekly|digest/"      # Regex: matches either "weekly" OR "digest"
   - field: "description"
     excludes:
       - "clickbait"
+      - "/buy now|order today/" # Regex: common sales phrases
   - field: "authors"
     includes:
       - "john doe"
@@ -149,10 +151,13 @@ filters:
 - Feed names are derived from filenames (remove `.yml` extension)
 - Feed names must be unique and URL-safe
 - Feed titles are automatically extracted from the RSS/Atom source (no manual configuration needed)
-- `max_items` limits RSS output only - all feed items are stored in database
+- `max_items` limits RSS output only - all items are stored in database
 - `extract_content: true` enables automatic full-text content extraction from article URLs
 - Deduplication is automatic and always enabled
 - Filters support `title`, `description`, `content`, `authors`, `link`, and `categories` fields
+- **Filter patterns**: Use substring matching (`"text"`) or regex patterns (`"/pattern/"`) - both can be mixed together
+- **Regex features**: Automatically case-insensitive, compiled once and cached for performance
+- See `REGEX_PATTERNS.md` for comprehensive regex examples and pattern reference
 
 ## API Endpoints
 

@@ -99,6 +99,8 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		return
 	}
 
+	feed.ClearRegexCache()
+
 	config, err := services.SyncFeedConfig(c.Request.Context(), h.cfg.FeedsDir, name, h.feedRepo)
 	if err != nil {
 		slog.Error("Failed to sync feed config", "feed", name, "error", err)

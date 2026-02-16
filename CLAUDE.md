@@ -159,8 +159,8 @@ rss-comb/
    - **Parsing** (`parsing.go`): `feed.Parse()` - Universal RSS/Atom feed parsing using gofeed and normalization
    - **Generation** (`generator.go`): `feed.GenerateRSS()` - RSS 2.0 XML output generation for API responses
    - **Extraction** (`extraction.go`): `feed.Extract()` - Intelligent full-text content extraction using go-shiori/go-readability for feeds lacking <content:encoded>
-   - **Filtering** (`filtering.go`): `feed.Filter()` - Configurable content filtering with include/exclude rules
-   - **Performance Optimization**: Feed content hash comparison skips item processing when content unchanged
+   - **Filtering** (`filtering.go`): `feed.Filter()` - Configurable content filtering with include/exclude rules, supports both substring matching and regex patterns (`/pattern/`)
+   - **Performance Optimization**: Feed content hash comparison skips item processing when content unchanged; regex patterns compiled once and cached
    - Simple stateless functions without struct wrappers
 
 5. **Database Layer** (`app/database/`)
@@ -223,10 +223,10 @@ rss-comb/
 - `config_loader.go`: Pure functions for loading and validating YAML configuration files
 - `parsing.go`: `feed.Parse()` - RSS/Atom parsing and content normalization using gofeed, extracts feed timestamps and iTunes podcast metadata
 - `extraction.go`: `feed.Extract()` - Intelligent HTML content extraction using go-shiori/go-readability library
-- `filtering.go`: `feed.Filter()` - Configurable content filtering with include/exclude rules
+- `filtering.go`: `feed.Filter()` and `feed.ClearRegexCache()` - Content filtering supporting both substring and regex patterns (`/pattern/`); compiled regex cached in sync.Map, cleared on config reload
 - `generator.go`: `feed.GenerateRSS()` - RSS 2.0 XML output generation with conditional iTunes podcast namespace (only when podcast data present) and tags for API responses
 - `types.go`: Feed data structures and models, configuration types
-- **Performance**: Intelligent content hash comparison skips processing when feed unchanged
+- **Performance**: Intelligent content hash comparison skips processing when feed unchanged; regex patterns compiled once and cached
 - **Architecture**: Database is single source of truth at runtime, YAML files loaded only at startup/reload
 - **Design**: Simple stateless functions instead of struct wrappers for better Go idioms
 - **iTunes Support**: Automatic extraction and generation of iTunes podcast RSS extensions (author, image, explicit, owner, duration, episode, season, type); iTunes namespace added conditionally only when podcast data is present
@@ -342,6 +342,42 @@ filters:
     includes: ["john doe"]
     excludes: ["spammer"]
 ```
+
+**Filter Pattern Types:**
+RSS Comb supports two pattern matching modes that can be used together:
+
+1. **Substring matching** (default): Case-insensitive substring search with Unicode normalization
+   ```yaml
+   excludes: ["weekly digest"]  # Matches any title containing "weekly digest"
+   ```
+
+2. **Regular expressions**: Patterns wrapped in `/slashes/` are treated as regex
+   ```yaml
+   excludes: ["/weekly|digest/"]      # Matches "weekly" OR "digest"
+   includes: ["/^tech(nology)?/"]     # Starts with "tech" or "technology"
+   ```
+
+**Regex Features:**
+- Automatically case-insensitive (uses `(?i)` flag)
+- Compiled once and cached for performance
+- Cache cleared on config reload for fresh state
+- Invalid regex falls back to literal substring matching with warning
+- Full Go regex syntax support (RE2)
+
+**Example: Simplifying Large Filter Lists**
+```yaml
+# Before: Multiple similar patterns
+excludes:
+  - "Мобильная разработка за неделю"
+  - "Новости кибербезопасности за неделю"
+  - "ТОП-5 ИБ-событий недели"
+
+# After: Single regex pattern
+excludes:
+  - "/за неделю|недели/"
+```
+
+See `REGEX_PATTERNS.md` for comprehensive examples and pattern reference.
 
 **Important Notes:**
 - The feed name is automatically derived from the filename (without `.yml` extension)

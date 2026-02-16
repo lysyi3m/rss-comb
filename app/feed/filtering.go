@@ -1,13 +1,24 @@
 package feed
 
 import (
+	"log"
+	"regexp"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/lysyi3m/rss-comb/app/types"
 )
+
+var regexCache sync.Map // map[string]*regexp.Regexp
+
+// ClearRegexCache clears the compiled regex pattern cache.
+// Should be called when feed configurations are reloaded.
+func ClearRegexCache() {
+	regexCache = sync.Map{}
+}
 
 func Filter(items []types.Item, filters []types.Filter) []types.Item {
 	if len(filters) == 0 {
@@ -78,10 +89,53 @@ func matchesFieldFilter(item types.Item, field, pattern string) bool {
 }
 
 func matchesPattern(value, pattern string) bool {
-	// Normalize Unicode to canonical form (NFC)
 	normalizedValue := normalizeUnicode(normalizeWhitespace(strings.ToLower(value)))
+
+	if isRegexPattern(pattern) {
+		regexPattern := extractRegexPattern(pattern)
+		re, err := getCompiledRegex(regexPattern)
+		if err != nil {
+			log.Printf("Invalid regex pattern %q: %v, falling back to literal match", pattern, err)
+			normalizedPattern := normalizeUnicode(normalizeWhitespace(strings.ToLower(pattern)))
+			return strings.Contains(normalizedValue, normalizedPattern)
+		}
+		return re.MatchString(normalizedValue)
+	}
+
 	normalizedPattern := normalizeUnicode(normalizeWhitespace(strings.ToLower(pattern)))
 	return strings.Contains(normalizedValue, normalizedPattern)
+}
+
+// isRegexPattern checks if a pattern is wrapped in slashes (e.g., "/pattern/")
+func isRegexPattern(pattern string) bool {
+	return len(pattern) >= 2 && pattern[0] == '/' && pattern[len(pattern)-1] == '/'
+}
+
+// extractRegexPattern removes the surrounding slashes from a regex pattern
+// and prepends case-insensitive flag if not already present
+func extractRegexPattern(pattern string) string {
+	extracted := pattern[1 : len(pattern)-1]
+
+	if !strings.HasPrefix(extracted, "(?i)") {
+		extracted = "(?i)" + extracted
+	}
+
+	return extracted
+}
+
+// getCompiledRegex retrieves a compiled regex from cache or compiles and caches it
+func getCompiledRegex(pattern string) (*regexp.Regexp, error) {
+	if cached, ok := regexCache.Load(pattern); ok {
+		return cached.(*regexp.Regexp), nil
+	}
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	regexCache.Store(pattern, re)
+	return re, nil
 }
 
 func normalizeUnicode(s string) string {

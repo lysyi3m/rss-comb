@@ -11,12 +11,14 @@ settings:
 filters:
   - field: "title"
     includes:
-      - "technology"
-      - "programming"
+      - "technology"           # Substring match (case-insensitive)
+      - "/^programming/"       # Regex: starts with "programming"
     excludes:
       - "advertisement"
       - "spam"
+      - "/weekly|digest/"      # Regex: matches either "weekly" OR "digest"
 
   - field: "description"
     excludes:
       - "click here"
+      - "/buy now|order today/" # Regex: common sales phrases

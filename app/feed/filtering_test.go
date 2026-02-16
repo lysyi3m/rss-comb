@@ -772,3 +772,298 @@ func TestFilterer_UnicodeNormalizationReverse(t *testing.T) {
 		t.Errorf("Item should be filtered after Unicode normalization. Title bytes: %v", []byte(result[0].Title))
 	}
 }
+
+func TestFilterer_RegexPattern_Basic(t *testing.T) {
+	items := []types.Item{
+		{Title: "Tech News Update"},
+		{Title: "Technology Article"},
+		{Title: "Sports News"},
+		{Title: "Random Post"},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"/^tech/"}, // Regex: starts with "tech" (case insensitive)
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// First two items should pass (start with "tech")
+	if result[0].IsFiltered {
+		t.Errorf("First item should not be filtered (matches /^tech/)")
+	}
+	if result[1].IsFiltered {
+		t.Errorf("Second item should not be filtered (matches /^tech/)")
+	}
+
+	// Last two items should be filtered (don't start with "tech")
+	if !result[2].IsFiltered {
+		t.Errorf("Third item should be filtered (doesn't match /^tech/)")
+	}
+	if !result[3].IsFiltered {
+		t.Errorf("Fourth item should be filtered (doesn't match /^tech/)")
+	}
+}
+
+func TestFilterer_RegexPattern_Exclude(t *testing.T) {
+	items := []types.Item{
+		{Title: "Мобильная разработка за неделю"},
+		{Title: "Новости кибербезопасности за неделю"},
+		{Title: "ТОП-5 ИБ-событий недели"},
+		{Title: "Регулярная статья о программировании"},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Excludes: []string{"/за неделю|недели/"}, // Regex: matches weekly digests
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// First three items should be filtered (match regex)
+	if !result[0].IsFiltered {
+		t.Errorf("First item should be filtered (matches weekly pattern)")
+	}
+	if !result[1].IsFiltered {
+		t.Errorf("Second item should be filtered (matches weekly pattern)")
+	}
+	if !result[2].IsFiltered {
+		t.Errorf("Third item should be filtered (matches weekly pattern)")
+	}
+
+	// Fourth item should pass (doesn't match)
+	if result[3].IsFiltered {
+		t.Errorf("Fourth item should not be filtered (doesn't match weekly pattern)")
+	}
+}
+
+func TestFilterer_RegexPattern_CaseInsensitive(t *testing.T) {
+	items := []types.Item{
+		{Title: "BREAKING NEWS"},
+		{Title: "breaking news"},
+		{Title: "Breaking News"},
+		{Title: "other content"},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"/^breaking/"}, // Should match all cases
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// First three should pass (case insensitive)
+	for i := 0; i < 3; i++ {
+		if result[i].IsFiltered {
+			t.Errorf("Item %d should not be filtered (case insensitive regex)", i)
+		}
+	}
+
+	// Fourth should be filtered
+	if !result[3].IsFiltered {
+		t.Errorf("Fourth item should be filtered")
+	}
+}
+
+func TestFilterer_RegexPattern_Categories(t *testing.T) {
+	items := []types.Item{
+		{Title: "Article 1", Categories: []string{"Angular", "React", "Vue"}},
+		{Title: "Article 2", Categories: []string{"Python", "Go", "Rust"}},
+		{Title: "Article 3", Categories: []string{"JavaScript", "TypeScript"}},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "categories",
+			Excludes: []string{"/^(angular|vue|react)$/"}, // Exclude frontend frameworks
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// First item should be filtered (has Angular, Vue, React)
+	if !result[0].IsFiltered {
+		t.Errorf("First item should be filtered (matches frontend frameworks)")
+	}
+
+	// Second item should pass (no frontend frameworks)
+	if result[1].IsFiltered {
+		t.Errorf("Second item should not be filtered (no frontend frameworks)")
+	}
+
+	// Third item should pass (JavaScript/TypeScript don't match exact pattern)
+	if result[2].IsFiltered {
+		t.Errorf("Third item should not be filtered (JS/TS don't match exact pattern)")
+	}
+}
+
+func TestFilterer_RegexPattern_MixedWithSubstring(t *testing.T) {
+	// Test that regex and substring patterns work together
+	items := []types.Item{
+		{Title: "Tech Weekly Digest"},
+		{Title: "Tech Article"},
+		{Title: "Weekly Sports Update"},
+		{Title: "Random Article"},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"tech"},           // Substring
+			Excludes: []string{"/weekly|digest/"}, // Regex
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// First item: has "tech" but also has "weekly" -> filtered
+	if !result[0].IsFiltered {
+		t.Errorf("First item should be filtered (excluded by regex)")
+	}
+
+	// Second item: has "tech" and no excludes -> pass
+	if result[1].IsFiltered {
+		t.Errorf("Second item should not be filtered")
+	}
+
+	// Third item: no "tech" -> filtered
+	if !result[2].IsFiltered {
+		t.Errorf("Third item should be filtered (no 'tech')")
+	}
+
+	// Fourth item: no "tech" -> filtered
+	if !result[3].IsFiltered {
+		t.Errorf("Fourth item should be filtered (no 'tech')")
+	}
+}
+
+func TestFilterer_RegexPattern_Invalid(t *testing.T) {
+	// Test that invalid regex falls back to literal matching
+	items := []types.Item{
+		{Title: "Test /[invalid/ pattern"},
+		{Title: "Another article"},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"/[invalid/"}, // Invalid regex (unclosed bracket)
+		},
+	}
+
+	result := Filter(items, filters)
+
+	// First item should pass (contains literal "/[invalid/" substring)
+	// Invalid regex falls back to substring match of "/[invalid/"
+	if result[0].IsFiltered {
+		t.Errorf("First item should not be filtered (contains literal '/[invalid/')")
+	}
+
+	// Second item should be filtered (doesn't contain literal "/[invalid/")
+	if !result[1].IsFiltered {
+		t.Errorf("Second item should be filtered (no literal match)")
+	}
+}
+
+func TestFilterer_RegexCache(t *testing.T) {
+	// Test that cache works correctly
+	items := []types.Item{
+		{Title: "Tech Article 1"},
+		{Title: "Tech Article 2"},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"/^tech/"}, // Same pattern used multiple times
+		},
+	}
+
+	// Process items multiple times
+	for i := 0; i < 3; i++ {
+		result := Filter(items, filters)
+		for j, item := range result {
+			if item.IsFiltered {
+				t.Errorf("Iteration %d, Item %d should not be filtered", i, j)
+			}
+		}
+	}
+}
+
+func TestFilterer_ClearRegexCache(t *testing.T) {
+	items := []types.Item{
+		{Title: "Tech Article"},
+	}
+
+	filters := []types.Filter{
+		{
+			Field:    "title",
+			Includes: []string{"/^tech/"},
+		},
+	}
+
+	// First processing - populates cache
+	result1 := Filter(items, filters)
+	if result1[0].IsFiltered {
+		t.Errorf("Item should not be filtered before cache clear")
+	}
+
+	// Clear cache
+	ClearRegexCache()
+
+	// Second processing - should work the same after cache clear
+	result2 := Filter(items, filters)
+	if result2[0].IsFiltered {
+		t.Errorf("Item should not be filtered after cache clear")
+	}
+}
+
+func TestIsRegexPattern(t *testing.T) {
+	tests := []struct {
+		pattern  string
+		expected bool
+	}{
+		{"/^test$/", true},
+		{"/pattern/", true},
+		{"/.*/", true},
+		{"pattern", false},
+		{"/only-start", false},
+		{"only-end/", false},
+		{"/", false},
+		{"//", true}, // Edge case: empty regex
+		{"", false},
+	}
+
+	for _, test := range tests {
+		result := isRegexPattern(test.pattern)
+		if result != test.expected {
+			t.Errorf("isRegexPattern(%q): expected %v, got %v", test.pattern, test.expected, result)
+		}
+	}
+}
+
+func TestExtractRegexPattern(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"/^test$/", "(?i)^test$"},
+		{"/pattern/", "(?i)pattern"},
+		{"/(?i)already-case-insensitive/", "(?i)already-case-insensitive"},
+		{"/(?m)multiline/", "(?i)(?m)multiline"}, // Adds (?i) even with other flags
+		{"//", "(?i)"},
+	}
+
+	for _, test := range tests {
+		result := extractRegexPattern(test.input)
+		if result != test.expected {
+			t.Errorf("extractRegexPattern(%q): expected %q, got %q", test.input, test.expected, result)
+		}
+	}
+}
