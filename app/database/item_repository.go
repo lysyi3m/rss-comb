@@ -25,7 +25,8 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 		       fi.is_filtered,
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, ''),
-		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, '')
+		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, ''),
+		       fi.content_extraction_status
 		FROM feed_items fi
 		JOIN feeds f ON fi.feed_id = f.id
 		WHERE f.name = $1
@@ -39,7 +40,7 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 	return r.scanItemRows(rows)
 }
 
-func (r *ItemRepository) UpsertItem(feedName string, item types.Item) error {
+func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, error) {
 	authors := item.Authors
 	if authors == nil {
 		authors = []string{}
@@ -50,16 +51,18 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) error {
 		categories = []string{}
 	}
 
-	_, err := r.db.Exec(`
+	var itemID string
+	err := r.db.QueryRow(`
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,
 			published_at, updated_at, authors,
 			categories, is_filtered, content_hash,
 			enclosure_url, enclosure_length, enclosure_type,
-			itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image
+			itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image,
+			content_extraction_status
 		) VALUES (
 			(SELECT id FROM feeds WHERE name = $1),
-			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
 		)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
@@ -77,18 +80,21 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) error {
 			itunes_episode = EXCLUDED.itunes_episode,
 			itunes_season = EXCLUDED.itunes_season,
 			itunes_episode_type = EXCLUDED.itunes_episode_type,
-			itunes_image = EXCLUDED.itunes_image
+			itunes_image = EXCLUDED.itunes_image,
+			content_extraction_status = EXCLUDED.content_extraction_status
+		RETURNING id
 	`, feedName, item.GUID, item.Link, item.Title, item.Description, item.Content,
 		item.PublishedAt, item.UpdatedAt, pq.Array(authors),
 		pq.Array(categories), item.IsFiltered,
 		item.ContentHash, item.EnclosureURL, item.EnclosureLength, item.EnclosureType,
-		item.ITunesDuration, item.ITunesEpisode, item.ITunesSeason, item.ITunesEpisodeType, item.ITunesImage)
+		item.ITunesDuration, item.ITunesEpisode, item.ITunesSeason, item.ITunesEpisodeType, item.ITunesImage,
+		item.ContentExtractionStatus).Scan(&itemID)
 
 	if err != nil {
-		return fmt.Errorf("failed to upsert item: %w", err)
+		return "", fmt.Errorf("failed to upsert item: %w", err)
 	}
 
-	return nil
+	return itemID, nil
 }
 
 func (r *ItemRepository) UpdateItemFilterStatus(itemID string, isFiltered bool) error {
@@ -133,11 +139,13 @@ func (r *ItemRepository) GetVisibleItems(feedName string, limit int) ([]Item, er
 		       fi.published_at, fi.updated_at, fi.authors, fi.categories, fi.is_filtered,
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), fi.enclosure_length, COALESCE(fi.enclosure_type, ''),
-		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, '')
+		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, ''),
+		       fi.content_extraction_status
 		FROM feed_items fi
 		JOIN feeds f ON fi.feed_id = f.id
 		WHERE f.name = $1
 		  AND fi.is_filtered = false
+		  AND (fi.content_extraction_status IS NULL OR fi.content_extraction_status IN ('ready', 'failed'))
 		ORDER BY fi.published_at DESC
 		LIMIT $2
 	`, feedName, limit)
@@ -161,6 +169,7 @@ func (r *ItemRepository) scanItemRows(rows *sql.Rows) ([]Item, error) {
 			&item.ContentHash, &item.CreatedAt,
 			&item.EnclosureURL, &item.EnclosureLength, &item.EnclosureType,
 			&item.ITunesDuration, &item.ITunesEpisode, &item.ITunesSeason, &item.ITunesEpisodeType, &item.ITunesImage,
+			&item.ContentExtractionStatus,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan item row: %w", err)
@@ -173,4 +182,53 @@ func (r *ItemRepository) scanItemRows(rows *sql.Rows) ([]Item, error) {
 	}
 
 	return items, nil
+}
+
+func (r *ItemRepository) GetItemByID(itemID string) (*Item, error) {
+	var item Item
+	err := r.db.QueryRow(`
+		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''),
+		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
+		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'),
+		       COALESCE(fi.categories, '{}'),
+		       fi.is_filtered,
+		       fi.content_hash, fi.created_at,
+		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, ''),
+		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, ''),
+		       fi.content_extraction_status
+		FROM feed_items fi
+		WHERE fi.id = $1
+	`, itemID).Scan(
+		&item.ID, &item.GUID, &item.Link, &item.Title,
+		&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
+		pq.Array(&item.Authors), pq.Array(&item.Categories),
+		&item.IsFiltered,
+		&item.ContentHash, &item.CreatedAt,
+		&item.EnclosureURL, &item.EnclosureLength, &item.EnclosureType,
+		&item.ITunesDuration, &item.ITunesEpisode, &item.ITunesSeason, &item.ITunesEpisodeType, &item.ITunesImage,
+		&item.ContentExtractionStatus,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get item by ID: %w", err)
+	}
+
+	return &item, nil
+}
+
+func (r *ItemRepository) UpdateContentExtractionStatus(itemID, status, content string) error {
+	_, err := r.db.Exec(`
+		UPDATE feed_items
+		SET content_extraction_status = $2, content = CASE WHEN $3 = '' THEN content ELSE $3 END
+		WHERE id = $1
+	`, itemID, status, content)
+
+	if err != nil {
+		return fmt.Errorf("failed to update content extraction status: %w", err)
+	}
+
+	return nil
 }

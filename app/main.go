@@ -72,7 +72,8 @@ func main() {
 	jobRepo := database.NewJobRepository(db)
 
 	pool := jobs.NewWorkerPool(jobRepo, cfg.WorkerCount)
-	pool.RegisterHandler("fetch_feed", jobs.FetchFeedHandler(feedRepo, itemRepo, httpClient, cfg.UserAgent))
+	pool.RegisterHandler("fetch_feed", jobs.FetchFeedHandler(feedRepo, itemRepo, jobRepo, httpClient, cfg.UserAgent))
+	pool.RegisterHandler("extract_content", jobs.ExtractContentHandler(feedRepo, itemRepo, httpClient, cfg.UserAgent))
 
 	scheduler := jobs.NewScheduler(time.Duration(cfg.SchedulerInterval)*time.Second, feedRepo, jobRepo)
 

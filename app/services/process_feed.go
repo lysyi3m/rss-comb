@@ -21,6 +21,7 @@ func ProcessFeed(
 	feedName string,
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
+	jobRepo *database.JobRepository,
 	httpClient *http.Client,
 	userAgent string,
 ) error {
@@ -76,8 +77,7 @@ func ProcessFeed(
 	duplicateCount := 0
 	filteredCount := 0
 	newCount := 0
-	extractionSuccessCount := 0
-	extractionFailureCount := 0
+	extractionJobCount := 0
 
 	if len(items) == 0 {
 		slog.Info("No parsed items found, skipping item processing",
@@ -113,22 +113,20 @@ func ProcessFeed(
 		}
 
 		if !processedItem.IsFiltered && settings.ExtractContent {
-			extractedContent, extractionErr := fetchAndExtractContent(ctx, processedItem, settings, httpClient, userAgent)
-			if extractionErr != nil {
-				slog.Warn("Failed to extract content for item",
-					"feed", feedName,
-					"item_link", processedItem.Link,
-					"error", extractionErr)
-				extractionFailureCount++
-			} else if extractedContent != "" {
-				processedItem.Content = extractedContent
-				extractionSuccessCount++
-			}
+			processedItem.ContentExtractionStatus = stringPtr("pending")
 		}
 
-		err = itemRepo.UpsertItem(feedName, processedItem)
+		itemID, err := itemRepo.UpsertItem(feedName, processedItem)
 		if err != nil {
 			return fmt.Errorf("failed to upsert item: %w", err)
+		}
+
+		if processedItem.ContentExtractionStatus != nil && *processedItem.ContentExtractionStatus == "pending" {
+			if _, err := jobRepo.CreateJob("extract_content", dbFeed.ID, &itemID, 3); err != nil {
+				slog.Error("Failed to create extract_content job", "feed", feedName, "item_id", itemID, "error", err)
+			} else {
+				extractionJobCount++
+			}
 		}
 	}
 
@@ -142,7 +140,7 @@ func ProcessFeed(
 	}
 
 	if settings.ExtractContent {
-		logData = append(logData, "extraction_success", extractionSuccessCount, "extraction_failure", extractionFailureCount)
+		logData = append(logData, "extraction_jobs", extractionJobCount)
 	}
 
 	slog.Info("Feed processed", logData...)
@@ -150,7 +148,11 @@ func ProcessFeed(
 	return nil
 }
 
-func fetch(ctx context.Context, url string, timeout int, httpClient *http.Client, userAgent string, requireHTML bool) ([]byte, error) {
+func stringPtr(s string) *string {
+	return &s
+}
+
+func Fetch(ctx context.Context, url string, timeout int, httpClient *http.Client, userAgent string, requireHTML bool) ([]byte, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
@@ -195,7 +197,7 @@ func fetchAndParseFeed(
 	httpClient *http.Client,
 	userAgent string,
 ) (*feed.Metadata, []types.Item, *string, string, error) {
-	data, err := fetch(ctx, feedURL, settings.Timeout, httpClient, userAgent, false)
+	data, err := Fetch(ctx, feedURL, settings.Timeout, httpClient, userAgent, false)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("failed to fetch feed: %w", err)
 	}
@@ -216,26 +218,3 @@ func fetchAndParseFeed(
 	return metadata, items, contentHash, newContentHash, nil
 }
 
-func fetchAndExtractContent(
-	ctx context.Context,
-	item types.Item,
-	settings *types.Settings,
-	httpClient *http.Client,
-	userAgent string,
-) (string, error) {
-	if item.Link == "" {
-		return "", fmt.Errorf("item has no link")
-	}
-
-	data, err := fetch(ctx, item.Link, settings.Timeout, httpClient, userAgent, true)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch article content: %w", err)
-	}
-
-	extractedContent, err := feed.Extract(data)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract content: %w", err)
-	}
-
-	return extractedContent, nil
-}

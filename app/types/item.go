@@ -13,7 +13,8 @@ type Item struct {
 	Authors         []string
 	Categories      []string
 	ContentHash     string
-	IsFiltered      bool
+	IsFiltered              bool
+	ContentExtractionStatus *string
 	EnclosureURL    string
 	EnclosureLength int64
 	EnclosureType   string
