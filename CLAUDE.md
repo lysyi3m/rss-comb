@@ -169,14 +169,27 @@ rss-comb/
    - Optimized queries with proper indexing
    - Embedded migrations with automatic execution on startup
 
-6. **Feed Processing Services** (`app/services/`)
-   - Simple service functions without task abstractions
-   - `ProcessFeed`: Fetches, parses, filters, extracts content, and stores feed items
+6. **Job Queue System** (`app/jobs/`, `app/database/job_repository.go`)
+   - PostgreSQL-backed job queue with `FOR UPDATE SKIP LOCKED` for concurrent job claiming
+   - Worker pool with configurable concurrency via `WORKER_COUNT`
+   - Scheduler creates `fetch_feed` jobs for due feeds on each tick
+   - Job types: `fetch_feed` (feed processing), `extract_content` (article extraction), `download_media` (yt-dlp audio download)
+   - Automatic retry with configurable max retries per job type
+   - Stale job recovery for crashed workers
+
+7. **Feed Processing Services** (`app/services/`)
+   - `ProcessFeed`: Fetches, parses, filters, and stores feed items; creates `extract_content` and `download_media` jobs
    - `RefilterFeed`: Re-applies filters to all items for a feed (used by reload endpoint)
-   - Sequential processing via ticker in main.go
    - Database-driven scheduling with next_fetch timestamps
 
-7. **HTTP API** (`app/api/`)
+8. **Media System** (`app/media/`)
+   - Audio extraction from YouTube videos via configurable yt-dlp command (`YT_DLP_CMD`)
+   - GUID-based file naming (YouTube video ID extracted from `yt:video:` GUID)
+   - Three-layer dedup: DB lookup → filesystem check → download
+   - Global media cleanup removes orphaned files not referenced by any feed
+   - Supports local yt-dlp binary or Docker-based execution
+
+9. **HTTP API** (`app/api/`)
    - RESTful endpoints for feed access
    - RSS 2.0 output generation via feed system
    - Direct database queries for real-time data
@@ -187,11 +200,12 @@ rss-comb/
 1. **Application Initialization**: `cfg.Load()` loads application configuration, passed explicitly to all components
 2. **Feed Configuration Loading**: YAML files loaded from `feeds/*.yml` and stored in database at startup
 3. **Database Sync**: Configuration changes automatically registered in database with hash-based change detection via PostgreSQL UPSERT
-4. **Feed Processing Loop**: Ticker (every 30 seconds) queries database for enabled feeds with `next_fetch` due
-5. **Feed Processing**: `services.ProcessFeed()` fetches feed data, parses RSS/Atom, filters, and deduplicates items with content hash optimization
-6. **Content Extraction**: During processing, content extractor fetches and extracts full article content when `extract_content: true`
-7. **Storage**: Items stored with filter status and content hashes for deduplication
-8. **RSS Feed Access**: `/feeds/:name` endpoint generates RSS 2.0 XML from database using `feed.GenerateRSS()` with visible items
+4. **Job Scheduling**: Scheduler (every 30 seconds) queries database for enabled feeds with `next_fetch` due, creates `fetch_feed` jobs
+5. **Feed Processing**: Worker pool claims jobs; `services.ProcessFeed()` fetches feed data, parses RSS/Atom, filters, deduplicates items, creates `extract_content` or `download_media` jobs for new items
+6. **Content Extraction**: `extract_content` jobs fetch article HTML and extract clean text (items hidden until ready)
+7. **Media Downloading**: `download_media` jobs run yt-dlp to extract audio from YouTube videos (items hidden until ready; failed items stay hidden)
+8. **Storage**: Items stored with filter status, content hashes, and processing status columns
+9. **RSS Feed Access**: `/feeds/:name` endpoint generates RSS 2.0 XML from database using `feed.GenerateRSS()` with visible items; media items get `<enclosure>` URLs pointing to `/media/`
 9. **Configuration Reload**: `/api/feeds/:name/reload` API endpoint reloads YAML, updates database, and synchronously refilters existing items
 
 ### Database Schema
@@ -213,9 +227,10 @@ rss-comb/
 
 ### Database Schema Details
 - **feeds table**: id, name, feed_url, title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, content_hash, is_enabled, settings (JSONB), filters (JSONB), config_hash, itunes_author, itunes_image, itunes_explicit, itunes_owner_name, itunes_owner_email, created_at, updated_at
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image, created_at
-- **Key relationships**: feeds.id → feed_items.feed_id (UUID primary keys)
-- **Indexes**: feed_id, published_at, content_hash, is_enabled for optimized queries
+- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image, content_extraction_status, media_status, media_path, media_size, created_at
+- **jobs table**: id, job_type, feed_id, item_id (nullable), status, retries, max_retries, error_message, created_at, updated_at
+- **Key relationships**: feeds.id → feed_items.feed_id, feeds.id → jobs.feed_id, feed_items.id → jobs.item_id (UUID primary keys)
+- **Indexes**: feed_id, published_at, content_hash, is_enabled, jobs pending/dedup indexes, media_path for cross-feed dedup
 - **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
 - **iTunes Podcast Support**: All iTunes fields are nullable and automatically extracted from podcast RSS feeds via gofeed library's built-in iTunes extension support
 
@@ -237,24 +252,37 @@ rss-comb/
 - `item_repository.go`: Item operations implementing all repository interfaces
 - `types.go`: Database model structs (Feed, FeedItem, Item)
 - `interfaces.go`: Clean interface definitions with segregated responsibilities
-- `migrations.go`: Embedded migration management with 7 migration files
-- `migrations/`: SQL files (001-007) handling schema evolution, including iTunes podcast support (007)
+- `job_repository.go`: Job queue operations (create, claim, complete, fail, reset stale)
+- `migrations.go`: Embedded migration management with 10 migration files
+- `migrations/`: SQL files (001-010) handling schema evolution, including jobs table (008), content extraction status (009), media columns (010)
 - Interface segregation principle: separate interfaces for different responsibilities
+
+### Job Queue System (`app/jobs/`)
+- `worker.go`: Worker pool with configurable concurrency, polls for pending jobs
+- `scheduler.go`: Ticker-based scheduler that creates `fetch_feed` jobs for due feeds and resets stale jobs
+- `handlers.go`: Job handlers — `FetchFeedHandler`, `ExtractContentHandler`, `DownloadMediaHandler`
+- **Job types**: `fetch_feed` (max_retries=0, scheduler retries), `extract_content` (max_retries=3), `download_media` (max_retries=3)
+- **Concurrency**: `FOR UPDATE SKIP LOCKED` for safe concurrent job claiming
+- **Cleanup**: Completed and exhausted jobs are deleted; failure state captured on items
 
 ### Feed Processing Services Layer (`app/services/`)
 - `process_feed.go`: Feed processing service function
   - Fetches RSS/Atom feed data
   - Parses and normalizes feed content
   - Applies filters and deduplication
-  - Extracts full content when configured
+  - Creates `extract_content` jobs when `extract_content: true`
+  - Creates `download_media` jobs when `media_extraction: true`
   - Stores items in database
 - `refilter_feed.go`: Feed refiltering service function (used by reload endpoint)
-  - Retrieves all items for a feed
-  - Re-applies current filters
-  - Updates filter status in database
-- **Design**: Simple service functions, no task abstractions or queues
-- **Processing**: Sequential execution via ticker in main.go
-- **Failure Handling**: Errors logged, feed will be retried on next ticker interval based on next_fetch_at
+- **Processing**: Via job queue worker pool (replaced old ticker-based sequential processing)
+- **Failure Handling**: Errors logged, feed will be retried on next scheduler tick based on next_fetch_at
+
+### Media System (`app/media/`)
+- `downloader.go`: `Validate()`, `Download()`, `MediaFileID()` — yt-dlp integration via configurable command string
+- `cleanup.go`: `CleanupMedia()` — deletes orphaned media files not referenced by any feed
+- `filecheck.go`: `FileExists()` — filesystem existence check for dedup fallback
+- **Command splitting**: `YT_DLP_CMD` supports multi-word values (e.g., `docker compose run --rm yt-dlp`) via `strings.Fields`
+- **File naming**: YouTube video ID extracted from GUID (`yt:video:ID`), fallback to SHA-256 hash of GUID
 
 ### Application Configuration System (`app/cfg/`)
 - `types.go`: Application configuration structs and interface definitions
@@ -332,7 +360,8 @@ settings:
   refresh_interval: 1800  # 30 minutes (recommended)
   max_items: 50              # Limits RSS output items (all items stored in database)
   timeout: 30            # seconds
-  extract_content: true     # Enable automatic content extraction
+  extract_content: true     # Enable automatic content extraction (mutually exclusive with media_extraction)
+  media_extraction: false   # Enable audio download from YouTube videos via yt-dlp (mutually exclusive with extract_content)
 
 filters:
   - field: "title"
@@ -443,8 +472,11 @@ All configuration options support both environment variables and command-line fl
 - `FEEDS_DIR` (default: ./feeds) - Directory containing feed configuration files
 - `PORT` (default: 8080) - HTTP server port
 - `BASE_URL` (optional) - Public base URL for the service (e.g., https://feeds.example.com). When set, RSS feeds use this URL for self-referencing links instead of localhost:port. Ideal for production deployments behind proxies.
-- `SCHEDULER_INTERVAL` (default: 30) - Feed processing ticker interval in seconds
+- `SCHEDULER_INTERVAL` (default: 30) - Scheduler interval in seconds for creating feed processing jobs
+- `WORKER_COUNT` (default: 5) - Number of concurrent workers for processing jobs (feed fetching, content extraction, media downloads)
 - `API_ACCESS_KEY` (optional) - API access key for authentication
+- `MEDIA_DIR` (default: ./media) - Directory for downloaded media files
+- `YT_DLP_CMD` (default: "yt-dlp") - yt-dlp command; supports multi-word values for Docker (e.g., `docker compose run --rm yt-dlp`)
 - `USER_AGENT` (default: "RSS Comb/1.0") - User agent string for HTTP requests
 - `TZ` (default: "UTC") - Timezone for display timestamps in API responses and RSS feeds (e.g., UTC, America/New_York, Europe/London). Database operations always use UTC for consistency.
 
@@ -576,6 +608,11 @@ go test -v ./app/database
 #### `GET /health`
 - Returns application health status and statistics
 - Includes feed counts and processing metrics
+
+#### `GET /media/<filename>`
+- Serves downloaded media files (MP3 audio from YouTube videos)
+- Static file serving via gin with Content-Type, range requests, and caching headers
+- Files named by YouTube video ID (e.g., `Wrgx6STAaWo.mp3`)
 
 ### API Endpoints (require API key)
 

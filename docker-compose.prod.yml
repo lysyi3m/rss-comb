@@ -1,0 +1,49 @@
+services:
+  app:
+    image: ghcr.io/lysyi3m/rss-comb:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-rss_comb}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-rss_comb}
+      FEEDS_DIR: /app/feeds
+      MEDIA_DIR: /app/media
+      YT_DLP_CMD: "docker run --rm -v rss-comb-prod_media_data:/downloads jauderho/yt-dlp:2026.03.17"
+      BASE_URL: ${BASE_URL}
+      API_ACCESS_KEY: ${API_ACCESS_KEY}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./feeds:/app/feeds:ro
+      - media_data:/app/media
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:15.13-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-rss_comb}
+      POSTGRES_USER: ${DB_USER:-rss_comb}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rss_comb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  yt-dlp:
+    image: jauderho/yt-dlp:2026.03.17
+    profiles: ["tools"]
+    entrypoint: ["yt-dlp"]
+
+volumes:
+  postgres_data:
+  media_data:

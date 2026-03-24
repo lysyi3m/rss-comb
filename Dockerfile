@@ -63,7 +63,7 @@ COPY --from=builder /build/rss-comb .
 # Migrations are now embedded in the application binary
 
 # Create feeds directory and set ownership (combine for fewer layers)
-RUN mkdir -p feeds && \
+RUN mkdir -p feeds media && \
     chown -R appuser:appgroup /app
 
 # Switch to non-root user
@@ -73,6 +73,7 @@ USER appuser
 ENV GIN_MODE=release \
     PORT=8080 \
     FEEDS_DIR=/app/feeds \
+    MEDIA_DIR=/app/media \
     TZ=UTC
 
 # Accept PORT as build argument with default
