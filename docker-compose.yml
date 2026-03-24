@@ -12,5 +12,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  yt-dlp:
+    image: jauderho/yt-dlp:2026.03.17
+    volumes:
+      - ./media:/downloads
+    entrypoint: ["yt-dlp"]
+
 volumes:
   postgres_data:

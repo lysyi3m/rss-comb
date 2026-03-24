@@ -17,6 +17,8 @@ type Cfg struct {
 	WorkerCount       int    `long:"worker-count" env:"WORKER_COUNT" default:"5" description:"Number of background workers for feed processing"`
 	SchedulerInterval int    `long:"scheduler-interval" env:"SCHEDULER_INTERVAL" default:"30" description:"Scheduler interval in seconds"`
 	APIAccessKey      string `long:"api-key" env:"API_ACCESS_KEY" description:"API access key for authentication (optional)"`
+	MediaDir          string `long:"media-dir" env:"MEDIA_DIR" default:"./media" description:"Directory for downloaded media files"`
+	YTDLPCmd          string `long:"yt-dlp-cmd" env:"YT_DLP_CMD" default:"yt-dlp" description:"yt-dlp command (supports multi-word for docker, e.g. 'docker compose run --rm yt-dlp')"`
 
 	// Application metadata
 	UserAgent string         `long:"user-agent" env:"USER_AGENT" default:"RSS Comb/1.0" description:"User agent string for HTTP requests"`
