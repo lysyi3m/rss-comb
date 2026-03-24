@@ -29,7 +29,6 @@ dev-run: dev-db-up
 	DB_NAME=rss_comb_dev \
 	go run -ldflags "-X github.com/lysyi3m/rss-comb/app/cfg.Version=$$VERSION" app/main.go
 
-
 # Stop development RSS Comb processes (not production containers)
 dev-stop:
 	@echo "Stopping development RSS Comb processes..."

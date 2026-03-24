@@ -15,6 +15,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/api"
 	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/jobs"
 	"github.com/lysyi3m/rss-comb/app/services"
 )
 
@@ -68,19 +69,28 @@ func main() {
 		},
 	}
 
-	tickerCtx, tickerCancel := context.WithCancel(context.Background())
-	var tickerWg sync.WaitGroup
-	tickerWg.Add(1)
+	jobRepo := database.NewJobRepository(db)
+
+	pool := jobs.NewWorkerPool(jobRepo, cfg.WorkerCount)
+	pool.RegisterHandler("fetch_feed", jobs.FetchFeedHandler(feedRepo, itemRepo, httpClient, cfg.UserAgent))
+
+	scheduler := jobs.NewScheduler(time.Duration(cfg.SchedulerInterval)*time.Second, feedRepo, jobRepo)
+
+	jobCtx, jobCancel := context.WithCancel(context.Background())
+	var jobWg sync.WaitGroup
+	jobWg.Add(1)
 	go func() {
-		defer tickerWg.Done()
-		processFeedsTicker(tickerCtx, cfg, feedRepo, itemRepo, httpClient)
+		defer jobWg.Done()
+		scheduler.Run(jobCtx)
 	}()
+	pool.Start(jobCtx)
 	defer func() {
-		tickerCancel()
-		tickerWg.Wait()
+		jobCancel()
+		pool.Wait()
+		jobWg.Wait()
 	}()
 
-	apiHandler := api.NewHandler(cfg, feedRepo, itemRepo)
+	apiHandler := api.NewHandler(cfg, feedRepo, itemRepo, jobRepo)
 	server := api.NewServer(apiHandler, cfg)
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -176,55 +186,4 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		"directory", feedsDir)
 
 	return nil
-}
-
-func processFeedsTicker(
-	ctx context.Context,
-	cfg *cfg.Cfg,
-	feedRepo *database.FeedRepository,
-	itemRepo *database.ItemRepository,
-	httpClient *http.Client,
-) {
-	ticker := time.NewTicker(time.Duration(cfg.SchedulerInterval) * time.Second)
-	defer ticker.Stop()
-
-	slog.Info("Feed processing ticker started", "interval_seconds", cfg.SchedulerInterval)
-
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("Feed processing ticker stopped")
-			return
-		case <-ticker.C:
-			processDueFeeds(ctx, cfg, feedRepo, itemRepo, httpClient)
-		}
-	}
-}
-
-func processDueFeeds(
-	ctx context.Context,
-	cfg *cfg.Cfg,
-	feedRepo *database.FeedRepository,
-	itemRepo *database.ItemRepository,
-	httpClient *http.Client,
-) {
-	feeds, err := feedRepo.GetDueFeeds()
-	if err != nil {
-		slog.Error("Failed to get due feeds", "error", err)
-		return
-	}
-
-	for _, feed := range feeds {
-		err := services.ProcessFeed(
-			ctx,
-			feed.Name,
-			feedRepo,
-			itemRepo,
-			httpClient,
-			cfg.UserAgent,
-		)
-		if err != nil {
-			slog.Error("Failed to process feed", "feed", feed.Name, "error", err)
-		}
-	}
 }

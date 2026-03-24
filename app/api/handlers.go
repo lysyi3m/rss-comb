@@ -17,17 +17,20 @@ type Handler struct {
 	cfg      *cfg.Cfg
 	feedRepo *database.FeedRepository
 	itemRepo *database.ItemRepository
+	jobRepo  *database.JobRepository
 }
 
 func NewHandler(
 	cfg *cfg.Cfg,
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
+	jobRepo *database.JobRepository,
 ) *Handler {
 	return &Handler{
 		cfg:      cfg,
 		feedRepo: feedRepo,
 		itemRepo: itemRepo,
+		jobRepo:  jobRepo,
 	}
 }
 
