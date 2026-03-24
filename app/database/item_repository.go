@@ -26,7 +26,8 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, ''),
 		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, ''),
-		       fi.content_extraction_status
+		       fi.content_extraction_status,
+		       fi.media_status, COALESCE(fi.media_path, ''), COALESCE(fi.media_size, 0)
 		FROM feed_items fi
 		JOIN feeds f ON fi.feed_id = f.id
 		WHERE f.name = $1
@@ -59,10 +60,11 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, e
 			categories, is_filtered, content_hash,
 			enclosure_url, enclosure_length, enclosure_type,
 			itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image,
-			content_extraction_status
+			content_extraction_status,
+			media_status, media_path, media_size
 		) VALUES (
 			(SELECT id FROM feeds WHERE name = $1),
-			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
 		)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
@@ -81,14 +83,18 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, e
 			itunes_season = EXCLUDED.itunes_season,
 			itunes_episode_type = EXCLUDED.itunes_episode_type,
 			itunes_image = EXCLUDED.itunes_image,
-			content_extraction_status = EXCLUDED.content_extraction_status
+			content_extraction_status = EXCLUDED.content_extraction_status,
+			media_status = EXCLUDED.media_status,
+			media_path = EXCLUDED.media_path,
+			media_size = EXCLUDED.media_size
 		RETURNING id
 	`, feedName, item.GUID, item.Link, item.Title, item.Description, item.Content,
 		item.PublishedAt, item.UpdatedAt, pq.Array(authors),
 		pq.Array(categories), item.IsFiltered,
 		item.ContentHash, item.EnclosureURL, item.EnclosureLength, item.EnclosureType,
 		item.ITunesDuration, item.ITunesEpisode, item.ITunesSeason, item.ITunesEpisodeType, item.ITunesImage,
-		item.ContentExtractionStatus).Scan(&itemID)
+		item.ContentExtractionStatus,
+		item.MediaStatus, item.MediaPath, item.MediaSize).Scan(&itemID)
 
 	if err != nil {
 		return "", fmt.Errorf("failed to upsert item: %w", err)
@@ -140,12 +146,14 @@ func (r *ItemRepository) GetVisibleItems(feedName string, limit int) ([]Item, er
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), fi.enclosure_length, COALESCE(fi.enclosure_type, ''),
 		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, ''),
-		       fi.content_extraction_status
+		       fi.content_extraction_status,
+		       fi.media_status, COALESCE(fi.media_path, ''), COALESCE(fi.media_size, 0)
 		FROM feed_items fi
 		JOIN feeds f ON fi.feed_id = f.id
 		WHERE f.name = $1
 		  AND fi.is_filtered = false
 		  AND (fi.content_extraction_status IS NULL OR fi.content_extraction_status IN ('ready', 'failed'))
+		  AND (fi.media_status IS NULL OR fi.media_status = 'ready')
 		ORDER BY fi.published_at DESC
 		LIMIT $2
 	`, feedName, limit)
@@ -170,6 +178,7 @@ func (r *ItemRepository) scanItemRows(rows *sql.Rows) ([]Item, error) {
 			&item.EnclosureURL, &item.EnclosureLength, &item.EnclosureType,
 			&item.ITunesDuration, &item.ITunesEpisode, &item.ITunesSeason, &item.ITunesEpisodeType, &item.ITunesImage,
 			&item.ContentExtractionStatus,
+			&item.MediaStatus, &item.MediaPath, &item.MediaSize,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan item row: %w", err)
@@ -195,7 +204,8 @@ func (r *ItemRepository) GetItemByID(itemID string) (*Item, error) {
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, ''),
 		       COALESCE(fi.itunes_duration, 0), COALESCE(fi.itunes_episode, 0), COALESCE(fi.itunes_season, 0), COALESCE(fi.itunes_episode_type, ''), COALESCE(fi.itunes_image, ''),
-		       fi.content_extraction_status
+		       fi.content_extraction_status,
+		       fi.media_status, COALESCE(fi.media_path, ''), COALESCE(fi.media_size, 0)
 		FROM feed_items fi
 		WHERE fi.id = $1
 	`, itemID).Scan(
@@ -207,6 +217,7 @@ func (r *ItemRepository) GetItemByID(itemID string) (*Item, error) {
 		&item.EnclosureURL, &item.EnclosureLength, &item.EnclosureType,
 		&item.ITunesDuration, &item.ITunesEpisode, &item.ITunesSeason, &item.ITunesEpisodeType, &item.ITunesImage,
 		&item.ContentExtractionStatus,
+		&item.MediaStatus, &item.MediaPath, &item.MediaSize,
 	)
 
 	if err == sql.ErrNoRows {
@@ -217,6 +228,74 @@ func (r *ItemRepository) GetItemByID(itemID string) (*Item, error) {
 	}
 
 	return &item, nil
+}
+
+func (r *ItemRepository) UpdateMediaStatus(itemID, status, mediaPath string, mediaSize int64) error {
+	_, err := r.db.Exec(`
+		UPDATE feed_items
+		SET media_status = $2, media_path = $3, media_size = $4
+		WHERE id = $1
+	`, itemID, status, mediaPath, mediaSize)
+
+	if err != nil {
+		return fmt.Errorf("failed to update media status: %w", err)
+	}
+
+	return nil
+}
+
+type MediaInfo struct {
+	MediaPath string
+	MediaSize int64
+}
+
+func (r *ItemRepository) GetReadyMediaByPath(mediaPath string) (*MediaInfo, error) {
+	var info MediaInfo
+	err := r.db.QueryRow(`
+		SELECT media_path, media_size FROM feed_items
+		WHERE media_path = $1 AND media_status = 'ready'
+		LIMIT 1
+	`, mediaPath).Scan(&info.MediaPath, &info.MediaSize)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ready media by path: %w", err)
+	}
+
+	return &info, nil
+}
+
+func (r *ItemRepository) GetAllActiveMediaPaths() ([]string, error) {
+	rows, err := r.db.Query(`
+		SELECT DISTINCT fi.media_path
+		FROM feed_items fi
+		JOIN feeds f ON fi.feed_id = f.id
+		WHERE f.is_enabled = true
+		  AND fi.media_status = 'ready'
+		  AND fi.media_path IS NOT NULL
+		  AND fi.is_filtered = false
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active media paths: %w", err)
+	}
+	defer rows.Close()
+
+	var paths []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, fmt.Errorf("failed to scan media path: %w", err)
+		}
+		paths = append(paths, path)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating media paths: %w", err)
+	}
+
+	return paths, nil
 }
 
 func (r *ItemRepository) UpdateContentExtractionStatus(itemID, status, content string) error {

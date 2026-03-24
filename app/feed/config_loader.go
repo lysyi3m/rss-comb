@@ -56,6 +56,10 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("timeout must be >= 0")
 	}
 
+	if config.Settings.ExtractContent && config.Settings.MediaExtraction {
+		return fmt.Errorf("extract_content and media_extraction cannot both be enabled")
+	}
+
 	for i, filter := range config.Filters {
 		if filter.Field == "" {
 			return fmt.Errorf("filter %d: field is required", i)

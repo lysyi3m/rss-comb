@@ -55,6 +55,7 @@ func NewServer(handler *Handler, cfg *cfg.Cfg) *gin.Engine {
 func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 	r.GET("/feeds/:name", handler.GetFeed)
 	r.GET("/health", handler.GetHealth)
+	r.Static("/media", cfg.MediaDir)
 
 	if cfg.APIAccessKey != "" {
 		api := r.Group("/api")

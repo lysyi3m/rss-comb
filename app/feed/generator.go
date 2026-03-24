@@ -137,7 +137,13 @@ func writeItem(buf *bytes.Buffer, item database.Item, cfg *cfg.Cfg) {
 		}
 	}
 
-	if item.EnclosureURL != "" && item.EnclosureType != "" {
+	if item.MediaPath != "" && item.MediaSize > 0 {
+		mediaURL := fmt.Sprintf("%s/media/%s", cfg.BaseUrl, item.MediaPath)
+		buf.WriteString(fmt.Sprintf("      <enclosure url=\"%s\" length=\"%d\" type=\"%s\" />\n",
+			html.EscapeString(mediaURL),
+			item.MediaSize,
+			"audio/mpeg"))
+	} else if item.EnclosureURL != "" && item.EnclosureType != "" {
 		buf.WriteString(fmt.Sprintf("      <enclosure url=\"%s\" length=\"%d\" type=\"%s\" />\n",
 			html.EscapeString(item.EnclosureURL),
 			item.EnclosureLength,
@@ -214,6 +220,9 @@ func hasITunesData(feed database.Feed, items []database.Item) bool {
 	for _, item := range items {
 		if item.ITunesDuration > 0 || item.ITunesEpisode > 0 || item.ITunesSeason > 0 ||
 			item.ITunesEpisodeType != "" || item.ITunesImage != "" {
+			return true
+		}
+		if item.MediaPath != "" && item.MediaSize > 0 {
 			return true
 		}
 	}

@@ -78,6 +78,7 @@ func ProcessFeed(
 	filteredCount := 0
 	newCount := 0
 	extractionJobCount := 0
+	mediaJobCount := 0
 
 	if len(items) == 0 {
 		slog.Info("No parsed items found, skipping item processing",
@@ -116,6 +117,10 @@ func ProcessFeed(
 			processedItem.ContentExtractionStatus = stringPtr("pending")
 		}
 
+		if !processedItem.IsFiltered && settings.MediaExtraction {
+			processedItem.MediaStatus = stringPtr("pending")
+		}
+
 		itemID, err := itemRepo.UpsertItem(feedName, processedItem)
 		if err != nil {
 			return fmt.Errorf("failed to upsert item: %w", err)
@@ -126,6 +131,14 @@ func ProcessFeed(
 				slog.Error("Failed to create extract_content job", "feed", feedName, "item_id", itemID, "error", err)
 			} else {
 				extractionJobCount++
+			}
+		}
+
+		if processedItem.MediaStatus != nil && *processedItem.MediaStatus == "pending" {
+			if _, err := jobRepo.CreateJob("download_media", dbFeed.ID, &itemID, 3); err != nil {
+				slog.Error("Failed to create download_media job", "feed", feedName, "item_id", itemID, "error", err)
+			} else {
+				mediaJobCount++
 			}
 		}
 	}
@@ -141,6 +154,10 @@ func ProcessFeed(
 
 	if settings.ExtractContent {
 		logData = append(logData, "extraction_jobs", extractionJobCount)
+	}
+
+	if settings.MediaExtraction {
+		logData = append(logData, "media_jobs", mediaJobCount)
 	}
 
 	slog.Info("Feed processed", logData...)

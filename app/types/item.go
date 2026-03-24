@@ -15,7 +15,10 @@ type Item struct {
 	ContentHash     string
 	IsFiltered              bool
 	ContentExtractionStatus *string
-	EnclosureURL    string
+	MediaStatus             *string
+	MediaPath               string
+	MediaSize               int64
+	EnclosureURL            string
 	EnclosureLength int64
 	EnclosureType   string
 	// iTunes podcast episode extension fields

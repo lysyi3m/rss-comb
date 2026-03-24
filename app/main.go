@@ -16,6 +16,7 @@ import (
 	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/jobs"
+	"github.com/lysyi3m/rss-comb/app/media"
 	"github.com/lysyi3m/rss-comb/app/services"
 )
 
@@ -54,9 +55,23 @@ func main() {
 	feedRepo := database.NewFeedRepository(db)
 	itemRepo := database.NewItemRepository(db)
 
-	if err := loadFeedConfigurations(cfg.FeedsDir, feedRepo); err != nil {
+	hasMediaFeeds, err := loadFeedConfigurations(cfg.FeedsDir, feedRepo)
+	if err != nil {
 		slog.Error("Configuration loading failed", "directory", cfg.FeedsDir, "error", err)
 		os.Exit(1)
+	}
+
+	if err := os.MkdirAll(cfg.MediaDir, 0755); err != nil {
+		slog.Error("Failed to create media directory", "path", cfg.MediaDir, "error", err)
+		os.Exit(1)
+	}
+
+	if hasMediaFeeds {
+		if err := media.Validate(cfg.YTDLPCmd); err != nil {
+			slog.Error("yt-dlp validation failed — media feeds are configured but yt-dlp is not available", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("yt-dlp validated", "command", cfg.YTDLPCmd)
 	}
 
 	httpClient := &http.Client{
@@ -72,8 +87,9 @@ func main() {
 	jobRepo := database.NewJobRepository(db)
 
 	pool := jobs.NewWorkerPool(jobRepo, cfg.WorkerCount)
-	pool.RegisterHandler("fetch_feed", jobs.FetchFeedHandler(feedRepo, itemRepo, jobRepo, httpClient, cfg.UserAgent))
+	pool.RegisterHandler("fetch_feed", jobs.FetchFeedHandler(feedRepo, itemRepo, jobRepo, httpClient, cfg.UserAgent, cfg.MediaDir))
 	pool.RegisterHandler("extract_content", jobs.ExtractContentHandler(feedRepo, itemRepo, httpClient, cfg.UserAgent))
+	pool.RegisterHandler("download_media", jobs.DownloadMediaHandler(feedRepo, itemRepo, cfg.YTDLPCmd, cfg.MediaDir))
 
 	scheduler := jobs.NewScheduler(time.Duration(cfg.SchedulerInterval)*time.Second, feedRepo, jobRepo)
 
@@ -143,25 +159,26 @@ func initializeLogger() {
 	slog.SetDefault(logger)
 }
 
-func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) error {
+func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) (bool, error) {
 	if _, err := os.Stat(feedsDir); os.IsNotExist(err) {
 		slog.Info("Feeds directory does not exist, skipping config loading", "directory", feedsDir)
-		return nil
+		return false, nil
 	}
 
 	files, err := filepath.Glob(filepath.Join(feedsDir, "*.yml"))
 	if err != nil {
-		return fmt.Errorf("failed to find YAML files: %w", err)
+		return false, fmt.Errorf("failed to find YAML files: %w", err)
 	}
 
 	if len(files) == 0 {
 		slog.Info("No feed configuration files found", "directory", feedsDir)
-		return nil
+		return false, nil
 	}
 
 	var totalCount int
 	var enabledCount int
 	var enabledNames []string
+	var hasMediaFeeds bool
 
 	for _, file := range files {
 		fileName := filepath.Base(file)
@@ -177,6 +194,9 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		if config.Enabled {
 			enabledCount++
 			enabledNames = append(enabledNames, feedName)
+			if config.Settings.MediaExtraction {
+				hasMediaFeeds = true
+			}
 		}
 	}
 
@@ -186,5 +206,5 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		"feeds", enabledNames,
 		"directory", feedsDir)
 
-	return nil
+	return hasMediaFeeds, nil
 }
