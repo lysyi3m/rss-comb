@@ -42,13 +42,15 @@ LABEL org.opencontainers.image.title="RSS Comb" \
       org.opencontainers.image.source="https://github.com/lysyi3m/rss-comb" \
       org.opencontainers.image.documentation="https://github.com/lysyi3m/rss-comb/blob/main/README.md"
 
-# Install only essential runtime dependencies
+# Install runtime dependencies
 # ca-certificates: Required for HTTPS connections to external RSS feeds
 # tzdata: Required for timezone support (TZ environment variable)
+# docker-cli: Required for spawning yt-dlp containers via Docker socket
 # Note: wget and nc are available via busybox (built into Alpine base image)
 RUN apk add --no-cache \
     ca-certificates \
-    tzdata
+    tzdata \
+    docker-cli
 
 # Create non-root user (combine RUN commands for fewer layers)
 RUN addgroup -g 1001 -S appgroup && \
