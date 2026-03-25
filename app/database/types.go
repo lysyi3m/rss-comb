@@ -13,7 +13,8 @@ type Feed struct {
 	Name            string // Configuration feed identifier derived from filename
 	FeedURL         string // RSS/Atom feed URL from configuration
 	Link            string // Homepage URL from feed's <link> element (RSS 2.0 spec)
-	Title           string
+	Title           string // Custom title from config (optional override)
+	SourceTitle     string // Title from source feed
 	Description     string // Feed's original description from RSS/Atom
 	ImageURL        string
 	Language        string
@@ -37,6 +38,13 @@ type Feed struct {
 	ITunesExplicit   string
 	ITunesOwnerName  string
 	ITunesOwnerEmail string
+}
+
+func (f *Feed) DisplayTitle() string {
+	if f.Title != "" {
+		return f.Title
+	}
+	return f.SourceTitle
 }
 
 func (f *Feed) GetSettings() (*types.Settings, error) {

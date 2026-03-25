@@ -10,6 +10,7 @@ type Metadata = types.Metadata
 type Config struct {
 	Name     string         // Derived from filename (without .yml extension)
 	URL      string         `yaml:"url"`
+	Title    string         `yaml:"title"`
 	Enabled  bool           `yaml:"enabled"`
 	Settings types.Settings `yaml:"settings"`
 	Filters  []types.Filter `yaml:"filters"`

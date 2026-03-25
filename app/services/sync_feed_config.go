@@ -28,6 +28,7 @@ func SyncFeedConfig(
 	err = feedRepo.UpsertFeedConfig(
 		config.Name,
 		config.URL,
+		config.Title,
 		config.Enabled,
 		config.Settings,
 		config.Filters,

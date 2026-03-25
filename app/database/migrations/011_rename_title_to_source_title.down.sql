@@ -1,0 +1,2 @@
+ALTER TABLE feeds DROP COLUMN IF EXISTS title;
+ALTER TABLE feeds RENAME COLUMN source_title TO title;

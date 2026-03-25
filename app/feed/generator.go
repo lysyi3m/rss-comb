@@ -27,7 +27,7 @@ func GenerateRSS(feed database.Feed, items []database.Item, cfg *cfg.Cfg) (strin
 	}
 	buf.WriteString("\n  <channel>\n")
 
-	writeElement(&buf, "title", feed.Title, 4)
+	writeElement(&buf, "title", feed.DisplayTitle(), 4)
 	writeElement(&buf, "link", feed.Link, 4)
 	description := feed.Description
 	if description == "" {
@@ -62,7 +62,7 @@ func GenerateRSS(feed database.Feed, items []database.Item, cfg *cfg.Cfg) (strin
 	if feed.ImageURL != "" {
 		buf.WriteString("    <image>\n")
 		writeElement(&buf, "url", feed.ImageURL, 6)
-		writeElement(&buf, "title", feed.Title, 6)
+		writeElement(&buf, "title", feed.DisplayTitle(), 6)
 		writeElement(&buf, "link", feed.Link, 6)
 		buf.WriteString("    </image>\n")
 	}
