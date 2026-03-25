@@ -83,6 +83,7 @@ func processFeed(
 	newCount := 0
 	extractionJobCount := 0
 	mediaJobCount := 0
+	visibleCount := 0
 
 	for _, item := range items {
 		select {
@@ -108,13 +109,16 @@ func processFeed(
 			filteredCount++
 		} else {
 			newCount++
+			visibleCount++
 		}
 
-		if !processedItem.IsFiltered && settings.ExtractContent {
+		withinMaxItems := visibleCount <= settings.MaxItems
+
+		if !processedItem.IsFiltered && settings.ExtractContent && withinMaxItems {
 			processedItem.ContentExtractionStatus = stringPtr("pending")
 		}
 
-		if !processedItem.IsFiltered && dbFeed.FeedType == "youtube" {
+		if !processedItem.IsFiltered && dbFeed.FeedType == "youtube" && withinMaxItems {
 			processedItem.MediaStatus = stringPtr("pending")
 		}
 

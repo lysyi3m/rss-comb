@@ -269,13 +269,18 @@ func (r *ItemRepository) GetReadyMediaByPath(mediaPath string) (*MediaInfo, erro
 
 func (r *ItemRepository) GetAllActiveMediaPaths() ([]string, error) {
 	rows, err := r.db.Query(`
-		SELECT DISTINCT fi.media_path
-		FROM feed_items fi
-		JOIN feeds f ON fi.feed_id = f.id
-		WHERE f.is_enabled = true
-		  AND fi.media_status = 'ready'
-		  AND fi.media_path IS NOT NULL
-		  AND fi.is_filtered = false
+		SELECT DISTINCT sub.media_path FROM (
+			SELECT fi.media_path,
+			       ROW_NUMBER() OVER (PARTITION BY fi.feed_id ORDER BY fi.published_at DESC) AS rn,
+			       COALESCE((f.settings->>'max_items')::int, 50) AS max_items
+			FROM feed_items fi
+			JOIN feeds f ON fi.feed_id = f.id
+			WHERE f.is_enabled = true
+			  AND fi.media_status = 'ready'
+			  AND fi.media_path IS NOT NULL
+			  AND fi.is_filtered = false
+		) sub
+		WHERE sub.rn <= sub.max_items
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active media paths: %w", err)
