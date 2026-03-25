@@ -57,8 +57,9 @@ RUN apk add --no-cache \
     python3 \
     ffmpeg
 
-# Copy yt-dlp binary from pinned image
+# Copy yt-dlp and deno from pinned image
 COPY --from=ytdlp /usr/local/bin/yt-dlp /usr/local/bin/yt-dlp
+COPY --from=ytdlp /usr/bin/deno /usr/bin/deno
 
 # Create non-root user (combine RUN commands for fewer layers)
 RUN addgroup -g 1001 -S appgroup && \

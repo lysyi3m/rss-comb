@@ -102,9 +102,9 @@ func (r *JobRepository) FailJob(jobID string, errMsg string) error {
 		return fmt.Errorf("failed to update job retries: %w", err)
 	}
 
-	// Delete if retries exhausted, otherwise set back to pending
+	// Delete if retries exhausted (including max_retries=0, which means no retries allowed)
 	_, err = r.db.Exec(`
-		DELETE FROM jobs WHERE id = $1 AND retries >= max_retries AND max_retries > 0
+		DELETE FROM jobs WHERE id = $1 AND retries >= max_retries
 	`, jobID)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup exhausted job: %w", err)

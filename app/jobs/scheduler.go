@@ -30,6 +30,9 @@ func (s *Scheduler) Run(ctx context.Context) {
 
 	slog.Info("Scheduler started", "interval", s.interval)
 
+	// Immediate tick on startup — don't wait for the first interval
+	s.tick()
+
 	for {
 		select {
 		case <-ctx.Done():
