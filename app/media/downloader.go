@@ -62,7 +62,7 @@ func MediaFileID(guid string) string {
 
 // Download runs yt-dlp to extract audio from the given URL.
 // Returns the relative filename and file size on success.
-func Download(ctx context.Context, ytdlpCmd, mediaDir, url, fileID string) (string, int64, error) {
+func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID string) (string, int64, error) {
 	downloadCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
@@ -76,9 +76,15 @@ func Download(ctx context.Context, ytdlpCmd, mediaDir, url, fileID string) (stri
 		"--extract-audio", "--audio-format", "mp3", "--audio-quality", "64k",
 		"--postprocessor-args", "-ac 1",
 		"--no-playlist", "--no-progress",
+		"--match-filters", "!is_live",
 		"-o", outputTemplate,
-		url,
 	)
+
+	if ytdlpArgs != "" {
+		args = append(args, strings.Fields(ytdlpArgs)...)
+	}
+
+	args = append(args, url)
 
 	cmd := exec.CommandContext(downloadCtx, parts[0], args...)
 	cmd.Dir = mediaDir

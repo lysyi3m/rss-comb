@@ -30,9 +30,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -o rss-comb \
     app/main.go
 
-# yt-dlp stage — pin version via the jauderho/yt-dlp image
-FROM jauderho/yt-dlp:latest AS ytdlp
-
 # Final stage - pin Alpine version for reproducible builds
 FROM alpine:3.22.0
 
@@ -48,18 +45,17 @@ LABEL org.opencontainers.image.title="RSS Comb" \
 # Install runtime dependencies
 # ca-certificates: Required for HTTPS connections to external RSS feeds
 # tzdata: Required for timezone support (TZ environment variable)
-# python3: Required by yt-dlp
+# python3 + py3-pip: Required by yt-dlp
 # ffmpeg: Required by yt-dlp for audio extraction/conversion
+# deno: Required by yt-dlp as JavaScript runtime for YouTube extraction
 # Note: wget and nc are available via busybox (built into Alpine base image)
 RUN apk add --no-cache \
     ca-certificates \
     tzdata \
-    python3 \
-    ffmpeg
-
-# Copy yt-dlp and deno from pinned image
-COPY --from=ytdlp /usr/local/bin/yt-dlp /usr/local/bin/yt-dlp
-COPY --from=ytdlp /usr/bin/deno /usr/bin/deno
+    python3 py3-pip \
+    ffmpeg \
+    && apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community deno \
+    && pip3 install --break-system-packages yt-dlp
 
 # Create non-root user (combine RUN commands for fewer layers)
 RUN addgroup -g 1001 -S appgroup && \

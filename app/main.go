@@ -95,7 +95,7 @@ func main() {
 	pool := jobs.NewWorkerPool(jobRepo, cfg.WorkerCount)
 	pool.RegisterHandler("fetch_feed", jobs.FetchFeedHandler(feedRepo, itemRepo, jobRepo, httpClient, cfg.UserAgent, cfg.MediaDir))
 	pool.RegisterHandler("extract_content", jobs.ExtractContentHandler(feedRepo, itemRepo, httpClient, cfg.UserAgent))
-	pool.RegisterHandler("download_media", jobs.DownloadMediaHandler(feedRepo, itemRepo, cfg.YTDLPCmd, cfg.MediaDir))
+	pool.RegisterHandler("download_media", jobs.DownloadMediaHandler(feedRepo, itemRepo, cfg.YTDLPCmd, cfg.YTDLPArgs, cfg.MediaDir))
 
 	scheduler := jobs.NewScheduler(time.Duration(cfg.SchedulerInterval)*time.Second, feedRepo, jobRepo)
 

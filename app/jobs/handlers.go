@@ -121,6 +121,7 @@ func DownloadMediaHandler(
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
 	ytdlpCmd string,
+	ytdlpArgs string,
 	mediaDir string,
 ) HandlerFunc {
 	return func(ctx context.Context, job *database.Job) error {
@@ -162,7 +163,7 @@ func DownloadMediaHandler(
 			return handleMediaFailure(itemRepo, *job.ItemID, job, fmt.Errorf("item has no link"))
 		}
 
-		path, size, err := media.Download(ctx, ytdlpCmd, mediaDir, item.Link, fileID)
+		path, size, err := media.Download(ctx, ytdlpCmd, ytdlpArgs, mediaDir, item.Link, fileID)
 		if err != nil {
 			return handleMediaFailure(itemRepo, *job.ItemID, job, err)
 		}
