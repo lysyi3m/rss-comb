@@ -15,9 +15,9 @@ import (
 	"github.com/lysyi3m/rss-comb/app/api"
 	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/jobs"
 	"github.com/lysyi3m/rss-comb/app/media"
-	"github.com/lysyi3m/rss-comb/app/services"
 )
 
 func main() {
@@ -190,7 +190,7 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		fileName := filepath.Base(file)
 		feedName := fileName[:len(fileName)-4]
 
-		config, err := services.SyncFeedConfig(context.Background(), feedsDir, feedName, feedRepo)
+		config, err := feed.ConfigSync(context.Background(), feedsDir, feedName, feedRepo)
 		if err != nil {
 			slog.Warn("Failed to sync feed config, skipping", "file", file, "error", err)
 			continue

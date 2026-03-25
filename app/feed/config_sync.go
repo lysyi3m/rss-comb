@@ -1,26 +1,25 @@
-package services
+package feed
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/lysyi3m/rss-comb/app/database"
-	"github.com/lysyi3m/rss-comb/app/feed"
 )
 
-func SyncFeedConfig(
+func ConfigSync(
 	ctx context.Context,
 	feedsDir string,
 	feedName string,
 	feedRepo *database.FeedRepository,
-) (*feed.Config, error) {
+) (*Config, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 	}
 
-	config, hash, err := feed.LoadConfig(feedsDir, feedName)
+	config, hash, err := LoadConfig(feedsDir, feedName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}

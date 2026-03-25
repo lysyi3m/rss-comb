@@ -10,7 +10,6 @@ import (
 	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
-	"github.com/lysyi3m/rss-comb/app/services"
 )
 
 type Handler struct {
@@ -105,7 +104,7 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 
 	feed.ClearRegexCache()
 
-	config, err := services.SyncFeedConfig(c.Request.Context(), h.cfg.FeedsDir, name, h.feedRepo)
+	config, err := feed.ConfigSync(c.Request.Context(), h.cfg.FeedsDir, name, h.feedRepo)
 	if err != nil {
 		slog.Error("Failed to sync feed config", "feed", name, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -115,7 +114,7 @@ func (h *Handler) APIReloadFeed(c *gin.Context) {
 		return
 	}
 
-	err = services.RefilterFeed(c.Request.Context(), name, h.feedRepo, h.itemRepo)
+	err = feed.Refilter(c.Request.Context(), name, h.feedRepo, h.itemRepo)
 	if err != nil {
 		slog.Error("Error refiltering feed", "feed", name, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{

@@ -9,12 +9,11 @@ import (
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/media"
-	"github.com/lysyi3m/rss-comb/app/services"
 )
 
 // FetchFeedHandler returns a HandlerFunc that processes a feed by resolving
-// the feed name from the job's FeedID and calling services.ProcessFeed.
-// After processing media-enabled feeds, it runs global media cleanup.
+// the feed name from the job's FeedID. After processing youtube feeds, it
+// runs global media cleanup.
 func FetchFeedHandler(
 	feedRepo *database.FeedRepository,
 	itemRepo *database.ItemRepository,
@@ -32,7 +31,7 @@ func FetchFeedHandler(
 			return fmt.Errorf("feed not found for ID: %s", job.FeedID)
 		}
 
-		if err := services.ProcessFeed(ctx, dbFeed.Name, feedRepo, itemRepo, jobRepo, httpClient, userAgent); err != nil {
+		if err := processFeed(ctx, dbFeed.Name, feedRepo, itemRepo, jobRepo, httpClient, userAgent); err != nil {
 			return err
 		}
 
@@ -92,7 +91,7 @@ func ExtractContentHandler(
 			return handleExtractionFailure(itemRepo, *job.ItemID, job, fmt.Errorf("item has no link"))
 		}
 
-		data, err := services.Fetch(ctx, item.Link, settings.Timeout, httpClient, userAgent, true)
+		data, err := fetchURL(ctx, item.Link, settings.Timeout, httpClient, userAgent, true)
 		if err != nil {
 			return handleExtractionFailure(itemRepo, *job.ItemID, job, err)
 		}

@@ -1,4 +1,4 @@
-package services
+package feed
 
 import (
 	"context"
@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
-	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/types"
 )
 
-func RefilterFeed(
+func Refilter(
 	ctx context.Context,
 	feedName string,
 	feedRepo *database.FeedRepository,
@@ -48,7 +47,7 @@ func RefilterFeed(
 		feedItems[i] = item.Item
 	}
 
-	filteredItems := feed.Filter(feedItems, filters)
+	filteredItems := Filter(feedItems, filters)
 
 	updatedCount := 0
 	errorCount := 0
