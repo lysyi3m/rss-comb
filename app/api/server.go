@@ -65,7 +65,6 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 		}
 	}
 
-	// Root endpoint with basic information
 	r.GET("/", func(c *gin.Context) {
 		endpoints := map[string]string{
 			"feed":   "/feeds/<name>",
@@ -93,7 +92,6 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 
 func authMiddleware(apiAccessKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Use cmp.Or to coalesce API key from X-API-Key header or Authorization Bearer token
 		authHeader := c.GetHeader("Authorization")
 		var bearerToken string
 		if strings.HasPrefix(authHeader, "Bearer ") {

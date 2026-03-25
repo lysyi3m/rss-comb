@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-// CleanupMedia deletes media files in mediaDir that are not in the keepPaths set.
-// Returns the number of files deleted.
 func CleanupMedia(mediaDir string, keepPaths []string) (int, error) {
 	keepSet := make(map[string]struct{}, len(keepPaths))
 	for _, p := range keepPaths {

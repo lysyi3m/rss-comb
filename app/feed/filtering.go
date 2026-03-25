@@ -14,8 +14,7 @@ import (
 
 var regexCache sync.Map // map[string]*regexp.Regexp
 
-// ClearRegexCache clears the compiled regex pattern cache.
-// Should be called when feed configurations are reloaded.
+// ClearRegexCache should be called when feed configurations are reloaded.
 func ClearRegexCache() {
 	regexCache = sync.Map{}
 }
@@ -106,13 +105,10 @@ func matchesPattern(value, pattern string) bool {
 	return strings.Contains(normalizedValue, normalizedPattern)
 }
 
-// isRegexPattern checks if a pattern is wrapped in slashes (e.g., "/pattern/")
 func isRegexPattern(pattern string) bool {
 	return len(pattern) >= 2 && pattern[0] == '/' && pattern[len(pattern)-1] == '/'
 }
 
-// extractRegexPattern removes the surrounding slashes from a regex pattern
-// and prepends case-insensitive flag if not already present
 func extractRegexPattern(pattern string) string {
 	extracted := pattern[1 : len(pattern)-1]
 
@@ -123,7 +119,6 @@ func extractRegexPattern(pattern string) string {
 	return extracted
 }
 
-// getCompiledRegex retrieves a compiled regex from cache or compiles and caches it
 func getCompiledRegex(pattern string) (*regexp.Regexp, error) {
 	if cached, ok := regexCache.Load(pattern); ok {
 		return cached.(*regexp.Regexp), nil

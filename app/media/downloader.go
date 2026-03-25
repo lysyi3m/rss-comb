@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-// Update runs yt-dlp's self-update mechanism.
 func Update(ytdlpCmd string) error {
 	parts := strings.Fields(ytdlpCmd)
 	if len(parts) == 0 {
@@ -31,7 +30,6 @@ func Update(ytdlpCmd string) error {
 	return nil
 }
 
-// Validate checks that the configured yt-dlp command is available and working.
 func Validate(ytdlpCmd string) error {
 	parts := strings.Fields(ytdlpCmd)
 	if len(parts) == 0 {
@@ -51,7 +49,7 @@ func Validate(ytdlpCmd string) error {
 	return nil
 }
 
-// MediaFileID extracts a stable, filesystem-safe identifier from an item's GUID.
+// MediaFileID extracts YouTube video ID from GUID, falls back to SHA-256 hash.
 func MediaFileID(guid string) string {
 	if after, ok := strings.CutPrefix(guid, "yt:video:"); ok {
 		return after
@@ -60,8 +58,6 @@ func MediaFileID(guid string) string {
 	return fmt.Sprintf("%x", hash[:8])
 }
 
-// Download runs yt-dlp to extract audio from the given URL.
-// Returns the relative filename and file size on success.
 func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID string) (string, int64, error) {
 	downloadCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()

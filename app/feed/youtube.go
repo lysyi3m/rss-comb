@@ -52,8 +52,7 @@ func normalizeYouTubeItem(normalized *types.Item, item *gofeed.Item) {
 	}
 }
 
-// extractMediaDescription gets the description from media:group > media:description
-// (YouTube Atom feeds don't put descriptions in standard fields).
+// YouTube Atom feeds store descriptions in media:group, not standard fields.
 func extractMediaDescription(item *gofeed.Item) string {
 	if mediaGroup, ok := item.Extensions["media"]["group"]; ok && len(mediaGroup) > 0 {
 		if descs, ok := mediaGroup[0].Children["description"]; ok && len(descs) > 0 {
@@ -63,7 +62,6 @@ func extractMediaDescription(item *gofeed.Item) string {
 	return ""
 }
 
-// extractMediaThumbnail gets the thumbnail URL from media:group > media:thumbnail.
 func extractMediaThumbnail(item *gofeed.Item) string {
 	if mediaGroup, ok := item.Extensions["media"]["group"]; ok && len(mediaGroup) > 0 {
 		if thumbs, ok := mediaGroup[0].Children["thumbnail"]; ok && len(thumbs) > 0 {

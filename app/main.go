@@ -27,7 +27,6 @@ func main() {
 		os.Exit(1)
 	}
 	if cfg == nil {
-		// Help was requested, exit gracefully
 		return
 	}
 
@@ -128,7 +127,6 @@ func main() {
 			serverErrChan <- fmt.Errorf("HTTP server error: %w", err)
 		}
 	}()
-	// Wait for interrupt signal or server error
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 

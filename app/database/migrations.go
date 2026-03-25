@@ -12,7 +12,6 @@ import (
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
-// RunMigrations applies all pending migrations to the database and returns version info
 func RunMigrations(db *DB) (uint, bool, error) {
 	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
 	if err != nil {

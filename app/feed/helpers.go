@@ -19,8 +19,6 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
-// Parsing helpers
-
 func parseWithGofeed(data []byte) (*gofeed.Feed, error) {
 	parser := gofeed.NewParser()
 	feed, err := parser.Parse(bytes.NewReader(data))
@@ -171,8 +169,6 @@ func formatAuthor(name, email string) string {
 	return ""
 }
 
-
-// Building helpers
 
 func writeChannelHeader(buf *bytes.Buffer, feed database.Feed, items []database.Item, cfg *cfg.Cfg) {
 	writeElement(buf, "title", feed.DisplayTitle(), 4)
