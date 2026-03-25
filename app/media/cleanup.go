@@ -42,7 +42,6 @@ func CleanupMedia(mediaDir string, keepPaths []string) (int, error) {
 			continue
 		}
 
-		slog.Info("Deleted orphaned media file", "path", name)
 		deleted++
 	}
 

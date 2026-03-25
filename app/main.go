@@ -42,7 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
-	slog.Info("Database connected", "host", cfg.DBHost, "port", cfg.DBPort)
+	slog.Info("Database connected")
 
 	version, dirty, err := database.RunMigrations(db)
 	if err != nil {

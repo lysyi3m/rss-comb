@@ -52,13 +52,8 @@ func (s *Scheduler) tick() {
 	}
 
 	for _, f := range feeds {
-		created, err := s.jobRepo.CreateJob("fetch_feed", f.ID, nil, 0)
-		if err != nil {
+		if _, err := s.jobRepo.CreateJob("fetch_feed", f.ID, nil, 0); err != nil {
 			slog.Error("Scheduler failed to create fetch_feed job", "feed", f.Name, "error", err)
-			continue
-		}
-		if created {
-			slog.Info("Scheduled feed fetch", "feed", f.Name)
 		}
 	}
 

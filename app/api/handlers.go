@@ -48,7 +48,6 @@ func (h *Handler) GetFeed(c *gin.Context) {
 	}
 
 	if dbFeed == nil {
-		slog.Error("Feed not found in database", "feed", name)
 		c.Status(http.StatusNotFound)
 		return
 	}

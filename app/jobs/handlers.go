@@ -105,7 +105,6 @@ func ExtractContentHandler(
 			return fmt.Errorf("failed to update extraction status: %w", err)
 		}
 
-		slog.Info("Content extracted successfully", "item_id", *job.ItemID, "feed_id", job.FeedID)
 		return nil
 	}
 }
@@ -140,7 +139,6 @@ func DownloadMediaHandler(
 			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", existing.MediaPath, existing.MediaSize); err != nil {
 				return fmt.Errorf("failed to update media status (reuse): %w", err)
 			}
-			slog.Info("Media reused from existing download", "item_id", *job.ItemID, "media_path", mediaPath)
 			return nil
 		}
 
@@ -149,7 +147,6 @@ func DownloadMediaHandler(
 			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", mediaPath, size); err != nil {
 				return fmt.Errorf("failed to update media status (filesystem): %w", err)
 			}
-			slog.Info("Media found on filesystem", "item_id", *job.ItemID, "media_path", mediaPath)
 			return nil
 		}
 

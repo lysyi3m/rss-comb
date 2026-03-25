@@ -46,12 +46,10 @@ func (wp *WorkerPool) Wait() {
 
 func (wp *WorkerPool) runWorker(ctx context.Context, id int) {
 	defer wp.wg.Done()
-	slog.Info("Worker started", "worker_id", id)
 
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("Worker stopping", "worker_id", id)
 			return
 		default:
 		}
@@ -74,8 +72,6 @@ func (wp *WorkerPool) runWorker(ctx context.Context, id int) {
 			_ = wp.jobRepo.FailJob(job.ID, "no handler registered for job type: "+job.JobType)
 			continue
 		}
-
-		slog.Info("Processing job", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "feed_id", job.FeedID)
 
 		if err := handler(ctx, job); err != nil {
 			slog.Error("Job failed", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "error", err)
