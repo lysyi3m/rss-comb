@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.1] - 2026-03-25
+
+### Fixed
+- YouTube feeds with many items no longer download media for items beyond `max_items` (previously downloaded all, wasting bandwidth).
+- Content extraction jobs also limited to `max_items` newest visible items.
+- Media cleanup now respects per-feed `max_items` setting, correctly deleting orphaned files beyond the visible window.
+
 ## [2.2.0] - 2026-03-25
 
 ### Changed
