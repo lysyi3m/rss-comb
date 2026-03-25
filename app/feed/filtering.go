@@ -148,18 +148,11 @@ func normalizeUnicode(s string) string {
 }
 
 func normalizeWhitespace(s string) string {
-	// Replace all types of whitespace with regular spaces
+	// Replace non-breaking and typographic spaces with regular spaces
+	// so strings.Fields can split on them uniformly
 	s = strings.ReplaceAll(s, "\u00a0", " ") // non-breaking space
 	s = strings.ReplaceAll(s, "\u2009", " ") // thin space
 	s = strings.ReplaceAll(s, "\u202f", " ") // narrow no-break space
-	s = strings.ReplaceAll(s, "\t", " ")     // tab
-	s = strings.ReplaceAll(s, "\n", " ")     // newline
-	s = strings.ReplaceAll(s, "\r", " ")     // carriage return
 
-	// Collapse multiple spaces into single space
-	for strings.Contains(s, "  ") {
-		s = strings.ReplaceAll(s, "  ", " ")
-	}
-
-	return strings.TrimSpace(s)
+	return strings.Join(strings.Fields(s), " ")
 }

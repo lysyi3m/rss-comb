@@ -32,9 +32,9 @@ func parseWithGofeed(data []byte) (*gofeed.Feed, error) {
 
 func extractBaseMetadata(feed *gofeed.Feed) *Metadata {
 	metadata := &Metadata{
-		Title:       decodeHTMLEntities(feed.Title),
+		Title:       html.UnescapeString(feed.Title),
 		Link:        feed.Link,
-		Description: decodeHTMLEntities(feed.Description),
+		Description: html.UnescapeString(feed.Description),
 		Language:    feed.Language,
 	}
 
@@ -58,9 +58,9 @@ func normalizeBaseItem(item *gofeed.Item) types.Item {
 
 	normalized := types.Item{
 		GUID:        cmp.Or(item.GUID, normalizedLink),
-		Title:       decodeHTMLEntities(item.Title),
+		Title:       html.UnescapeString(item.Title),
 		Link:        normalizedLink,
-		Description: decodeHTMLEntities(item.Description),
+		Description: html.UnescapeString(item.Description),
 		Content:     item.Content,
 	}
 
@@ -171,12 +171,6 @@ func formatAuthor(name, email string) string {
 	return ""
 }
 
-func decodeHTMLEntities(s string) string {
-	if s == "" {
-		return s
-	}
-	return html.UnescapeString(s)
-}
 
 // Building helpers
 
@@ -226,7 +220,7 @@ func writeBaseItem(buf *bytes.Buffer, item database.Item, cfg *cfg.Cfg) {
 	buf.WriteString("    <item>\n")
 
 	if item.GUID != "" {
-		buf.WriteString(fmt.Sprintf("      <guid isPermaLink=\"%t\">", isURL(item.GUID)))
+		buf.WriteString(fmt.Sprintf("      <guid isPermaLink=\"%t\">", strings.HasPrefix(item.GUID, "http://") || strings.HasPrefix(item.GUID, "https://")))
 		xml.EscapeText(buf, []byte(item.GUID))
 		buf.WriteString("</guid>\n")
 	}
@@ -325,10 +319,6 @@ func writeElement(buf *bytes.Buffer, tag, content string, indent int) {
 	buf.WriteString("</")
 	buf.WriteString(tag)
 	buf.WriteString(">\n")
-}
-
-func isURL(s string) bool {
-	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
 }
 
 func formatDuration(seconds int) string {

@@ -57,7 +57,7 @@ func normalizeYouTubeItem(normalized *types.Item, item *gofeed.Item) {
 func extractMediaDescription(item *gofeed.Item) string {
 	if mediaGroup, ok := item.Extensions["media"]["group"]; ok && len(mediaGroup) > 0 {
 		if descs, ok := mediaGroup[0].Children["description"]; ok && len(descs) > 0 {
-			return decodeHTMLEntities(descs[0].Value)
+			return html.UnescapeString(descs[0].Value)
 		}
 	}
 	return ""
