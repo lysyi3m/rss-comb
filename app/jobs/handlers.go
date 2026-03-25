@@ -40,7 +40,7 @@ func FetchFeedHandler(
 		if err != nil {
 			return nil
 		}
-		if settings.MediaExtraction {
+		if settings.ExtractMedia {
 			keepPaths, err := itemRepo.GetAllActiveMediaPaths()
 			if err != nil {
 				slog.Error("Failed to get active media paths for cleanup", "error", err)

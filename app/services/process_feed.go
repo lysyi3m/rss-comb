@@ -117,7 +117,7 @@ func ProcessFeed(
 			processedItem.ContentExtractionStatus = stringPtr("pending")
 		}
 
-		if !processedItem.IsFiltered && settings.MediaExtraction {
+		if !processedItem.IsFiltered && settings.ExtractMedia {
 			processedItem.MediaStatus = stringPtr("pending")
 		}
 
@@ -156,7 +156,7 @@ func ProcessFeed(
 		logData = append(logData, "extraction_jobs", extractionJobCount)
 	}
 
-	if settings.MediaExtraction {
+	if settings.ExtractMedia {
 		logData = append(logData, "media_jobs", mediaJobCount)
 	}
 

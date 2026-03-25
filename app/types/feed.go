@@ -7,7 +7,7 @@ type Settings struct {
 	MaxItems        int  `yaml:"max_items" json:"max_items"`
 	Timeout         int  `yaml:"timeout" json:"timeout"`
 	ExtractContent  bool `yaml:"extract_content" json:"extract_content"`
-	MediaExtraction bool `yaml:"media_extraction" json:"media_extraction"`
+	ExtractMedia bool `yaml:"extract_media" json:"extract_media"`
 }
 
 type Filter struct {

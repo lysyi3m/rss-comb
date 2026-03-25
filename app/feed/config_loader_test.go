@@ -89,12 +89,12 @@ url: "https://example.com/feed.xml"
 enabled: true
 settings:
   extract_content: true
-  media_extraction: true
+  extract_media: true
 `)
 
 	_, _, err := LoadConfig(dir, "test-feed")
 	if err == nil {
-		t.Error("expected error for mutual exclusion of extract_content and media_extraction")
+		t.Error("expected error for mutual exclusion of extract_content and extract_media")
 	}
 }
 
