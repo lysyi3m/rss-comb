@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // CleanupMedia deletes media files in mediaDir that are not in the keepPaths set.
@@ -30,6 +31,9 @@ func CleanupMedia(mediaDir string, keepPaths []string) (int, error) {
 		}
 
 		name := entry.Name()
+		if !strings.HasSuffix(name, ".mp3") {
+			continue
+		}
 		if _, keep := keepSet[name]; keep {
 			continue
 		}
