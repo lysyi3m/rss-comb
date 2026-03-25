@@ -27,6 +27,7 @@ type Feed struct {
 	UpdatedAt       time.Time // Tracks last successful processing (replaces last_success)
 
 	// Configuration fields
+	FeedType   string          // Feed type: "", "podcast", "youtube"
 	IsEnabled  bool            // Whether the feed is enabled
 	Settings   json.RawMessage // JSONB feed settings
 	Filters    json.RawMessage // JSONB feed filters

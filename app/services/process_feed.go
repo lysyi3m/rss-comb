@@ -55,7 +55,7 @@ func ProcessFeed(
 		return fmt.Errorf("failed to get feed filters: %w", err)
 	}
 
-	metadata, items, contentHash, newContentHash, err := fetchAndParseFeed(ctx, feedName, dbFeed.FeedURL, settings, feedRepo, httpClient, userAgent)
+	metadata, items, contentHash, newContentHash, err := fetchAndParseFeed(ctx, feedName, dbFeed.FeedURL, dbFeed.FeedType, settings, feedRepo, httpClient, userAgent)
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func ProcessFeed(
 			processedItem.ContentExtractionStatus = stringPtr("pending")
 		}
 
-		if !processedItem.IsFiltered && settings.ExtractMedia {
+		if !processedItem.IsFiltered && dbFeed.FeedType == "youtube" {
 			processedItem.MediaStatus = stringPtr("pending")
 		}
 
@@ -156,7 +156,7 @@ func ProcessFeed(
 		logData = append(logData, "extraction_jobs", extractionJobCount)
 	}
 
-	if settings.ExtractMedia {
+	if dbFeed.FeedType == "youtube" {
 		logData = append(logData, "media_jobs", mediaJobCount)
 	}
 
@@ -209,6 +209,7 @@ func fetchAndParseFeed(
 	ctx context.Context,
 	feedName string,
 	feedURL string,
+	feedType string,
 	settings *types.Settings,
 	feedRepo *database.FeedRepository,
 	httpClient *http.Client,
@@ -219,7 +220,8 @@ func fetchAndParseFeed(
 		return nil, nil, nil, "", fmt.Errorf("failed to fetch feed: %w", err)
 	}
 
-	metadata, items, err := feed.Parse(data)
+	ft := feed.ForType(feedType)
+	metadata, items, err := ft.Parse(data)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("failed to parse feed: %w", err)
 	}

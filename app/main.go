@@ -200,7 +200,7 @@ func loadFeedConfigurations(feedsDir string, feedRepo *database.FeedRepository) 
 		if config.Enabled {
 			enabledCount++
 			enabledNames = append(enabledNames, feedName)
-			if config.Settings.ExtractMedia {
+			if config.Type == "youtube" {
 				hasMediaFeeds = true
 			}
 		}

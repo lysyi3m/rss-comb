@@ -23,7 +23,7 @@ func (r *FeedRepository) GetFeed(feedName string) (*Feed, error) {
 	err := r.db.QueryRow(`
 		SELECT id, name, feed_url, COALESCE(link, ''), COALESCE(title, ''), COALESCE(source_title, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, created_at, updated_at,
-		       is_enabled, settings, filters, config_hash,
+		       feed_type, is_enabled, settings, filters, config_hash,
 		       COALESCE(itunes_author, ''), COALESCE(itunes_image, ''), COALESCE(itunes_explicit, ''), COALESCE(itunes_owner_name, ''), COALESCE(itunes_owner_email, '')
 		FROM feeds
 		WHERE name = $1
@@ -31,7 +31,7 @@ func (r *FeedRepository) GetFeed(feedName string) (*Feed, error) {
 		&feed.ID, &feed.Name, &feed.FeedURL, &feed.Link, &feed.Title, &feed.SourceTitle, &feed.Description, &feed.ImageURL, &feed.Language,
 		&feed.LastFetchedAt, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.FeedUpdatedAt,
 		&feed.CreatedAt, &feed.UpdatedAt,
-		&feed.IsEnabled, &feed.Settings, &feed.Filters, &feed.ConfigHash,
+		&feed.FeedType, &feed.IsEnabled, &feed.Settings, &feed.Filters, &feed.ConfigHash,
 		&feed.ITunesAuthor, &feed.ITunesImage, &feed.ITunesExplicit, &feed.ITunesOwnerName, &feed.ITunesOwnerEmail,
 	)
 
@@ -83,7 +83,7 @@ func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Met
 	return nil
 }
 
-func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title string, isEnabled bool, settings interface{}, filters interface{}, configHash string) error {
+func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title string, feedType string, isEnabled bool, settings interface{}, filters interface{}, configHash string) error {
 	var existingHash *string
 	err := r.db.QueryRow("SELECT config_hash FROM feeds WHERE name = $1", feedName).Scan(&existingHash)
 	if err != nil && err != sql.ErrNoRows {
@@ -111,11 +111,12 @@ func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title
 	}
 
 	_, err = r.db.Exec(`
-		INSERT INTO feeds (name, feed_url, title, is_enabled, settings, filters, config_hash)
-		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7)
+		INSERT INTO feeds (name, feed_url, title, feed_type, is_enabled, settings, filters, config_hash)
+		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8)
 		ON CONFLICT (name) DO UPDATE SET
 			feed_url = EXCLUDED.feed_url,
 			title = NULLIF($3, ''),
+			feed_type = EXCLUDED.feed_type,
 			is_enabled = EXCLUDED.is_enabled,
 			settings = EXCLUDED.settings,
 			filters = EXCLUDED.filters,
@@ -126,7 +127,7 @@ func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title
 				ELSE feeds.next_fetch_at
 			END,
 			updated_at = NOW()
-	`, feedName, feedURL, title, isEnabled, settingsJSON, filtersJSON, configHash)
+	`, feedName, feedURL, title, feedType, isEnabled, settingsJSON, filtersJSON, configHash)
 
 	if err != nil {
 		return fmt.Errorf("failed to upsert feed config: %w", err)
@@ -176,7 +177,7 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 	err := r.db.QueryRow(`
 		SELECT id, name, feed_url, COALESCE(link, ''), COALESCE(title, ''), COALESCE(source_title, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(language, ''),
 		       last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, created_at, updated_at,
-		       is_enabled, settings, filters, config_hash,
+		       feed_type, is_enabled, settings, filters, config_hash,
 		       COALESCE(itunes_author, ''), COALESCE(itunes_image, ''), COALESCE(itunes_explicit, ''), COALESCE(itunes_owner_name, ''), COALESCE(itunes_owner_email, '')
 		FROM feeds
 		WHERE id = $1
@@ -184,7 +185,7 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 		&feed.ID, &feed.Name, &feed.FeedURL, &feed.Link, &feed.Title, &feed.SourceTitle, &feed.Description, &feed.ImageURL, &feed.Language,
 		&feed.LastFetchedAt, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.FeedUpdatedAt,
 		&feed.CreatedAt, &feed.UpdatedAt,
-		&feed.IsEnabled, &feed.Settings, &feed.Filters, &feed.ConfigHash,
+		&feed.FeedType, &feed.IsEnabled, &feed.Settings, &feed.Filters, &feed.ConfigHash,
 		&feed.ITunesAuthor, &feed.ITunesImage, &feed.ITunesExplicit, &feed.ITunesOwnerName, &feed.ITunesOwnerEmail,
 	)
 

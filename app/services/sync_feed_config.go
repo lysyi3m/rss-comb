@@ -29,6 +29,7 @@ func SyncFeedConfig(
 		config.Name,
 		config.URL,
 		config.Title,
+		config.Type,
 		config.Enabled,
 		config.Settings,
 		config.Filters,

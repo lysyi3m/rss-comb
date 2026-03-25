@@ -36,11 +36,7 @@ func FetchFeedHandler(
 			return err
 		}
 
-		settings, err := dbFeed.GetSettings()
-		if err != nil {
-			return nil
-		}
-		if settings.ExtractMedia {
+		if dbFeed.FeedType == "youtube" {
 			keepPaths, err := itemRepo.GetAllActiveMediaPaths()
 			if err != nil {
 				slog.Error("Failed to get active media paths for cleanup", "error", err)

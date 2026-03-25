@@ -68,7 +68,8 @@ func (h *Handler) GetFeed(c *gin.Context) {
 		return
 	}
 
-	rss, err := feed.GenerateRSS(*dbFeed, items, h.cfg)
+	ft := feed.ForType(dbFeed.FeedType)
+	rss, err := ft.Build(*dbFeed, items, h.cfg)
 	if err != nil {
 		slog.Error("RSS generation error", "feed", name, "error", err)
 		c.Status(http.StatusInternalServerError)

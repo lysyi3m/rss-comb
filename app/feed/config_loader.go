@@ -56,8 +56,13 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("timeout must be >= 0")
 	}
 
-	if config.Settings.ExtractContent && config.Settings.ExtractMedia {
-		return fmt.Errorf("extract_content and extract_media cannot both be enabled")
+	validTypes := map[string]bool{"": true, "podcast": true, "youtube": true}
+	if !validTypes[config.Type] {
+		return fmt.Errorf("invalid type %q (must be one of: podcast, youtube, or omitted)", config.Type)
+	}
+
+	if config.Settings.ExtractContent && config.Type != "" {
+		return fmt.Errorf("extract_content is only supported for basic (no type) feeds")
 	}
 
 	for i, filter := range config.Filters {

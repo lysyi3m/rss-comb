@@ -82,19 +82,51 @@ enabled: true
 	}
 }
 
-func TestLoadConfig_MutualExclusion(t *testing.T) {
+func TestLoadConfig_ValidTypes(t *testing.T) {
+	for _, typ := range []string{"", "podcast", "youtube"} {
+		dir := t.TempDir()
+		content := `url: "https://example.com/feed.xml"
+enabled: true
+`
+		if typ != "" {
+			content += "type: " + typ + "\n"
+		}
+		writeTestConfig(t, dir, "test-feed.yml", content)
+
+		_, _, err := LoadConfig(dir, "test-feed")
+		if err != nil {
+			t.Errorf("expected no error for type %q, got: %v", typ, err)
+		}
+	}
+}
+
+func TestLoadConfig_InvalidType(t *testing.T) {
 	dir := t.TempDir()
 	writeTestConfig(t, dir, "test-feed.yml", `
 url: "https://example.com/feed.xml"
+type: invalid
 enabled: true
-settings:
-  extract_content: true
-  extract_media: true
 `)
 
 	_, _, err := LoadConfig(dir, "test-feed")
 	if err == nil {
-		t.Error("expected error for mutual exclusion of extract_content and extract_media")
+		t.Error("expected error for invalid type")
+	}
+}
+
+func TestLoadConfig_ExtractContentOnlyForBasicType(t *testing.T) {
+	dir := t.TempDir()
+	writeTestConfig(t, dir, "test-feed.yml", `
+url: "https://example.com/feed.xml"
+type: podcast
+enabled: true
+settings:
+  extract_content: true
+`)
+
+	_, _, err := LoadConfig(dir, "test-feed")
+	if err == nil {
+		t.Error("expected error for extract_content on non-basic type")
 	}
 }
 
