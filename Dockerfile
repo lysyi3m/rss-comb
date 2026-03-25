@@ -54,7 +54,10 @@ RUN apk add --no-cache \
     tzdata \
     python3 py3-pip \
     ffmpeg \
-    && apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community deno \
+    && apk add --no-cache \
+        --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main \
+        --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
+        deno \
     && pip3 install --break-system-packages yt-dlp
 
 # Create non-root user (combine RUN commands for fewer layers)
