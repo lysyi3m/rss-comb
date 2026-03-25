@@ -15,7 +15,8 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 - **Content Extraction**: Intelligent full-text content extraction using [go-shiori/go-readability](https://github.com/go-shiori/go-readability)
 - **Flexible Filtering**: Powerful content filtering with both substring matching and regular expressions (regex)
 - **Background Processing**: Automated feed updates with configurable refresh intervals
-- **Simple Architecture**: Ticker-based processing with straightforward service functions
+- **Type-Specific Processing**: FeedType interface with dedicated parsers/builders for basic RSS, podcasts, and YouTube feeds
+- **Media Downloads**: YouTube video → podcast audio conversion via yt-dlp
 - **Statistics & Monitoring**: Built-in stats endpoint and comprehensive logging
 - **API Authentication**: Secure API endpoints with configurable access keys
 - **Docker Ready**: Fully containerized with optimized multi-stage builds
@@ -37,7 +38,6 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
    ```bash
    # Create docker-compose.yml
    cat > docker-compose.yml << EOF
-   version: '3.8'
    services:
      rss-comb:
        image: ghcr.io/lysyi3m/rss-comb:latest
@@ -108,7 +108,11 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 | `PORT` | 8080 | HTTP server port |
 | `BASE_URL` | *empty* | Base URL for RSS self-referencing links |
 | `SCHEDULER_INTERVAL` | 30 | Feed processing ticker interval in seconds |
+| `WORKER_COUNT` | 5 | Number of concurrent background workers |
 | `API_ACCESS_KEY` | *optional* | API access key for authentication |
+| `MEDIA_DIR` | ./media | Directory for downloaded media files |
+| `YT_DLP_CMD` | yt-dlp | yt-dlp command (supports multi-word for Docker) |
+| `YT_DLP_ARGS` | *empty* | Extra arguments for yt-dlp |
 | `USER_AGENT` | "RSS Comb/1.0" | User agent for HTTP requests |
 | `TZ` | UTC | Timezone for timestamps |
 
@@ -118,14 +122,15 @@ Create YAML configuration files in the `feeds/` directory. Feed names are derive
 
 ```yaml
 url: "https://example.com/feed.xml"
-
 enabled: true
+title: "Custom Title"            # Optional: overrides source feed title
+type: ""                         # Optional: "" (basic), "podcast", or "youtube"
 
 settings:
   refresh_interval: 1800       # 30 minutes
   max_items: 50                # Limits RSS output items (all items stored in database)
   timeout: 30                  # seconds
-  extract_content: false       # Enable automatic content extraction
+  extract_content: false       # Enable automatic content extraction (basic type only)
 
 filters:
   - field: "title"
@@ -150,7 +155,8 @@ filters:
 **Key Configuration Notes:**
 - Feed names are derived from filenames (remove `.yml` extension)
 - Feed names must be unique and URL-safe
-- Feed titles are automatically extracted from the RSS/Atom source (no manual configuration needed)
+- **Feed types**: `""` (basic, default) for standard RSS/Atom; `"podcast"` for iTunes podcast passthrough; `"youtube"` for YouTube → podcast conversion via yt-dlp
+- Feed titles are automatically extracted from the source, or can be overridden with `title:`
 - `max_items` limits RSS output only - all items are stored in database
 - `extract_content: true` enables automatic full-text content extraction from article URLs
 - Deduplication is automatic and always enabled
@@ -168,6 +174,7 @@ filters:
 
 - **`GET /feeds/<name>`** - Get RSS 2.0 feed output for the specified feed
 - **`GET /health`** - Application health check and statistics
+- **`GET /media/<filename>`** - Serve downloaded media files (YouTube audio)
 
 ### Authenticated Endpoints
 
