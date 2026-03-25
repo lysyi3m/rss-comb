@@ -2,8 +2,6 @@ package jobs
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -53,19 +51,27 @@ func processFeed(
 		return fmt.Errorf("failed to get feed filters: %w", err)
 	}
 
-	metadata, items, contentHash, newContentHash, err := fetchAndParseFeed(ctx, feedName, dbFeed.FeedURL, dbFeed.FeedType, settings, feedRepo, httpClient, userAgent)
+	metadata, items, err := fetchAndParseFeed(ctx, dbFeed.FeedURL, dbFeed.FeedType, settings, httpClient, userAgent)
 	if err != nil {
 		return err
 	}
 
 	now := time.Now().UTC()
 	nextFetch := now.Add(time.Duration(settings.RefreshInterval) * time.Second)
-	err = feedRepo.UpdateFeedMetadata(feedName, metadata, newContentHash, nextFetch)
-	if err != nil {
+	if err := feedRepo.UpdateFeedMetadata(feedName, metadata, nextFetch); err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
 
-	if contentHash != nil && *contentHash == newContentHash {
+	if len(items) == 0 {
+		return nil
+	}
+
+	// Check if newest item already exists — if so, no new items to process
+	isDuplicate, _, err := itemRepo.CheckDuplicate(feedName, items[0].ContentHash)
+	if err != nil {
+		return fmt.Errorf("failed to check newest item: %w", err)
+	}
+	if isDuplicate {
 		slog.Info("Feed unchanged, skipping item processing",
 			"feed", feedName,
 			"duration", time.Since(start))
@@ -77,13 +83,6 @@ func processFeed(
 	newCount := 0
 	extractionJobCount := 0
 	mediaJobCount := 0
-
-	if len(items) == 0 {
-		slog.Info("No parsed items found, skipping item processing",
-			"feed", feedName,
-			"duration", time.Since(start))
-		return nil
-	}
 
 	for _, item := range items {
 		select {
@@ -169,32 +168,22 @@ func stringPtr(s string) *string {
 
 func fetchAndParseFeed(
 	ctx context.Context,
-	feedName string,
 	feedURL string,
 	feedType string,
 	settings *types.Settings,
-	feedRepo *database.FeedRepository,
 	httpClient *http.Client,
 	userAgent string,
-) (*feed.Metadata, []types.Item, *string, string, error) {
+) (*feed.Metadata, []types.Item, error) {
 	data, err := fetchURL(ctx, feedURL, settings.Timeout, httpClient, userAgent, false)
 	if err != nil {
-		return nil, nil, nil, "", fmt.Errorf("failed to fetch feed: %w", err)
+		return nil, nil, fmt.Errorf("failed to fetch feed: %w", err)
 	}
 
 	ft := feed.ForType(feedType)
 	metadata, items, err := ft.Parse(data)
 	if err != nil {
-		return nil, nil, nil, "", fmt.Errorf("failed to parse feed: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse feed: %w", err)
 	}
 
-	contentHash, err := feedRepo.GetFeedContentHash(feedName)
-	if err != nil {
-		return nil, nil, nil, "", fmt.Errorf("failed to get stored content hash: %w", err)
-	}
-
-	hash := sha256.Sum256(data)
-	newContentHash := hex.EncodeToString(hash[:8])
-
-	return metadata, items, contentHash, newContentHash, nil
+	return metadata, items, nil
 }

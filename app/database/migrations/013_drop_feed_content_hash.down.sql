@@ -1,0 +1,1 @@
+ALTER TABLE feeds ADD COLUMN content_hash VARCHAR(64);

@@ -54,26 +54,14 @@ func (r *FeedRepository) GetFeedCount() (int, error) {
 	return count, nil
 }
 
-func (r *FeedRepository) GetFeedContentHash(feedName string) (*string, error) {
-	var contentHash *string
-	err := r.db.QueryRow("SELECT content_hash FROM feeds WHERE name = $1", feedName).Scan(&contentHash)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get feed content hash: %w", err)
-	}
-	return contentHash, nil
-}
-
-func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Metadata, contentHash string, nextFetchAt time.Time) error {
+func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Metadata, nextFetchAt time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
 		SET source_title = $2, link = $3, description = $4, image_url = $5, language = $6, feed_published_at = $7, feed_updated_at = $8,
-		    content_hash = $9, next_fetch_at = $10, last_fetched_at = NOW(), updated_at = NOW(),
-		    itunes_author = $11, itunes_image = $12, itunes_explicit = $13, itunes_owner_name = $14, itunes_owner_email = $15
+		    next_fetch_at = $9, last_fetched_at = NOW(), updated_at = NOW(),
+		    itunes_author = $10, itunes_image = $11, itunes_explicit = $12, itunes_owner_name = $13, itunes_owner_email = $14
 		WHERE name = $1
-	`, feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, contentHash, nextFetchAt,
+	`, feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, nextFetchAt,
 		metadata.ITunesAuthor, metadata.ITunesImage, metadata.ITunesExplicit, metadata.ITunesOwnerName, metadata.ITunesOwnerEmail)
 
 	if err != nil {
