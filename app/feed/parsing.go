@@ -59,6 +59,16 @@ func Parse(data []byte) (*Metadata, []types.Item, error) {
 		items = append(items, normalized)
 	}
 
+	// Use first item's thumbnail as feed image if none exists (YouTube feeds lack feed-level images)
+	if metadata.ImageURL == "" && len(items) > 0 && items[0].ITunesImage != "" {
+		metadata.ImageURL = items[0].ITunesImage
+	}
+
+	// Use first author as iTunes author if none exists (YouTube feeds have per-entry authors)
+	if metadata.ITunesAuthor == "" && len(items) > 0 && len(items[0].Authors) > 0 {
+		metadata.ITunesAuthor = items[0].Authors[0]
+	}
+
 	return metadata, items, nil
 }
 
@@ -106,11 +116,16 @@ func normalizeURL(rawURL string) string {
 func normalizeItem(item *gofeed.Item) types.Item {
 	normalizedLink := normalizeURL(item.Link)
 
+	description := decodeHTMLEntities(item.Description)
+	if description == "" {
+		description = extractMediaDescription(item)
+	}
+
 	normalized := types.Item{
 		GUID:        cmp.Or(item.GUID, normalizedLink),
 		Title:       decodeHTMLEntities(item.Title),
 		Link:        normalizedLink,
-		Description: decodeHTMLEntities(item.Description),
+		Description: description,
 		Content:     item.Content,
 	}
 
@@ -167,7 +182,34 @@ func normalizeItem(item *gofeed.Item) types.Item {
 		normalized.ITunesImage = item.ITunesExt.Image
 	}
 
+	if normalized.ITunesImage == "" {
+		normalized.ITunesImage = extractMediaThumbnail(item)
+	}
+
 	return normalized
+}
+
+// extractMediaDescription gets the description from media:group > media:description
+// (used by YouTube Atom feeds which don't put descriptions in standard fields).
+func extractMediaDescription(item *gofeed.Item) string {
+	if mediaGroup, ok := item.Extensions["media"]["group"]; ok && len(mediaGroup) > 0 {
+		if descs, ok := mediaGroup[0].Children["description"]; ok && len(descs) > 0 {
+			return decodeHTMLEntities(descs[0].Value)
+		}
+	}
+	return ""
+}
+
+// extractMediaThumbnail gets the thumbnail URL from media:group > media:thumbnail.
+func extractMediaThumbnail(item *gofeed.Item) string {
+	if mediaGroup, ok := item.Extensions["media"]["group"]; ok && len(mediaGroup) > 0 {
+		if thumbs, ok := mediaGroup[0].Children["thumbnail"]; ok && len(thumbs) > 0 {
+			if url, ok := thumbs[0].Attrs["url"]; ok {
+				return url
+			}
+		}
+	}
+	return ""
 }
 
 func generateContentHash(item types.Item) string {
