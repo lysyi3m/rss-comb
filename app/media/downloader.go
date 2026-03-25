@@ -11,6 +11,26 @@ import (
 	"time"
 )
 
+// Update runs yt-dlp's self-update mechanism.
+func Update(ytdlpCmd string) error {
+	parts := strings.Fields(ytdlpCmd)
+	if len(parts) == 0 {
+		return fmt.Errorf("YT_DLP_CMD is empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	args := append(parts[1:], "-U")
+	cmd := exec.CommandContext(ctx, parts[0], args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("yt-dlp update failed: %w\nOutput: %s", err, string(output))
+	}
+
+	return nil
+}
+
 // Validate checks that the configured yt-dlp command is available and working.
 func Validate(ytdlpCmd string) error {
 	parts := strings.Fields(ytdlpCmd)

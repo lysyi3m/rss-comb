@@ -12,14 +12,12 @@ services:
       DB_NAME: ${DB_NAME:-rss_comb}
       FEEDS_DIR: /app/feeds
       MEDIA_DIR: /app/media
-      YT_DLP_CMD: "docker run --rm -v rss-comb-prod_media_data:/downloads jauderho/yt-dlp:2026.03.17"
       BASE_URL: ${BASE_URL}
       API_ACCESS_KEY: ${API_ACCESS_KEY}
       TZ: ${TZ:-UTC}
     volumes:
       - ./feeds:/app/feeds:ro
       - media_data:/app/media
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       db:
         condition: service_healthy
@@ -38,11 +36,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  yt-dlp:
-    image: jauderho/yt-dlp:2026.03.17
-    profiles: ["tools"]
-    entrypoint: ["yt-dlp"]
 
 volumes:
   postgres_data:

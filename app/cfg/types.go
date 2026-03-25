@@ -19,6 +19,7 @@ type Cfg struct {
 	APIAccessKey      string `long:"api-key" env:"API_ACCESS_KEY" description:"API access key for authentication (optional)"`
 	MediaDir          string `long:"media-dir" env:"MEDIA_DIR" default:"./media" description:"Directory for downloaded media files"`
 	YTDLPCmd          string `long:"yt-dlp-cmd" env:"YT_DLP_CMD" default:"yt-dlp" description:"yt-dlp command (supports multi-word for docker, e.g. 'docker compose run --rm yt-dlp')"`
+	YTDLPUpdate       bool   `long:"yt-dlp-update" env:"YT_DLP_UPDATE" description:"Auto-update yt-dlp on startup"`
 
 	// Application metadata
 	UserAgent string         `long:"user-agent" env:"USER_AGENT" default:"RSS Comb/1.0" description:"User agent string for HTTP requests"`
