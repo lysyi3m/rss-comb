@@ -73,7 +73,7 @@ COPY --from=builder /build/rss-comb .
 # Migrations are now embedded in the application binary
 
 # Create feeds directory and set ownership (combine for fewer layers)
-RUN mkdir -p feeds media config && \
+RUN mkdir -p feeds media && \
     chown -R appuser:appgroup /app
 
 # Switch to non-root user
