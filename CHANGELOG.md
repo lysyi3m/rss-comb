@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0] - 2026-03-26
+
+### Added
+- **YouTube live stream detection** — pre-checks video status via `yt-dlp --dump-json` before downloading. Live/upcoming streams are retried automatically until the broadcast ends and the VOD becomes available.
+- **Job retry backoff** — exponential backoff with jitter for all job retries (capped at 15 minutes). New `run_after` column on jobs table.
+
+### Changed
+- `download_media` max retries increased from 3 to 30 to accommodate long-running live streams.
+
 ## [2.2.1] - 2026-03-25
 
 ### Fixed
