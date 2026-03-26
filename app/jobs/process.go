@@ -136,7 +136,7 @@ func processFeed(
 		}
 
 		if processedItem.MediaStatus != nil && *processedItem.MediaStatus == "pending" {
-			if _, err := jobRepo.CreateJob("download_media", dbFeed.ID, &itemID, 3); err != nil {
+			if _, err := jobRepo.CreateJob("download_media", dbFeed.ID, &itemID, 30); err != nil {
 				slog.Error("Failed to create download_media job", "feed", feedName, "item_id", itemID, "error", err)
 			} else {
 				mediaJobCount++

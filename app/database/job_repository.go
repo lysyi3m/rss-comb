@@ -3,8 +3,12 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"math"
+	"math/rand/v2"
 	"time"
 )
+
+const maxBackoffSeconds = 900 // 15 minutes
 
 type Job struct {
 	ID           string
@@ -15,6 +19,7 @@ type Job struct {
 	Retries      int
 	MaxRetries   int
 	ErrorMessage *string
+	RunAfter     *time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -52,20 +57,22 @@ func (r *JobRepository) CreateJob(jobType, feedID string, itemID *string, maxRet
 }
 
 // ClaimJob atomically claims the oldest pending job using FOR UPDATE SKIP LOCKED.
-// Returns nil if no jobs are available.
+// Skips jobs with a future run_after timestamp (backoff). Returns nil if no jobs are available.
 func (r *JobRepository) ClaimJob() (*Job, error) {
 	var job Job
 	err := r.db.QueryRow(`
 		UPDATE jobs SET status = 'processing', updated_at = NOW()
 		WHERE id = (
-			SELECT id FROM jobs WHERE status = 'pending'
+			SELECT id FROM jobs
+			WHERE status = 'pending'
+			  AND (run_after IS NULL OR run_after <= NOW())
 			ORDER BY created_at LIMIT 1
 			FOR UPDATE SKIP LOCKED
 		)
-		RETURNING id, job_type, feed_id, item_id, status, retries, max_retries, error_message, created_at, updated_at
+		RETURNING id, job_type, feed_id, item_id, status, retries, max_retries, error_message, run_after, created_at, updated_at
 	`).Scan(
 		&job.ID, &job.JobType, &job.FeedID, &job.ItemID, &job.Status,
-		&job.Retries, &job.MaxRetries, &job.ErrorMessage,
+		&job.Retries, &job.MaxRetries, &job.ErrorMessage, &job.RunAfter,
 		&job.CreatedAt, &job.UpdatedAt,
 	)
 
@@ -88,8 +95,8 @@ func (r *JobRepository) CompleteJob(jobID string) error {
 	return nil
 }
 
-// FailJob increments retries. If max retries reached, deletes the job.
-// Otherwise sets status back to pending for retry.
+// FailJob increments retries and schedules the next attempt with exponential backoff + jitter.
+// If max retries reached, deletes the job. Otherwise sets status back to pending.
 func (r *JobRepository) FailJob(jobID string, errMsg string) error {
 	_, err := r.db.Exec(`
 		UPDATE jobs SET
@@ -102,7 +109,6 @@ func (r *JobRepository) FailJob(jobID string, errMsg string) error {
 		return fmt.Errorf("failed to update job retries: %w", err)
 	}
 
-	// Delete if retries exhausted (including max_retries=0, which means no retries allowed)
 	_, err = r.db.Exec(`
 		DELETE FROM jobs WHERE id = $1 AND retries >= max_retries
 	`, jobID)
@@ -110,15 +116,33 @@ func (r *JobRepository) FailJob(jobID string, errMsg string) error {
 		return fmt.Errorf("failed to cleanup exhausted job: %w", err)
 	}
 
+	// Exponential backoff with jitter: base = min(2^retries, 900s), jitter adds 0-100% of base
+	var retries int
+	err = r.db.QueryRow(`SELECT retries FROM jobs WHERE id = $1`, jobID).Scan(&retries)
+	if err == sql.ErrNoRows {
+		return nil // job was deleted (retries exhausted)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to read job retries: %w", err)
+	}
+
+	backoff := retryBackoff(retries)
+
 	_, err = r.db.Exec(`
-		UPDATE jobs SET status = 'pending', updated_at = NOW()
+		UPDATE jobs SET status = 'pending', run_after = $2, updated_at = NOW()
 		WHERE id = $1 AND status = 'processing'
-	`, jobID)
+	`, jobID, time.Now().Add(backoff))
 	if err != nil {
 		return fmt.Errorf("failed to reset job to pending: %w", err)
 	}
 
 	return nil
+}
+
+func retryBackoff(retries int) time.Duration {
+	base := math.Min(math.Pow(2, float64(retries)), float64(maxBackoffSeconds))
+	jitter := base * rand.Float64()
+	return time.Duration(base+jitter) * time.Second
 }
 
 // ResetStaleJobs resets jobs stuck in 'processing' state beyond the timeout back to 'pending'.

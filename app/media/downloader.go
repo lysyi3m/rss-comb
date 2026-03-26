@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -56,6 +57,37 @@ func MediaFileID(guid string) string {
 	}
 	hash := sha256.Sum256([]byte(guid))
 	return fmt.Sprintf("%x", hash[:8])
+}
+
+// CheckLiveStatus returns the video's live_status field from yt-dlp metadata.
+func CheckLiveStatus(ctx context.Context, ytdlpCmd, url string) (string, error) {
+	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	parts := strings.Fields(ytdlpCmd)
+	if len(parts) == 0 {
+		return "", fmt.Errorf("YT_DLP_CMD is empty")
+	}
+
+	args := append(parts[1:], "--dump-json", "--no-playlist", url)
+	cmd := exec.CommandContext(checkCtx, parts[0], args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("yt-dlp metadata check failed: %w\nOutput: %s", err, string(output))
+	}
+
+	var metadata struct {
+		LiveStatus string `json:"live_status"`
+	}
+	if err := json.Unmarshal(output, &metadata); err != nil {
+		return "", fmt.Errorf("failed to parse yt-dlp metadata: %w", err)
+	}
+
+	return metadata.LiveStatus, nil
+}
+
+func IsLiveOrUpcoming(status string) bool {
+	return status == "is_live" || status == "is_upcoming"
 }
 
 func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID string) (string, int64, error) {

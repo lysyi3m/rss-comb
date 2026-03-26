@@ -150,11 +150,19 @@ func DownloadMediaHandler(
 			return nil
 		}
 
-		// Layer 3: Actually download
+		// Layer 3: Check live status before downloading
 		if item.Link == "" {
 			return handleMediaFailure(itemRepo, *job.ItemID, job, fmt.Errorf("item has no link"))
 		}
 
+		liveStatus, err := media.CheckLiveStatus(ctx, ytdlpCmd, item.Link)
+		if err != nil {
+			slog.Warn("Live status check failed, proceeding with download", "item_id", *job.ItemID, "error", err)
+		} else if media.IsLiveOrUpcoming(liveStatus) {
+			return fmt.Errorf("video is live or upcoming (status: %s), will retry later", liveStatus)
+		}
+
+		// Layer 4: Actually download
 		path, size, err := media.Download(ctx, ytdlpCmd, ytdlpArgs, mediaDir, item.Link, fileID)
 		if err != nil {
 			return handleMediaFailure(itemRepo, *job.ItemID, job, err)
