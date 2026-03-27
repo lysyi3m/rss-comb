@@ -153,7 +153,8 @@ func (r *ItemRepository) GetVisibleItems(feedName string, limit int) ([]Item, er
 		WHERE f.name = $1
 		  AND fi.is_filtered = false
 		  AND (fi.content_extraction_status IS NULL OR fi.content_extraction_status IN ('ready', 'failed'))
-		  AND (fi.media_status IS NULL OR fi.media_status = 'ready')
+		  AND (CASE WHEN f.feed_type = 'youtube' THEN fi.media_status = 'ready'
+		            ELSE fi.media_status IS NULL OR fi.media_status = 'ready' END)
 		ORDER BY fi.published_at DESC
 		LIMIT $2
 	`, feedName, limit)
