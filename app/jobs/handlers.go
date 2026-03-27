@@ -32,7 +32,7 @@ func FetchFeedHandler(
 		}
 
 		if err := processFeed(ctx, dbFeed.Name, feedRepo, itemRepo, jobRepo, httpClient, userAgent); err != nil {
-			return err
+			return fmt.Errorf("[%s] %w", dbFeed.Name, err)
 		}
 
 		if dbFeed.FeedType == "youtube" {

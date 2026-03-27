@@ -104,7 +104,6 @@ func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID st
 		"--extract-audio", "--audio-format", "mp3", "--audio-quality", "64k",
 		"--postprocessor-args", "-ac 1",
 		"--no-playlist", "--no-progress",
-		"--match-filters", "!is_live",
 		"--remote-components", "ejs:github",
 		"-o", outputTemplate,
 	)
