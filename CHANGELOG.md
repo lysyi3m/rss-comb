@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.1] - 2026-03-27
+
+### Fixed
+- Removed `--match-filters !is_live` from yt-dlp download command. The `is_live` boolean and `live_status` string are different yt-dlp fields — recently ended streams could have `live_status=was_live` but `is_live=true` until YouTube finishes VOD processing, causing downloads to be rejected.
+
 ## [2.3.0] - 2026-03-26
 
 ### Added
