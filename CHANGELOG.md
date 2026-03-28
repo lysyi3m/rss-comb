@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.0] - 2026-03-28
+
+### Added
+- **iTunes duration for YouTube feeds** — video duration is now extracted from yt-dlp metadata and included as `<itunes:duration>` in podcast RSS output.
+- **Smart rescheduling for live/upcoming videos** — introduces `RescheduleError` and `DelayJob` mechanism that reschedules jobs without burning retries. Upcoming videos are rescheduled to their `release_timestamp`, live and post-live videos are rechecked every 15 minutes.
+
+### Fixed
+- YouTube upcoming videos no longer cause an infinite retry loop. Previously, `--dump-json` failed with exit code 1 for upcoming events, was treated as "check failed", and proceeded to download (which also failed). Now uses `--ignore-no-formats-error` to get proper metadata.
+
 ## [2.3.2] - 2026-03-27
 
 ### Fixed
