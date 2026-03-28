@@ -231,12 +231,13 @@ func (r *ItemRepository) GetItemByID(itemID string) (*Item, error) {
 	return &item, nil
 }
 
-func (r *ItemRepository) UpdateMediaStatus(itemID, status, mediaPath string, mediaSize int64) error {
+func (r *ItemRepository) UpdateMediaStatus(itemID, status, mediaPath string, mediaSize int64, duration int) error {
 	_, err := r.db.Exec(`
 		UPDATE feed_items
-		SET media_status = $2, media_path = $3, media_size = $4
+		SET media_status = $2, media_path = $3, media_size = $4,
+			itunes_duration = CASE WHEN $5 > 0 THEN $5 ELSE itunes_duration END
 		WHERE id = $1
-	`, itemID, status, mediaPath, mediaSize)
+	`, itemID, status, mediaPath, mediaSize, duration)
 
 	if err != nil {
 		return fmt.Errorf("failed to update media status: %w", err)

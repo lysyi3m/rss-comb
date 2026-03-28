@@ -136,7 +136,7 @@ func DownloadMediaHandler(
 
 		// Layer 1: DB check — does any item already have this file ready?
 		if existing, _ := itemRepo.GetReadyMediaByPath(mediaPath); existing != nil {
-			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", existing.MediaPath, existing.MediaSize); err != nil {
+			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", existing.MediaPath, existing.MediaSize, 0); err != nil {
 				return fmt.Errorf("failed to update media status (reuse): %w", err)
 			}
 			return nil
@@ -144,22 +144,25 @@ func DownloadMediaHandler(
 
 		// Layer 2: Filesystem check — file exists but DB doesn't know
 		if size, ok := media.FileExists(mediaDir, mediaPath); ok {
-			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", mediaPath, size); err != nil {
+			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", mediaPath, size, 0); err != nil {
 				return fmt.Errorf("failed to update media status (filesystem): %w", err)
 			}
 			return nil
 		}
 
-		// Layer 3: Check live status before downloading
+		// Layer 3: Check live status and get duration before downloading
 		if item.Link == "" {
 			return handleMediaFailure(itemRepo, *job.ItemID, job, fmt.Errorf("item has no link"))
 		}
 
-		liveStatus, err := media.CheckLiveStatus(ctx, ytdlpCmd, item.Link)
+		var duration int
+		videoInfo, err := media.GetVideoInfo(ctx, ytdlpCmd, item.Link)
 		if err != nil {
-			slog.Warn("Live status check failed, proceeding with download", "item_id", *job.ItemID, "error", err)
-		} else if media.IsLiveOrUpcoming(liveStatus) {
-			return fmt.Errorf("video is live or upcoming (status: %s), will retry later", liveStatus)
+			slog.Warn("Video info check failed, proceeding with download", "item_id", *job.ItemID, "error", err)
+		} else if media.IsLiveOrUpcoming(videoInfo) {
+			return fmt.Errorf("video is live or upcoming (status: %s), will retry later", videoInfo.LiveStatus)
+		} else {
+			duration = videoInfo.Duration
 		}
 
 		// Layer 4: Actually download
@@ -168,11 +171,11 @@ func DownloadMediaHandler(
 			return handleMediaFailure(itemRepo, *job.ItemID, job, err)
 		}
 
-		if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", path, size); err != nil {
+		if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", path, size, duration); err != nil {
 			return fmt.Errorf("failed to update media status: %w", err)
 		}
 
-		slog.Info("Media downloaded successfully", "item_id", *job.ItemID, "media_path", path, "size", size)
+		slog.Info("Media downloaded successfully", "item_id", *job.ItemID, "media_path", path, "size", size, "duration", duration)
 		return nil
 	}
 }
@@ -199,7 +202,7 @@ func handleMediaFailure(itemRepo *database.ItemRepository, itemID string, job *d
 	if job.Retries >= job.MaxRetries-1 {
 		slog.Warn("Media download permanently failed, item will stay hidden",
 			"item_id", itemID, "error", mediaErr, "retries", job.Retries+1)
-		if err := itemRepo.UpdateMediaStatus(itemID, "failed", "", 0); err != nil {
+		if err := itemRepo.UpdateMediaStatus(itemID, "failed", "", 0, 0); err != nil {
 			slog.Error("Failed to mark item media as failed", "item_id", itemID, "error", err)
 		}
 		return nil
