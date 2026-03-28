@@ -60,11 +60,12 @@ func MediaFileID(guid string) string {
 }
 
 type VideoInfo struct {
-	LiveStatus string
-	Duration   int
+	LiveStatus       string
+	Duration         int
+	ReleaseTimestamp  int64
 }
 
-// GetVideoInfo returns video metadata (live status, duration) from yt-dlp.
+// GetVideoInfo returns video metadata (live status, duration, release time) from yt-dlp.
 func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) {
 	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -74,7 +75,7 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 		return VideoInfo{}, fmt.Errorf("YT_DLP_CMD is empty")
 	}
 
-	args := append(parts[1:], "--dump-json", "--no-playlist", url)
+	args := append(parts[1:], "--dump-json", "--no-playlist", "--ignore-no-formats-error", url)
 	cmd := exec.CommandContext(checkCtx, parts[0], args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -82,21 +83,23 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 	}
 
 	var metadata struct {
-		LiveStatus string  `json:"live_status"`
-		Duration   float64 `json:"duration"`
+		LiveStatus       string  `json:"live_status"`
+		Duration         float64 `json:"duration"`
+		ReleaseTimestamp  *int64  `json:"release_timestamp"`
 	}
 	if err := json.Unmarshal(output, &metadata); err != nil {
 		return VideoInfo{}, fmt.Errorf("failed to parse yt-dlp metadata: %w", err)
 	}
 
-	return VideoInfo{
+	info := VideoInfo{
 		LiveStatus: metadata.LiveStatus,
 		Duration:   int(metadata.Duration),
-	}, nil
-}
+	}
+	if metadata.ReleaseTimestamp != nil {
+		info.ReleaseTimestamp = *metadata.ReleaseTimestamp
+	}
 
-func IsLiveOrUpcoming(info VideoInfo) bool {
-	return info.LiveStatus == "is_live" || info.LiveStatus == "is_upcoming"
+	return info, nil
 }
 
 func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID string) (string, int64, error) {

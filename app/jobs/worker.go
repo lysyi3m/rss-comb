@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"time"
@@ -74,8 +75,14 @@ func (wp *WorkerPool) runWorker(ctx context.Context, id int) {
 		}
 
 		if err := handler(ctx, job); err != nil {
-			slog.Error("Job failed", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "error", err)
-			_ = wp.jobRepo.FailJob(job.ID, err.Error())
+			var rescheduleErr *RescheduleError
+			if errors.As(err, &rescheduleErr) {
+				slog.Info("Job rescheduled", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "run_after", rescheduleErr.RunAfter, "reason", rescheduleErr.Reason)
+				_ = wp.jobRepo.DelayJob(job.ID, rescheduleErr.RunAfter)
+			} else {
+				slog.Error("Job failed", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "error", err)
+				_ = wp.jobRepo.FailJob(job.ID, err.Error())
+			}
 		} else {
 			_ = wp.jobRepo.CompleteJob(job.ID)
 		}

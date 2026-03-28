@@ -5,11 +5,24 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
 	"github.com/lysyi3m/rss-comb/app/feed"
 	"github.com/lysyi3m/rss-comb/app/media"
 )
+
+// RescheduleError signals that a job should be rescheduled to a later time
+// without incrementing retry count. Used for live/upcoming videos that aren't
+// ready for download yet.
+type RescheduleError struct {
+	RunAfter time.Time
+	Reason   string
+}
+
+func (e *RescheduleError) Error() string {
+	return fmt.Sprintf("rescheduled to %s: %s", e.RunAfter.Format(time.RFC3339), e.Reason)
+}
 
 // FetchFeedHandler returns a HandlerFunc that processes a feed by resolving
 // the feed name from the job's FeedID. After processing youtube feeds, it
@@ -150,7 +163,7 @@ func DownloadMediaHandler(
 			return nil
 		}
 
-		// Layer 3: Check live status and get duration before downloading
+		// Layer 3: Check video info before downloading
 		if item.Link == "" {
 			return handleMediaFailure(itemRepo, *job.ItemID, job, fmt.Errorf("item has no link"))
 		}
@@ -159,8 +172,10 @@ func DownloadMediaHandler(
 		videoInfo, err := media.GetVideoInfo(ctx, ytdlpCmd, item.Link)
 		if err != nil {
 			slog.Warn("Video info check failed, proceeding with download", "item_id", *job.ItemID, "error", err)
-		} else if media.IsLiveOrUpcoming(videoInfo) {
-			return fmt.Errorf("video is live or upcoming (status: %s), will retry later", videoInfo.LiveStatus)
+		} else if reschedule := videoReschedule(videoInfo); reschedule != nil {
+			slog.Info("Video not ready for download",
+				"item_id", *job.ItemID, "live_status", videoInfo.LiveStatus, "reschedule_at", reschedule.RunAfter)
+			return reschedule
 		} else {
 			duration = videoInfo.Duration
 		}
@@ -208,4 +223,34 @@ func handleMediaFailure(itemRepo *database.ItemRepository, itemID string, job *d
 		return nil
 	}
 	return fmt.Errorf("media download failed: %w", mediaErr)
+}
+
+// videoReschedule returns a RescheduleError if the video is not yet ready for
+// download (upcoming, live, or post-live). Returns nil if download can proceed.
+func videoReschedule(info media.VideoInfo) *RescheduleError {
+	switch info.LiveStatus {
+	case "is_upcoming":
+		if info.ReleaseTimestamp > 0 {
+			return &RescheduleError{
+				RunAfter: time.Unix(info.ReleaseTimestamp, 0),
+				Reason:   "video is upcoming, scheduled for " + time.Unix(info.ReleaseTimestamp, 0).Format(time.RFC3339),
+			}
+		}
+		return &RescheduleError{
+			RunAfter: time.Now().Add(1 * time.Hour),
+			Reason:   "video is upcoming, no scheduled time available",
+		}
+	case "is_live":
+		return &RescheduleError{
+			RunAfter: time.Now().Add(15 * time.Minute),
+			Reason:   "video is currently live",
+		}
+	case "post_live":
+		return &RescheduleError{
+			RunAfter: time.Now().Add(15 * time.Minute),
+			Reason:   "video VOD is being processed",
+		}
+	default:
+		return nil
+	}
 }

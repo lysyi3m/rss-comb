@@ -145,6 +145,18 @@ func retryBackoff(retries int) time.Duration {
 	return time.Duration(base+jitter) * time.Second
 }
 
+// DelayJob sets a job back to pending with a specific run_after time without incrementing retries.
+func (r *JobRepository) DelayJob(jobID string, runAfter time.Time) error {
+	_, err := r.db.Exec(`
+		UPDATE jobs SET status = 'pending', run_after = $2, updated_at = NOW()
+		WHERE id = $1
+	`, jobID, runAfter)
+	if err != nil {
+		return fmt.Errorf("failed to delay job: %w", err)
+	}
+	return nil
+}
+
 // ResetStaleJobs resets jobs stuck in 'processing' state beyond the timeout back to 'pending'.
 func (r *JobRepository) ResetStaleJobs(timeout time.Duration) (int, error) {
 	result, err := r.db.Exec(`
