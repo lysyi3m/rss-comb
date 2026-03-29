@@ -149,7 +149,7 @@ func DownloadMediaHandler(
 
 		// Layer 1: DB check — does any item already have this file ready?
 		if existing, _ := itemRepo.GetReadyMediaByPath(mediaPath); existing != nil {
-			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", existing.MediaPath, existing.MediaSize, 0); err != nil {
+			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", existing.MediaPath, existing.MediaSize, existing.ITunesDuration); err != nil {
 				return fmt.Errorf("failed to update media status (reuse): %w", err)
 			}
 			return nil

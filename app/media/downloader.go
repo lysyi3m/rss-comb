@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -77,9 +78,13 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 
 	args := append(parts[1:], "--dump-json", "--no-playlist", "--ignore-no-formats-error", url)
 	cmd := exec.CommandContext(checkCtx, parts[0], args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return VideoInfo{}, fmt.Errorf("yt-dlp metadata check failed: %w\nOutput: %s", err, string(output))
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return VideoInfo{}, fmt.Errorf("yt-dlp metadata check failed: %w\nOutput: %s", err, stderr.String())
 	}
 
 	var metadata struct {
@@ -87,7 +92,7 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 		Duration         float64 `json:"duration"`
 		ReleaseTimestamp  *int64  `json:"release_timestamp"`
 	}
-	if err := json.Unmarshal(output, &metadata); err != nil {
+	if err := json.Unmarshal(stdout.Bytes(), &metadata); err != nil {
 		return VideoInfo{}, fmt.Errorf("failed to parse yt-dlp metadata: %w", err)
 	}
 

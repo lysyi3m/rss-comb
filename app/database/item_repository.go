@@ -247,17 +247,18 @@ func (r *ItemRepository) UpdateMediaStatus(itemID, status, mediaPath string, med
 }
 
 type MediaInfo struct {
-	MediaPath string
-	MediaSize int64
+	MediaPath      string
+	MediaSize      int64
+	ITunesDuration int
 }
 
 func (r *ItemRepository) GetReadyMediaByPath(mediaPath string) (*MediaInfo, error) {
 	var info MediaInfo
 	err := r.db.QueryRow(`
-		SELECT media_path, media_size FROM feed_items
+		SELECT media_path, media_size, COALESCE(itunes_duration, 0) FROM feed_items
 		WHERE media_path = $1 AND media_status = 'ready'
 		LIMIT 1
-	`, mediaPath).Scan(&info.MediaPath, &info.MediaSize)
+	`, mediaPath).Scan(&info.MediaPath, &info.MediaSize, &info.ITunesDuration)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
