@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.1] - 2026-03-29
+
+### Fixed
+- `itunes:duration` was never populated for YouTube feeds because `GetVideoInfo` used `CombinedOutput()`, mixing yt-dlp stderr warnings into stdout JSON and causing `json.Unmarshal` to fail silently. Now captures stdout and stderr separately.
+- Cross-feed media reuse (DB dedup layer) now propagates `itunes_duration` from the existing item instead of passing 0.
+
 ## [2.4.0] - 2026-03-28
 
 ### Added
