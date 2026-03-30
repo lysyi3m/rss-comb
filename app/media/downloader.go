@@ -119,7 +119,7 @@ func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID st
 	outputTemplate := fileID + ".%(ext)s"
 	args := append(parts[1:],
 		"--extract-audio", "--audio-format", "mp3", "--audio-quality", "64k",
-		"--postprocessor-args", "-ac 1",
+		"--postprocessor-args", "ffmpeg:-ac 1",
 		"--no-playlist", "--no-progress",
 		"--remote-components", "ejs:github",
 		"-o", outputTemplate,
@@ -146,4 +146,39 @@ func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID st
 	}
 
 	return mediaPath, info.Size(), nil
+}
+
+// GetAudioDuration returns the duration in seconds of an audio file using ffprobe.
+func GetAudioDuration(mediaDir, filename string) (int, error) {
+	fullPath := filepath.Join(mediaDir, filename)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ffprobe",
+		"-i", fullPath,
+		"-show_entries", "format=duration",
+		"-v", "quiet",
+		"-of", "csv=p=0",
+	)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return 0, fmt.Errorf("ffprobe failed: %w\nOutput: %s", err, stderr.String())
+	}
+
+	durationStr := strings.TrimSpace(stdout.String())
+	if durationStr == "" || durationStr == "N/A" {
+		return 0, fmt.Errorf("ffprobe returned no duration")
+	}
+
+	var duration float64
+	if _, err := fmt.Sscanf(durationStr, "%f", &duration); err != nil {
+		return 0, fmt.Errorf("failed to parse ffprobe duration %q: %w", durationStr, err)
+	}
+
+	return int(duration), nil
 }

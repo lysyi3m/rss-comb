@@ -157,7 +157,8 @@ func DownloadMediaHandler(
 
 		// Layer 2: Filesystem check — file exists but DB doesn't know
 		if size, ok := media.FileExists(mediaDir, mediaPath); ok {
-			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", mediaPath, size, 0); err != nil {
+			duration, _ := media.GetAudioDuration(mediaDir, mediaPath)
+			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", mediaPath, size, duration); err != nil {
 				return fmt.Errorf("failed to update media status (filesystem): %w", err)
 			}
 			return nil
@@ -184,6 +185,11 @@ func DownloadMediaHandler(
 		path, size, err := media.Download(ctx, ytdlpCmd, ytdlpArgs, mediaDir, item.Link, fileID)
 		if err != nil {
 			return handleMediaFailure(itemRepo, *job.ItemID, job, err)
+		}
+
+		// Use ffprobe for authoritative duration (yt-dlp metadata returns null for live VODs)
+		if probeDuration, probeErr := media.GetAudioDuration(mediaDir, path); probeErr == nil && probeDuration > 0 {
+			duration = probeDuration
 		}
 
 		if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", path, size, duration); err != nil {
@@ -226,7 +232,8 @@ func handleMediaFailure(itemRepo *database.ItemRepository, itemID string, job *d
 }
 
 // videoReschedule returns a RescheduleError if the video is not yet ready for
-// download (upcoming, live, or post-live). Returns nil if download can proceed.
+// download (upcoming, live, post-live, or status unclear). Only proceeds when
+// the video is confirmed non-live or has a known duration.
 func videoReschedule(info media.VideoInfo) *RescheduleError {
 	switch info.LiveStatus {
 	case "is_upcoming":
@@ -250,7 +257,26 @@ func videoReschedule(info media.VideoInfo) *RescheduleError {
 			RunAfter: time.Now().Add(15 * time.Minute),
 			Reason:   "video VOD is being processed",
 		}
+	case "was_live":
+		if info.Duration == 0 {
+			return &RescheduleError{
+				RunAfter: time.Now().Add(1 * time.Hour),
+				Reason:   "was_live video has no duration, VOD may still be processing",
+			}
+		}
+		return nil
+	case "not_live":
+		return nil
 	default:
+		// Unknown or empty live_status with no duration — may be a live stream
+		// with incorrect metadata. Reschedule to be safe; regular uploaded videos
+		// always have a duration, so this won't block them.
+		if info.Duration == 0 {
+			return &RescheduleError{
+				RunAfter: time.Now().Add(1 * time.Hour),
+				Reason:   fmt.Sprintf("video has unknown live status %q and no duration", info.LiveStatus),
+			}
+		}
 		return nil
 	}
 }
