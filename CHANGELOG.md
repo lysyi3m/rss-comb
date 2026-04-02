@@ -2,14 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.1] - 2026-04-02
+
+### Fixed
+- **YouTube downloads blocked indefinitely** — v2.5.0 rescheduled videos with unknown `live_status` and no duration, but yt-dlp returns `live_status: ""` and `duration: null` for most YouTube live stream VODs (even fully processed ones). This created infinite reschedule loops (388 reschedules in 3 days, zero downloads). Removed the over-aggressive metadata-based checks.
+- **Premature live stream VOD downloads** — replaced metadata-based VOD readiness guessing with yt-dlp format filter (`bestaudio[protocol!=m3u8_native][protocol!=m3u8]`). Just-ended streams only have HLS formats; processed VODs have DASH formats. The filter naturally rejects unprocessed VODs (download fails → job retries), while allowing processed VODs through.
+
 ## [2.5.0] - 2026-03-30
 
 ### Added
 - **ffprobe-based duration detection** — after downloading audio, the actual file duration is measured with ffprobe. This is authoritative and works even when yt-dlp metadata returns null duration (common for live stream VODs).
 
 ### Fixed
-- **Live stream VODs downloaded too early** — `was_live` videos with no duration are now rescheduled (1 hour) instead of downloading immediately, giving YouTube time to process the VOD. Previously resulted in 1-2 minute audio files for hour-long streams.
-- **Unknown live status bypass** — videos with empty/unknown `live_status` and no duration are now rescheduled instead of proceeding to download. Prevents downloading during live streams when yt-dlp doesn't report status correctly.
 - **Filesystem dedup missing duration** — Layer 2 (filesystem check) now probes the existing file with ffprobe to populate `itunes_duration`, instead of passing 0.
 - Fixed yt-dlp `--postprocessor-args` deprecation warning by adding `ffmpeg:` prefix.
 

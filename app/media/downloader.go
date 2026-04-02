@@ -118,6 +118,7 @@ func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID st
 
 	outputTemplate := fileID + ".%(ext)s"
 	args := append(parts[1:],
+		"--format", "bestaudio[protocol!=m3u8_native][protocol!=m3u8]",
 		"--extract-audio", "--audio-format", "mp3", "--audio-quality", "64k",
 		"--postprocessor-args", "ffmpeg:-ac 1",
 		"--no-playlist", "--no-progress",

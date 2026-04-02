@@ -231,9 +231,10 @@ func handleMediaFailure(itemRepo *database.ItemRepository, itemID string, job *d
 	return fmt.Errorf("media download failed: %w", mediaErr)
 }
 
-// videoReschedule returns a RescheduleError if the video is not yet ready for
-// download (upcoming, live, post-live, or status unclear). Only proceeds when
-// the video is confirmed non-live or has a known duration.
+// videoReschedule returns a RescheduleError only for unambiguous pre-download
+// signals: upcoming, currently live, or post-live processing. All other statuses
+// (including empty, "was_live", "not_live") proceed to download — the format
+// filter in Download() prevents premature HLS-only downloads of unprocessed VODs.
 func videoReschedule(info media.VideoInfo) *RescheduleError {
 	switch info.LiveStatus {
 	case "is_upcoming":
@@ -257,26 +258,7 @@ func videoReschedule(info media.VideoInfo) *RescheduleError {
 			RunAfter: time.Now().Add(15 * time.Minute),
 			Reason:   "video VOD is being processed",
 		}
-	case "was_live":
-		if info.Duration == 0 {
-			return &RescheduleError{
-				RunAfter: time.Now().Add(1 * time.Hour),
-				Reason:   "was_live video has no duration, VOD may still be processing",
-			}
-		}
-		return nil
-	case "not_live":
-		return nil
 	default:
-		// Unknown or empty live_status with no duration — may be a live stream
-		// with incorrect metadata. Reschedule to be safe; regular uploaded videos
-		// always have a duration, so this won't block them.
-		if info.Duration == 0 {
-			return &RescheduleError{
-				RunAfter: time.Now().Add(1 * time.Hour),
-				Reason:   fmt.Sprintf("video has unknown live status %q and no duration", info.LiveStatus),
-			}
-		}
 		return nil
 	}
 }
