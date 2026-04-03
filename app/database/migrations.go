@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
@@ -13,9 +13,9 @@ import (
 var migrationFS embed.FS
 
 func RunMigrations(db *DB) (uint, bool, error) {
-	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
+	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{DatabaseName: "rss-comb"})
 	if err != nil {
-		return 0, false, fmt.Errorf("failed to create postgres driver: %w", err)
+		return 0, false, fmt.Errorf("failed to create sqlite driver: %w", err)
 	}
 
 	source, err := iofs.New(migrationFS, "migrations")
@@ -23,7 +23,7 @@ func RunMigrations(db *DB) (uint, bool, error) {
 		return 0, false, fmt.Errorf("failed to create iofs source: %w", err)
 	}
 
-	m, err := migrate.NewWithInstance("iofs", source, "postgres", driver)
+	m, err := migrate.NewWithInstance("iofs", source, "sqlite", driver)
 	if err != nil {
 		return 0, false, fmt.Errorf("failed to create migrate instance: %w", err)
 	}

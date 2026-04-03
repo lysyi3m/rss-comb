@@ -47,3 +47,10 @@ scripts/
 # Temporary files
 tmp/
 temp/
+
+# Runtime data (SQLite database + WAL/SHM, downloaded media)
+data/
+media/
+*.db
+*.db-wal
+*.db-shm

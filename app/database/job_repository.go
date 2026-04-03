@@ -37,10 +37,10 @@ func NewJobRepository(db *DB) *JobRepository {
 func (r *JobRepository) CreateJob(jobType, feedID string, itemID *string, maxRetries int) (bool, error) {
 	result, err := r.db.Exec(`
 		INSERT INTO jobs (job_type, feed_id, item_id, max_retries)
-		SELECT $1, $2, $3, $4
+		SELECT ?1, ?2, ?3, ?4
 		WHERE NOT EXISTS (
 			SELECT 1 FROM jobs
-			WHERE feed_id = $2 AND job_type = $1 AND item_id IS NOT DISTINCT FROM $3
+			WHERE feed_id = ?2 AND job_type = ?1 AND item_id IS ?3
 			AND status IN ('pending', 'processing')
 		)
 	`, jobType, feedID, itemID, maxRetries)
@@ -56,18 +56,17 @@ func (r *JobRepository) CreateJob(jobType, feedID string, itemID *string, maxRet
 	return rows > 0, nil
 }
 
-// ClaimJob atomically claims the oldest pending job using FOR UPDATE SKIP LOCKED.
-// Skips jobs with a future run_after timestamp (backoff). Returns nil if no jobs are available.
+// ClaimJob atomically claims the oldest pending job.
+// Serialization is handled by MaxOpenConns(1). Returns nil if no jobs are available.
 func (r *JobRepository) ClaimJob() (*Job, error) {
 	var job Job
 	err := r.db.QueryRow(`
-		UPDATE jobs SET status = 'processing', updated_at = NOW()
+		UPDATE jobs SET status = 'processing', updated_at = datetime('now')
 		WHERE id = (
 			SELECT id FROM jobs
 			WHERE status = 'pending'
-			  AND (run_after IS NULL OR run_after <= NOW())
+			  AND (run_after IS NULL OR run_after <= datetime('now'))
 			ORDER BY created_at LIMIT 1
-			FOR UPDATE SKIP LOCKED
 		)
 		RETURNING id, job_type, feed_id, item_id, status, retries, max_retries, error_message, run_after, created_at, updated_at
 	`).Scan(
@@ -88,7 +87,7 @@ func (r *JobRepository) ClaimJob() (*Job, error) {
 
 // CompleteJob deletes a successfully completed job.
 func (r *JobRepository) CompleteJob(jobID string) error {
-	_, err := r.db.Exec("DELETE FROM jobs WHERE id = $1", jobID)
+	_, err := r.db.Exec("DELETE FROM jobs WHERE id = ?1", jobID)
 	if err != nil {
 		return fmt.Errorf("failed to complete job: %w", err)
 	}
@@ -101,24 +100,23 @@ func (r *JobRepository) FailJob(jobID string, errMsg string) error {
 	_, err := r.db.Exec(`
 		UPDATE jobs SET
 			retries = retries + 1,
-			error_message = $2,
-			updated_at = NOW()
-		WHERE id = $1
+			error_message = ?2,
+			updated_at = datetime('now')
+		WHERE id = ?1
 	`, jobID, errMsg)
 	if err != nil {
 		return fmt.Errorf("failed to update job retries: %w", err)
 	}
 
 	_, err = r.db.Exec(`
-		DELETE FROM jobs WHERE id = $1 AND retries >= max_retries
+		DELETE FROM jobs WHERE id = ?1 AND retries >= max_retries
 	`, jobID)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup exhausted job: %w", err)
 	}
 
-	// Exponential backoff with jitter: base = min(2^retries, 900s), jitter adds 0-100% of base
 	var retries int
-	err = r.db.QueryRow(`SELECT retries FROM jobs WHERE id = $1`, jobID).Scan(&retries)
+	err = r.db.QueryRow(`SELECT retries FROM jobs WHERE id = ?1`, jobID).Scan(&retries)
 	if err == sql.ErrNoRows {
 		return nil // job was deleted (retries exhausted)
 	}
@@ -129,9 +127,9 @@ func (r *JobRepository) FailJob(jobID string, errMsg string) error {
 	backoff := retryBackoff(retries)
 
 	_, err = r.db.Exec(`
-		UPDATE jobs SET status = 'pending', run_after = $2, updated_at = NOW()
-		WHERE id = $1 AND status = 'processing'
-	`, jobID, time.Now().Add(backoff))
+		UPDATE jobs SET status = 'pending', run_after = ?2, updated_at = datetime('now')
+		WHERE id = ?1 AND status = 'processing'
+	`, jobID, sqliteTime(time.Now().Add(backoff)))
 	if err != nil {
 		return fmt.Errorf("failed to reset job to pending: %w", err)
 	}
@@ -148,9 +146,9 @@ func retryBackoff(retries int) time.Duration {
 // DelayJob sets a job back to pending with a specific run_after time without incrementing retries.
 func (r *JobRepository) DelayJob(jobID string, runAfter time.Time) error {
 	_, err := r.db.Exec(`
-		UPDATE jobs SET status = 'pending', run_after = $2, updated_at = NOW()
-		WHERE id = $1
-	`, jobID, runAfter)
+		UPDATE jobs SET status = 'pending', run_after = ?2, updated_at = datetime('now')
+		WHERE id = ?1
+	`, jobID, sqliteTime(runAfter))
 	if err != nil {
 		return fmt.Errorf("failed to delay job: %w", err)
 	}
@@ -160,9 +158,9 @@ func (r *JobRepository) DelayJob(jobID string, runAfter time.Time) error {
 // ResetStaleJobs resets jobs stuck in 'processing' state beyond the timeout back to 'pending'.
 func (r *JobRepository) ResetStaleJobs(timeout time.Duration) (int, error) {
 	result, err := r.db.Exec(`
-		UPDATE jobs SET status = 'pending', updated_at = NOW()
-		WHERE status = 'processing' AND updated_at < $1
-	`, time.Now().Add(-timeout))
+		UPDATE jobs SET status = 'pending', updated_at = datetime('now')
+		WHERE status = 'processing' AND updated_at < ?1
+	`, sqliteTime(time.Now().Add(-timeout)))
 	if err != nil {
 		return 0, fmt.Errorf("failed to reset stale jobs: %w", err)
 	}
