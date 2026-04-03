@@ -3,27 +3,31 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"time"
 
-	_ "github.com/lib/pq"
+	_ "modernc.org/sqlite"
 )
 
 type DB struct {
 	*sql.DB
 }
 
-func NewConnection(host, port, user, password, dbname string) (*DB, error) {
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-
-	db, err := sql.Open("postgres", dsn)
+func NewConnection(dbPath string) (*DB, error) {
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(1)
+
+	for _, pragma := range []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA foreign_keys=ON",
+	} {
+		if _, err := db.Exec(pragma); err != nil {
+			return nil, fmt.Errorf("failed to set %s: %w", pragma, err)
+		}
+	}
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
