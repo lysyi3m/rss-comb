@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.2] - 2026-04-04
+
+### Fixed
+- **Truncated live stream VOD downloads** — long live streams (e.g. 5h37m) were downloaded while YouTube was still processing the DASH formats, producing a truncated audio file (e.g. 51min). The stored `itunes:duration` reflected the short file instead of the full stream. Now compares yt-dlp metadata duration against ffprobe-measured file duration after download; if the file is less than 80% of the expected length, deletes the partial file and retries.
+
 ## [2.5.1] - 2026-04-02
 
 ### Fixed
