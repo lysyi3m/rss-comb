@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
@@ -187,8 +189,15 @@ func DownloadMediaHandler(
 			return handleMediaFailure(itemRepo, *job.ItemID, job, err)
 		}
 
-		// Use ffprobe for authoritative duration (yt-dlp metadata returns null for live VODs)
+		// Use ffprobe for authoritative duration (yt-dlp metadata can be null for live VODs)
 		if probeDuration, probeErr := media.GetAudioDuration(mediaDir, path); probeErr == nil && probeDuration > 0 {
+			// Detect truncated VOD downloads: if metadata reports a much longer duration
+			// than the actual file, YouTube hasn't finished processing the full recording.
+			if duration > 0 && probeDuration < duration*80/100 {
+				os.Remove(filepath.Join(mediaDir, path))
+				return handleMediaFailure(itemRepo, *job.ItemID, job,
+					fmt.Errorf("downloaded file is truncated: got %ds, expected ~%ds (VOD likely still processing)", probeDuration, duration))
+			}
 			duration = probeDuration
 		}
 
