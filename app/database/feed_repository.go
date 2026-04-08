@@ -26,7 +26,7 @@ func (r *FeedRepository) GetFeed(feedName string) (*Feed, error) {
 		       feed_type, is_enabled, settings, filters, config_hash,
 		       COALESCE(itunes_author, ''), COALESCE(itunes_image, ''), COALESCE(itunes_explicit, ''), COALESCE(itunes_owner_name, ''), COALESCE(itunes_owner_email, '')
 		FROM feeds
-		WHERE name = $1
+		WHERE name = ?1
 	`, feedName).Scan(
 		&feed.ID, &feed.Name, &feed.FeedURL, &feed.Link, &feed.Title, &feed.SourceTitle, &feed.Description, &feed.ImageURL, &feed.Language,
 		&feed.LastFetchedAt, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.FeedUpdatedAt,
@@ -57,11 +57,11 @@ func (r *FeedRepository) GetFeedCount() (int, error) {
 func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Metadata, nextFetchAt time.Time) error {
 	_, err := r.db.Exec(`
 		UPDATE feeds
-		SET source_title = $2, link = $3, description = $4, image_url = $5, language = $6, feed_published_at = $7, feed_updated_at = $8,
-		    next_fetch_at = $9, last_fetched_at = NOW(), updated_at = NOW(),
-		    itunes_author = $10, itunes_image = $11, itunes_explicit = $12, itunes_owner_name = $13, itunes_owner_email = $14
-		WHERE name = $1
-	`, feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, metadata.FeedPublishedAt, metadata.FeedUpdatedAt, nextFetchAt,
+		SET source_title = ?2, link = ?3, description = ?4, image_url = ?5, language = ?6, feed_published_at = ?7, feed_updated_at = ?8,
+		    next_fetch_at = ?9, last_fetched_at = datetime('now'), updated_at = datetime('now'),
+		    itunes_author = ?10, itunes_image = ?11, itunes_explicit = ?12, itunes_owner_name = ?13, itunes_owner_email = ?14
+		WHERE name = ?1
+	`, feedName, metadata.Title, metadata.Link, metadata.Description, metadata.ImageURL, metadata.Language, sqliteTimePtr(metadata.FeedPublishedAt), sqliteTimePtr(metadata.FeedUpdatedAt), sqliteTime(nextFetchAt),
 		metadata.ITunesAuthor, metadata.ITunesImage, metadata.ITunesExplicit, metadata.ITunesOwnerName, metadata.ITunesOwnerEmail)
 
 	if err != nil {
@@ -73,7 +73,7 @@ func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Met
 
 func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title string, feedType string, isEnabled bool, settings interface{}, filters interface{}, configHash string) error {
 	var existingHash *string
-	err := r.db.QueryRow("SELECT config_hash FROM feeds WHERE name = $1", feedName).Scan(&existingHash)
+	err := r.db.QueryRow("SELECT config_hash FROM feeds WHERE name = ?1", feedName).Scan(&existingHash)
 	if err != nil && err != sql.ErrNoRows {
 		return fmt.Errorf("failed to check existing config hash: %w", err)
 	}
@@ -100,10 +100,10 @@ func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title
 
 	_, err = r.db.Exec(`
 		INSERT INTO feeds (name, feed_url, title, feed_type, is_enabled, settings, filters, config_hash)
-		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8)
+		VALUES (?1, ?2, NULLIF(?3, ''), ?4, ?5, ?6, ?7, ?8)
 		ON CONFLICT (name) DO UPDATE SET
 			feed_url = EXCLUDED.feed_url,
-			title = NULLIF($3, ''),
+			title = NULLIF(?3, ''),
 			feed_type = EXCLUDED.feed_type,
 			is_enabled = EXCLUDED.is_enabled,
 			settings = EXCLUDED.settings,
@@ -114,7 +114,7 @@ func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title
 				THEN NULL
 				ELSE feeds.next_fetch_at
 			END,
-			updated_at = NOW()
+			updated_at = datetime('now')
 	`, feedName, feedURL, title, feedType, isEnabled, settingsJSON, filtersJSON, configHash)
 
 	if err != nil {
@@ -134,8 +134,8 @@ func (r *FeedRepository) GetDueFeeds() ([]FeedScheduleInfo, error) {
 	rows, err := r.db.Query(`
 		SELECT id, name, next_fetch_at
 		FROM feeds
-		WHERE is_enabled = true
-		  AND (next_fetch_at IS NULL OR next_fetch_at <= NOW())
+		WHERE is_enabled = 1
+		  AND (next_fetch_at IS NULL OR next_fetch_at <= datetime('now'))
 		ORDER BY name
 	`)
 	if err != nil {
@@ -168,7 +168,7 @@ func (r *FeedRepository) GetFeedByID(feedID string) (*Feed, error) {
 		       feed_type, is_enabled, settings, filters, config_hash,
 		       COALESCE(itunes_author, ''), COALESCE(itunes_image, ''), COALESCE(itunes_explicit, ''), COALESCE(itunes_owner_name, ''), COALESCE(itunes_owner_email, '')
 		FROM feeds
-		WHERE id = $1
+		WHERE id = ?1
 	`, feedID).Scan(
 		&feed.ID, &feed.Name, &feed.FeedURL, &feed.Link, &feed.Title, &feed.SourceTitle, &feed.Description, &feed.ImageURL, &feed.Language,
 		&feed.LastFetchedAt, &feed.NextFetchAt, &feed.FeedPublishedAt, &feed.FeedUpdatedAt,

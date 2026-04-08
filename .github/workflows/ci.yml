@@ -13,21 +13,6 @@ jobs:
   test:
     runs-on: ubuntu-24.04
 
-    services:
-      postgres:
-        image: postgres:15.13-alpine
-        env:
-          POSTGRES_DB: rss_comb_test
-          POSTGRES_USER: rss_comb_test_user
-          POSTGRES_PASSWORD: rss_comb_test_password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
       - uses: actions/checkout@v4
 
@@ -48,12 +33,6 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        env:
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: rss_comb_test_user
-          DB_PASSWORD: rss_comb_test_password
-          DB_NAME: rss_comb_test
         run: go test -v ./...
 
       - name: Build

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RSS Comb is a Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, content filtering, and full iTunes podcast support through YAML-based configuration files.
 
-The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Key architectural features include a FeedType interface with type-specific parsers and builders (basic, podcast, youtube), a PostgreSQL-backed job queue for background processing, and intelligent newest-item duplicate detection to skip unchanged feeds.
+The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Key architectural features include a FeedType interface with type-specific parsers and builders (basic, podcast, youtube), a SQLite-backed job queue for background processing, and intelligent newest-item duplicate detection to skip unchanged feeds.
 
 ## Project Philosophy & Scope
 
@@ -67,26 +67,18 @@ If these assumptions change significantly, revisit architectural decisions.
 
 ### Prerequisites
 - Go 1.24+
-- PostgreSQL 17+
-- Docker & Docker Compose
+- Docker & Docker Compose (for yt-dlp only)
 
 ### Common Commands
 
 #### Development Setup
 ```bash
-# Start development database
-make dev-db-up
-
-# Stop development database
-make dev-db-down
-
-# View development database logs
-make dev-db-logs
+# SQLite database is created automatically on first run — no setup needed
 
 # Build the application
 make dev-build
 
-# Run with development database (auto-starts DB with correct credentials)
+# Run with development SQLite database (created automatically in ./data/)
 make dev-run
 
 # Database migrations run automatically on startup
@@ -166,13 +158,13 @@ rss-comb/
    - **Refiltering** (`refilter.go`): `feed.Refilter()` - Re-applies filters on config reload
 
 5. **Database Layer** (`app/database/`)
-   - PostgreSQL with UUID primary keys
+   - SQLite with text UUID primary keys
    - Separate repositories for feeds and items
    - Optimized queries with proper indexing
    - Embedded migrations with automatic execution on startup
 
 6. **Job Queue System** (`app/jobs/`, `app/database/job_repository.go`)
-   - PostgreSQL-backed job queue with `FOR UPDATE SKIP LOCKED` for concurrent job claiming
+   - SQLite-backed job queue with serialized access via single connection
    - Worker pool with configurable concurrency via `WORKER_COUNT`
    - Scheduler creates `fetch_feed` jobs for due feeds on each tick
    - Job types: `fetch_feed` (feed processing), `extract_content` (article extraction), `download_media` (yt-dlp audio download)
@@ -196,7 +188,7 @@ rss-comb/
 
 1. **Application Initialization**: `cfg.Load()` loads application configuration, passed explicitly to all components
 2. **Feed Configuration Loading**: YAML files loaded from `feeds/*.yml` and stored in database at startup
-3. **Database Sync**: Configuration changes automatically registered in database with hash-based change detection via PostgreSQL UPSERT
+3. **Database Sync**: Configuration changes automatically registered in database with hash-based change detection via UPSERT
 4. **Job Scheduling**: Scheduler (every 30 seconds) queries database for enabled feeds with `next_fetch` due, creates `fetch_feed` jobs
 5. **Feed Processing**: Worker pool claims jobs; fetches feed data, parses via `feed.ForType(typ).Parse()`, filters, deduplicates items, creates `extract_content` or `download_media` jobs for new items
 6. **Content Extraction**: `extract_content` jobs fetch article HTML and extract clean text (items hidden until ready)
@@ -211,7 +203,7 @@ rss-comb/
 - Stores feed metadata and processing status
 - Tracks last_fetched_at, next_fetch_at timestamps
 - Stores feed_type for type-specific parsing and building
-- Stores configuration (settings JSONB, filters JSONB, is_enabled, config_hash)
+- Stores configuration (settings JSON TEXT, filters JSON TEXT, is_enabled, config_hash)
 - Uses `name` field to match with configuration files
 
 **feed_items table:**
@@ -223,10 +215,10 @@ rss-comb/
 ## Detailed Architecture
 
 ### Database Schema Details
-- **feeds table**: id, name, feed_url, title, source_title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, feed_type, is_enabled, settings (JSONB), filters (JSONB), config_hash, itunes_author, itunes_image, itunes_explicit, itunes_owner_name, itunes_owner_email, created_at, updated_at
+- **feeds table**: id, name, feed_url, title, source_title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, feed_type, is_enabled, settings (JSON TEXT), filters (JSON TEXT), config_hash, itunes_author, itunes_image, itunes_explicit, itunes_owner_name, itunes_owner_email, created_at, updated_at
 - **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image, content_extraction_status, media_status, media_path, media_size, created_at
 - **jobs table**: id, job_type, feed_id, item_id (nullable), status, retries, max_retries, error_message, created_at, updated_at
-- **Key relationships**: feeds.id → feed_items.feed_id, feeds.id → jobs.feed_id, feed_items.id → jobs.item_id (UUID primary keys)
+- **Key relationships**: feeds.id → feed_items.feed_id, feeds.id → jobs.feed_id, feed_items.id → jobs.item_id (TEXT primary keys)
 - **Indexes**: feed_id, published_at, content_hash, is_enabled, jobs pending/dedup indexes, media_path for cross-feed dedup
 - **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
 - **iTunes Podcast Support**: All iTunes fields are nullable and automatically extracted from podcast RSS feeds via gofeed library's built-in iTunes extension support
@@ -249,13 +241,13 @@ rss-comb/
 - **iTunes Support**: Podcast and YouTube types extract and generate iTunes RSS extensions; basic type ignores iTunes data entirely
 
 ### Repository Layer (`app/database/`)
-- `connection.go`: PostgreSQL connection management with pooling
-- `feed_repository.go`: Feed operations with PostgreSQL UPSERT for efficient configuration sync
+- `connection.go`: SQLite connection management with WAL mode
+- `feed_repository.go`: Feed operations with UPSERT for efficient configuration sync
 - `item_repository.go`: Item operations (upsert, dedup check, visibility queries, status updates)
-- `types.go`: Database model structs (Feed, Item) with `DisplayTitle()`, `GetSettings()`, `GetFilters()` methods
+- `types.go`: Database model structs (Feed, Item) with `DisplayTitle()`, `GetSettings()`, `GetFilters()` methods; JSON array helpers (`JSONStringSlice`, `encodeStringSlice`) for SQLite TEXT columns
 - `job_repository.go`: Job queue operations (create, claim, complete, fail, reset stale)
-- `migrations.go`: Embedded migration management with 13 migration files
-- `migrations/`: SQL files (001-013) handling schema evolution, including jobs table (008), content extraction (009), media columns (010), title split (011), feed_type (012), drop content_hash (013)
+- `migrations.go`: Embedded migration management
+- `migrations/`: Consolidated SQLite schema in `001_initial_schema.sql` (feeds, feed_items, jobs tables with indexes)
 
 ### Job Queue System (`app/jobs/`)
 - `worker.go`: Worker pool with configurable concurrency, polls for pending jobs
@@ -264,7 +256,7 @@ rss-comb/
 - `process.go`: Feed processing logic — fetch, parse via `FeedType`, deduplicate, filter, create downstream jobs
 - `fetch.go`: HTTP fetch utility used by feed processing and content extraction
 - **Job types**: `fetch_feed` (max_retries=0, scheduler retries), `extract_content` (max_retries=3), `download_media` (max_retries=3)
-- **Concurrency**: `FOR UPDATE SKIP LOCKED` for safe concurrent job claiming
+- **Concurrency**: Serialized via `MaxOpenConns(1)` — safe concurrent access without row locking
 - **Cleanup**: Completed and exhausted jobs are deleted; failure state captured on items
 
 ### Media System (`app/media/`)
@@ -285,15 +277,13 @@ rss-comb/
 
 ### Development Environment
 - **Application**: Running locally via `make run`
-- **Database**: PostgreSQL in Docker container (localhost:5432)
-- **Database URL**: `postgres://rss_comb_dev_user:rss_comb_dev_password@localhost:5432/rss_comb_dev?sslmode=disable`
+- **Database**: SQLite file at `./data/rss-comb-dev.db` (created automatically)
 - **Feed configs**: Local `feeds/*.yml` files
 - **Logs**: Console output
 
 ### Production Environment
 - **Application**: Running in Docker container from GitHub Container Registry
-- **Database**: External PostgreSQL instance (configured via environment variables)
-- **Database URL**: Configured via `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- **Database**: SQLite file (configured via `DB_PATH`, default `/app/data/rss-comb.db`)
 - **Public URL**: Configure `BASE_URL` for proper RSS self-referencing links (e.g., `https://feeds.yourdomain.com`)
 - **Feed configs**: Mounted `feeds/*.yml` files
 - **Deployment**: Automated via GitHub Actions on release tags
@@ -313,7 +303,7 @@ rss-comb/
 5. **MANDATORY cleanup**: `make dev-clean` (prevents interference with production instances)
 
 ### All operations should use Makefile:
-- **Development**: `make dev-db-up`, `make dev-run`, `make dev-db-down`
+- **Development**: `make dev-run`
 - **Testing**: `make dev-test`
 - **Building**: `make dev-build`
 - **Cleanup**: `make dev-clean`
@@ -322,20 +312,16 @@ rss-comb/
 
 ### Cleanup Commands
 ```bash
-# Stop development database
-make dev-db-down
-
 # Stop ALL RSS Comb processes (including stray development builds)
 make dev-stop
 
-# Complete development cleanup: processes + containers + build caches
+# Complete development cleanup: processes + dev database + build caches
 make dev-clean
 ```
 
 **IMPORTANT: Always clean up after development work to prevent side effects:**
 - Stray development processes can interfere with production instances
-- Multiple instances may cause port conflicts and database connection issues
-- Development processes often use different credentials that can generate error logs
+- Multiple instances may cause port conflicts
 - Use `make dev-clean` before switching between development and production work
 
 ## Configuration
@@ -457,11 +443,7 @@ RSS Comb includes automatic content extraction for feeds that don't provide full
 All configuration options support both environment variables and command-line flags:
 
 **Database Configuration:**
-- `DB_HOST` (default: localhost) - Database host
-- `DB_PORT` (default: 5432) - Database port
-- `DB_USER` (default: rss_user) - Database user
-- `DB_PASSWORD` (required) - Database password
-- `DB_NAME` (default: rss_comb) - Database name
+- `DB_PATH` (default: ./data/rss-comb.db) - SQLite database file path
 
 **Application Configuration:**
 - `FEEDS_DIR` (default: ./feeds) - Directory containing feed configuration files
@@ -513,7 +495,7 @@ go test -v ./app/database
 1. Create a new git tag (e.g., `v1.0.0`)
 2. Push the tag to GitHub: `git push origin v1.0.0`
 3. GitHub Actions will automatically:
-   - Run tests with PostgreSQL
+   - Run tests
    - Build multi-architecture Docker images (linux/amd64, linux/arm64)
    - Push to GitHub Container Registry with multiple tags:
      - `ghcr.io/lysyi3m/rss-comb:1.0.0` (exact version)
@@ -522,7 +504,7 @@ go test -v ./app/database
      - `ghcr.io/lysyi3m/rss-comb:latest` (always latest)
 4. Pull the image using any of the generated tags
 5. Configure environment variables for your deployment
-6. Run the container with your PostgreSQL database and feed configurations
+6. Run the container with your feed configurations (SQLite database is embedded)
 
 ### Monitoring
 - Health endpoint: `/health`
@@ -548,9 +530,9 @@ go test -v ./app/database
 
 ### Database Guidelines
 - Use transactions for multi-table operations
-- Implement proper connection pooling
-- Use prepared statements for repeated queries
-- Monitor query performance with EXPLAIN
+- SQLite uses single connection (`MaxOpenConns(1)`) — no connection pool needed
+- WAL mode enabled for concurrent reads during writes
+- Monitor query performance with `EXPLAIN QUERY PLAN`
 
 ### Performance Considerations
 - **Newest-Item Duplicate Check**: After parsing, checks if the newest item already exists in the database; if so, skips all item processing (avoids false positives from metadata-only changes in feed XML)

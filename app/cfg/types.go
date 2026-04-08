@@ -4,11 +4,7 @@ import "time"
 
 type Cfg struct {
 	// Database configuration
-	DBHost     string `long:"db-host" env:"DB_HOST" default:"localhost" description:"Database host"`
-	DBPort     string `long:"db-port" env:"DB_PORT" default:"5432" description:"Database port"`
-	DBUser     string `long:"db-user" env:"DB_USER" default:"rss_user" description:"Database user"`
-	DBPassword string `long:"db-password" env:"DB_PASSWORD" default:"rss_password" description:"Database password (required)" required:"true"`
-	DBName     string `long:"db-name" env:"DB_NAME" default:"rss_comb" description:"Database name"`
+	DBPath string `long:"db-path" env:"DB_PATH" default:"./data/rss-comb.db" description:"SQLite database file path"`
 
 	// Application configuration
 	FeedsDir          string `long:"feeds-dir" env:"FEEDS_DIR" default:"./feeds" description:"Directory containing feed configuration files"`
