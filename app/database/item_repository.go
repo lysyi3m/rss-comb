@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/lysyi3m/rss-comb/app/types"
@@ -304,6 +305,18 @@ func (r *ItemRepository) GetAllActiveMediaPaths() ([]string, error) {
 	}
 
 	return paths, nil
+}
+
+func (r *ItemRepository) UpdateItemPublishedAt(itemID string, publishedAt time.Time) error {
+	_, err := r.db.Exec(`
+		UPDATE feed_items SET published_at = $2 WHERE id = $1
+	`, itemID, publishedAt)
+
+	if err != nil {
+		return fmt.Errorf("failed to update item published_at: %w", err)
+	}
+
+	return nil
 }
 
 func (r *ItemRepository) UpdateContentExtractionStatus(itemID, status, content string) error {

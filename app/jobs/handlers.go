@@ -205,6 +205,16 @@ func DownloadMediaHandler(
 			return fmt.Errorf("failed to update media status: %w", err)
 		}
 
+		// Update published_at from yt-dlp metadata — the Atom feed's <published>
+		// date for live streams reflects when the stream was scheduled, not when
+		// the VOD became available.
+		if videoInfo.UploadTimestamp > 0 {
+			publishedAt := time.Unix(videoInfo.UploadTimestamp, 0)
+			if err := itemRepo.UpdateItemPublishedAt(*job.ItemID, publishedAt); err != nil {
+				slog.Warn("Failed to update published_at from yt-dlp metadata", "item_id", *job.ItemID, "error", err)
+			}
+		}
+
 		slog.Info("Media downloaded successfully", "item_id", *job.ItemID, "media_path", path, "size", size, "duration", duration)
 		return nil
 	}
