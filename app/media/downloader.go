@@ -64,9 +64,10 @@ type VideoInfo struct {
 	LiveStatus       string
 	Duration         int
 	ReleaseTimestamp  int64
+	UploadTimestamp   int64
 }
 
-// GetVideoInfo returns video metadata (live status, duration, release time) from yt-dlp.
+// GetVideoInfo returns video metadata (live status, duration, release time, upload timestamp) from yt-dlp.
 func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) {
 	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -91,6 +92,7 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 		LiveStatus       string  `json:"live_status"`
 		Duration         float64 `json:"duration"`
 		ReleaseTimestamp  *int64  `json:"release_timestamp"`
+		Timestamp        *int64  `json:"timestamp"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &metadata); err != nil {
 		return VideoInfo{}, fmt.Errorf("failed to parse yt-dlp metadata: %w", err)
@@ -102,6 +104,9 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 	}
 	if metadata.ReleaseTimestamp != nil {
 		info.ReleaseTimestamp = *metadata.ReleaseTimestamp
+	}
+	if metadata.Timestamp != nil {
+		info.UploadTimestamp = *metadata.Timestamp
 	}
 
 	return info, nil
