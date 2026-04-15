@@ -130,6 +130,41 @@ settings:
 	}
 }
 
+func TestLoadConfig_MinDurationOnlyForYouTube(t *testing.T) {
+	dir := t.TempDir()
+	writeTestConfig(t, dir, "test-feed.yml", `
+url: "https://example.com/feed.xml"
+type: podcast
+enabled: true
+settings:
+  min_duration: 300
+`)
+
+	_, _, err := LoadConfig(dir, "test-feed")
+	if err == nil {
+		t.Error("expected error for min_duration on non-youtube type")
+	}
+}
+
+func TestLoadConfig_MinDurationValidForYouTube(t *testing.T) {
+	dir := t.TempDir()
+	writeTestConfig(t, dir, "test-feed.yml", `
+url: "https://example.com/feed.xml"
+type: youtube
+enabled: true
+settings:
+  min_duration: 300
+`)
+
+	config, _, err := LoadConfig(dir, "test-feed")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config.Settings.MinDuration != 300 {
+		t.Errorf("expected min_duration 300, got %d", config.Settings.MinDuration)
+	}
+}
+
 func TestLoadConfig_MissingURL(t *testing.T) {
 	dir := t.TempDir()
 	writeTestConfig(t, dir, "test-feed.yml", `

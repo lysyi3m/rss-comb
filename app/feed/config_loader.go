@@ -65,6 +65,14 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("extract_content is only supported for basic (no type) feeds")
 	}
 
+	if config.Settings.MinDuration < 0 {
+		return fmt.Errorf("min_duration must be >= 0")
+	}
+
+	if config.Settings.MinDuration > 0 && config.Type != "youtube" {
+		return fmt.Errorf("min_duration is only supported for youtube feeds")
+	}
+
 	for i, filter := range config.Filters {
 		if filter.Field == "" {
 			return fmt.Errorf("filter %d: field is required", i)

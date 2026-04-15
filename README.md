@@ -131,6 +131,7 @@ settings:
   max_items: 50                # Limits RSS output items (all items stored in database)
   timeout: 30                  # seconds
   extract_content: false       # Enable automatic content extraction (basic type only)
+  min_duration: 300            # Skip videos shorter than 5 minutes (youtube type only, in seconds)
 
 filters:
   - field: "title"
@@ -159,6 +160,7 @@ filters:
 - Feed titles are automatically extracted from the source, or can be overridden with `title:`
 - `max_items` limits RSS output only - all items are stored in database
 - `extract_content: true` enables automatic full-text content extraction from article URLs
+- `min_duration: 300` skips YouTube videos shorter than the threshold (in seconds) before downloading
 - Deduplication is automatic and always enabled
 - Filters support `title`, `description`, `content`, `authors`, `link`, and `categories` fields
 - **Filter patterns**: Use substring matching (`"text"`) or regex patterns (`"/pattern/"`) - both can be mixed together
