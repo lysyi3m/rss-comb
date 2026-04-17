@@ -149,9 +149,34 @@ func DownloadMediaHandler(
 		fileID := media.MediaFileID(item.GUID)
 		mediaPath := fileID + ".mp3"
 
+		// Load min_duration setting for filtering short videos
+		dbFeed, err := feedRepo.GetFeedByID(job.FeedID)
+		if err != nil {
+			return fmt.Errorf("failed to get feed: %w", err)
+		}
+		if dbFeed == nil {
+			return fmt.Errorf("feed not found for ID: %s", job.FeedID)
+		}
+		settings, err := dbFeed.GetSettings()
+		if err != nil {
+			return fmt.Errorf("failed to get feed settings: %w", err)
+		}
+		minDuration := settings.MinDuration
+
 		// Layer 1: DB check — does any item already have this file ready?
 		if existing, _ := itemRepo.GetReadyMediaByPath(mediaPath); existing != nil {
-			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", existing.MediaPath, existing.MediaSize, existing.ITunesDuration); err != nil {
+			existingDuration := existing.ITunesDuration
+			// If duration wasn't recorded (e.g. downloaded before duration tracking),
+			// probe the file so min_duration can be enforced.
+			if minDuration > 0 && existingDuration <= 0 {
+				if probedDuration, err := media.GetAudioDuration(mediaDir, existing.MediaPath); err == nil && probedDuration > 0 {
+					existingDuration = probedDuration
+				}
+			}
+			if minDuration > 0 && existingDuration > 0 && existingDuration < minDuration {
+				return filterShortVideo(itemRepo, *job.ItemID, existingDuration, minDuration)
+			}
+			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", existing.MediaPath, existing.MediaSize, existingDuration); err != nil {
 				return fmt.Errorf("failed to update media status (reuse): %w", err)
 			}
 			return nil
@@ -159,7 +184,13 @@ func DownloadMediaHandler(
 
 		// Layer 2: Filesystem check — file exists but DB doesn't know
 		if size, ok := media.FileExists(mediaDir, mediaPath); ok {
-			duration, _ := media.GetAudioDuration(mediaDir, mediaPath)
+			duration, err := media.GetAudioDuration(mediaDir, mediaPath)
+			if err != nil && minDuration > 0 {
+				slog.Warn("Could not probe duration for min_duration check, proceeding without filtering", "item_id", *job.ItemID, "error", err)
+			}
+			if minDuration > 0 && duration > 0 && duration < minDuration {
+				return filterShortVideo(itemRepo, *job.ItemID, duration, minDuration)
+			}
 			if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", mediaPath, size, duration); err != nil {
 				return fmt.Errorf("failed to update media status (filesystem): %w", err)
 			}
@@ -174,6 +205,8 @@ func DownloadMediaHandler(
 		var duration int
 		videoInfo, err := media.GetVideoInfo(ctx, ytdlpCmd, item.Link)
 		if err != nil {
+			// Metadata failure is not fatal — proceed and rely on post-download
+			// ffprobe for the authoritative duration check.
 			slog.Warn("Video info check failed, proceeding with download", "item_id", *job.ItemID, "error", err)
 		} else if reschedule := videoReschedule(videoInfo); reschedule != nil {
 			slog.Info("Video not ready for download",
@@ -181,6 +214,10 @@ func DownloadMediaHandler(
 			return reschedule
 		} else {
 			duration = videoInfo.Duration
+		}
+
+		if minDuration > 0 && duration > 0 && duration < minDuration {
+			return filterShortVideo(itemRepo, *job.ItemID, duration, minDuration)
 		}
 
 		// Layer 4: Actually download
@@ -199,6 +236,13 @@ func DownloadMediaHandler(
 					fmt.Errorf("downloaded file is truncated: got %ds, expected ~%ds (VOD likely still processing)", probeDuration, duration))
 			}
 			duration = probeDuration
+		}
+
+		// Post-download min_duration check using authoritative ffprobe duration.
+		// Catches cases where pre-download metadata was unavailable or inaccurate.
+		if minDuration > 0 && duration > 0 && duration < minDuration {
+			os.Remove(filepath.Join(mediaDir, path))
+			return filterShortVideo(itemRepo, *job.ItemID, duration, minDuration)
 		}
 
 		if err := itemRepo.UpdateMediaStatus(*job.ItemID, "ready", path, size, duration); err != nil {
@@ -248,6 +292,20 @@ func handleMediaFailure(itemRepo *database.ItemRepository, itemID string, job *d
 		return nil
 	}
 	return fmt.Errorf("media download failed: %w", mediaErr)
+}
+
+func filterShortVideo(itemRepo *database.ItemRepository, itemID string, duration, minDuration int) error {
+	slog.Info("Video below min_duration, filtering",
+		"item_id", itemID, "duration", duration, "min_duration", minDuration)
+	if err := itemRepo.UpdateItemFilterStatus(itemID, true); err != nil {
+		return fmt.Errorf("failed to filter short video: %w", err)
+	}
+	// Also mark media as skipped so the item stays hidden even if Refilter()
+	// clears is_filtered (refilter only knows about pattern-based filters).
+	if err := itemRepo.UpdateMediaStatus(itemID, "skipped", "", 0, duration); err != nil {
+		return fmt.Errorf("failed to update media status for short video: %w", err)
+	}
+	return nil
 }
 
 // videoReschedule returns a RescheduleError only for unambiguous pre-download

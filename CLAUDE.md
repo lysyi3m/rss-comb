@@ -182,6 +182,7 @@ rss-comb/
 7. **Media System** (`app/media/`)
    - Audio extraction from YouTube videos via configurable yt-dlp command (`YT_DLP_CMD`)
    - GUID-based file naming (YouTube video ID extracted from `yt:video:` GUID)
+   - Min-duration filtering: skips videos below configured threshold before downloading (checked via yt-dlp metadata)
    - Three-layer dedup: DB lookup → filesystem check → download
    - Global media cleanup removes orphaned files not referenced by any feed
    - Supports local yt-dlp binary or Docker-based execution
@@ -235,7 +236,7 @@ rss-comb/
 - `feed_type.go`: `FeedType` interface with `Parse()` and `Build()` methods; `ForType()` factory function
 - `basic.go`: `basicType` — standard RSS/Atom parsing and RSS 2.0 building, no iTunes metadata
 - `podcast.go`: `podcastType` — RSS/Atom with iTunes metadata preservation and enclosure passthrough
-- `youtube.go`: `youtubeType` — YouTube Atom parsing with `media:group` extraction; RSS 2.0 building with downloaded audio enclosures
+- `youtube.go`: `youtubeType` — YouTube Atom parsing with `media:group` extraction; RSS 2.0 building with downloaded audio enclosures; supports `min_duration` filtering
 - `helpers.go`: Shared parsing/building utilities (URL normalization, content hashing, XML element writing, channel header, iTunes elements)
 - `config_loader.go`: Pure functions for loading and validating YAML configuration files
 - `config_sync.go`: `ConfigSync()` — syncs YAML config to database via `LoadConfig` + `UpsertFeedConfig`
@@ -352,6 +353,7 @@ settings:
   max_items: 50           # Limits RSS output items (all items stored in database)
   timeout: 30             # seconds
   extract_content: true   # Enable automatic content extraction (basic type only)
+  min_duration: 300       # Skip videos shorter than 5 minutes (youtube type only, in seconds)
 
 filters:
   - field: "title"
@@ -365,7 +367,7 @@ filters:
 **Feed Types:**
 - **basic** (default, no `type:` needed): Standard RSS/Atom normalization with filtering and deduplication. Supports `extract_content`.
 - **podcast**: Preserves iTunes podcast metadata and enclosures from source feed.
-- **youtube**: Parses YouTube Atom feeds, downloads audio via yt-dlp, generates podcast RSS with media enclosures.
+- **youtube**: Parses YouTube Atom feeds, downloads audio via yt-dlp, generates podcast RSS with media enclosures. Supports `min_duration` to skip short videos (e.g., teasers).
 
 **Filter Pattern Types:**
 RSS Comb supports two pattern matching modes that can be used together:
