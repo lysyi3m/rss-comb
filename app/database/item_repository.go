@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/lysyi3m/rss-comb/app/types"
 )
 
@@ -21,8 +20,8 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 	rows, err := r.db.Query(`
 		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''),
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
-		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'),
-		       COALESCE(fi.categories, '{}'),
+		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '[]'),
+		       COALESCE(fi.categories, '[]'),
 		       fi.is_filtered,
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, ''),
@@ -31,7 +30,7 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 		       fi.media_status, COALESCE(fi.media_path, ''), COALESCE(fi.media_size, 0)
 		FROM feed_items fi
 		JOIN feeds f ON fi.feed_id = f.id
-		WHERE f.name = $1
+		WHERE f.name = ?1
 		ORDER BY fi.published_at DESC
 	`, feedName)
 	if err != nil {
@@ -64,8 +63,8 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, e
 			content_extraction_status,
 			media_status, media_path, media_size
 		) VALUES (
-			(SELECT id FROM feeds WHERE name = $1),
-			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
+			(SELECT id FROM feeds WHERE name = ?1),
+			?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24
 		)
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
@@ -90,8 +89,8 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, e
 			media_size = EXCLUDED.media_size
 		RETURNING id
 	`, feedName, item.GUID, item.Link, item.Title, item.Description, item.Content,
-		item.PublishedAt, item.UpdatedAt, pq.Array(authors),
-		pq.Array(categories), item.IsFiltered,
+		sqliteTime(item.PublishedAt), sqliteTimePtr(item.UpdatedAt), encodeStringSlice(authors),
+		encodeStringSlice(categories), item.IsFiltered,
 		item.ContentHash, item.EnclosureURL, item.EnclosureLength, item.EnclosureType,
 		item.ITunesDuration, item.ITunesEpisode, item.ITunesSeason, item.ITunesEpisodeType, item.ITunesImage,
 		item.ContentExtractionStatus,
@@ -106,9 +105,9 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, e
 
 func (r *ItemRepository) UpdateItemFilterStatus(itemID string, isFiltered bool) error {
 	_, err := r.db.Exec(`
-		UPDATE feed_items 
-		SET is_filtered = $2
-		WHERE id = $1
+		UPDATE feed_items
+		SET is_filtered = ?2
+		WHERE id = ?1
 	`, itemID, isFiltered)
 
 	if err != nil {
@@ -122,10 +121,10 @@ func (r *ItemRepository) CheckDuplicate(feedName, contentHash string) (bool, *st
 	var duplicateID sql.NullString
 
 	query := `
-		SELECT fi.id 
-		FROM feed_items fi 
-		JOIN feeds f ON fi.feed_id = f.id 
-		WHERE f.name = $1 AND fi.content_hash = $2 
+		SELECT fi.id
+		FROM feed_items fi
+		JOIN feeds f ON fi.feed_id = f.id
+		WHERE f.name = ?1 AND fi.content_hash = ?2
 		LIMIT 1`
 	err := r.db.QueryRow(query, feedName, contentHash).Scan(&duplicateID)
 	if err == sql.ErrNoRows {
@@ -151,13 +150,13 @@ func (r *ItemRepository) GetVisibleItems(feedName string, limit int) ([]Item, er
 		       fi.media_status, COALESCE(fi.media_path, ''), COALESCE(fi.media_size, 0)
 		FROM feed_items fi
 		JOIN feeds f ON fi.feed_id = f.id
-		WHERE f.name = $1
-		  AND fi.is_filtered = false
+		WHERE f.name = ?1
+		  AND fi.is_filtered = 0
 		  AND (fi.content_extraction_status IS NULL OR fi.content_extraction_status IN ('ready', 'failed'))
 		  AND (CASE WHEN f.feed_type = 'youtube' THEN fi.media_status = 'ready'
 		            ELSE fi.media_status IS NULL OR fi.media_status = 'ready' END)
 		ORDER BY fi.published_at DESC
-		LIMIT $2
+		LIMIT ?2
 	`, feedName, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get visible items: %w", err)
@@ -174,7 +173,7 @@ func (r *ItemRepository) scanItemRows(rows *sql.Rows) ([]Item, error) {
 		err := rows.Scan(
 			&item.ID, &item.GUID, &item.Link, &item.Title,
 			&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
-			pq.Array(&item.Authors), pq.Array(&item.Categories),
+			JSONStringSlice(&item.Authors), JSONStringSlice(&item.Categories),
 			&item.IsFiltered,
 			&item.ContentHash, &item.CreatedAt,
 			&item.EnclosureURL, &item.EnclosureLength, &item.EnclosureType,
@@ -200,8 +199,8 @@ func (r *ItemRepository) GetItemByID(itemID string) (*Item, error) {
 	err := r.db.QueryRow(`
 		SELECT fi.id, fi.guid, COALESCE(fi.link, ''), COALESCE(fi.title, ''),
 		       COALESCE(fi.description, ''), COALESCE(fi.content, ''),
-		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '{}'),
-		       COALESCE(fi.categories, '{}'),
+		       fi.published_at, fi.updated_at, COALESCE(fi.authors, '[]'),
+		       COALESCE(fi.categories, '[]'),
 		       fi.is_filtered,
 		       fi.content_hash, fi.created_at,
 		       COALESCE(fi.enclosure_url, ''), COALESCE(fi.enclosure_length, 0), COALESCE(fi.enclosure_type, ''),
@@ -209,11 +208,11 @@ func (r *ItemRepository) GetItemByID(itemID string) (*Item, error) {
 		       fi.content_extraction_status,
 		       fi.media_status, COALESCE(fi.media_path, ''), COALESCE(fi.media_size, 0)
 		FROM feed_items fi
-		WHERE fi.id = $1
+		WHERE fi.id = ?1
 	`, itemID).Scan(
 		&item.ID, &item.GUID, &item.Link, &item.Title,
 		&item.Description, &item.Content, &item.PublishedAt, &item.UpdatedAt,
-		pq.Array(&item.Authors), pq.Array(&item.Categories),
+		JSONStringSlice(&item.Authors), JSONStringSlice(&item.Categories),
 		&item.IsFiltered,
 		&item.ContentHash, &item.CreatedAt,
 		&item.EnclosureURL, &item.EnclosureLength, &item.EnclosureType,
@@ -235,9 +234,9 @@ func (r *ItemRepository) GetItemByID(itemID string) (*Item, error) {
 func (r *ItemRepository) UpdateMediaStatus(itemID, status, mediaPath string, mediaSize int64, duration int) error {
 	_, err := r.db.Exec(`
 		UPDATE feed_items
-		SET media_status = $2, media_path = $3, media_size = $4,
-			itunes_duration = CASE WHEN $5 > 0 THEN $5 ELSE itunes_duration END
-		WHERE id = $1
+		SET media_status = ?2, media_path = ?3, media_size = ?4,
+			itunes_duration = CASE WHEN ?5 > 0 THEN ?5 ELSE itunes_duration END
+		WHERE id = ?1
 	`, itemID, status, mediaPath, mediaSize, duration)
 
 	if err != nil {
@@ -257,7 +256,7 @@ func (r *ItemRepository) GetReadyMediaByPath(mediaPath string) (*MediaInfo, erro
 	var info MediaInfo
 	err := r.db.QueryRow(`
 		SELECT media_path, media_size, COALESCE(itunes_duration, 0) FROM feed_items
-		WHERE media_path = $1 AND media_status = 'ready'
+		WHERE media_path = ?1 AND media_status = 'ready'
 		LIMIT 1
 	`, mediaPath).Scan(&info.MediaPath, &info.MediaSize, &info.ITunesDuration)
 
@@ -276,13 +275,13 @@ func (r *ItemRepository) GetAllActiveMediaPaths() ([]string, error) {
 		SELECT DISTINCT sub.media_path FROM (
 			SELECT fi.media_path,
 			       ROW_NUMBER() OVER (PARTITION BY fi.feed_id ORDER BY fi.published_at DESC) AS rn,
-			       COALESCE((f.settings->>'max_items')::int, 50) AS max_items
+			       COALESCE(CAST(json_extract(f.settings, '$.max_items') AS INTEGER), 50) AS max_items
 			FROM feed_items fi
 			JOIN feeds f ON fi.feed_id = f.id
-			WHERE f.is_enabled = true
+			WHERE f.is_enabled = 1
 			  AND fi.media_status = 'ready'
 			  AND fi.media_path IS NOT NULL
-			  AND fi.is_filtered = false
+			  AND fi.is_filtered = 0
 		) sub
 		WHERE sub.rn <= sub.max_items
 	`)
@@ -322,8 +321,8 @@ func (r *ItemRepository) UpdateItemPublishedAt(itemID string, publishedAt time.T
 func (r *ItemRepository) UpdateContentExtractionStatus(itemID, status, content string) error {
 	_, err := r.db.Exec(`
 		UPDATE feed_items
-		SET content_extraction_status = $2, content = CASE WHEN $3 = '' THEN content ELSE $3 END
-		WHERE id = $1
+		SET content_extraction_status = ?2, content = CASE WHEN ?3 = '' THEN content ELSE ?3 END
+		WHERE id = ?1
 	`, itemID, status, content)
 
 	if err != nil {

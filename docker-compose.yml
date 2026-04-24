@@ -1,20 +1,6 @@
 services:
-  db:
-    image: postgres:15.13-alpine
-    environment:
-      POSTGRES_DB: ${DB_NAME:-rss_comb_dev}
-      POSTGRES_USER: ${DB_USER:-rss_comb_dev_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-rss_comb_dev_password}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   yt-dlp:
     image: jauderho/yt-dlp:2026.03.17
     volumes:
       - ./media:/downloads
     entrypoint: ["yt-dlp"]
-
-volumes:
-  postgres_data:

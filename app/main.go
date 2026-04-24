@@ -34,9 +34,12 @@ func main() {
 
 	slog.Info("Starting RSS Comb server", "version", cfg.Version)
 
-	db, err := database.NewConnection(
-		cfg.DBHost, cfg.DBPort, cfg.DBUser,
-		cfg.DBPassword, cfg.DBName)
+	if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0755); err != nil {
+		slog.Error("Failed to create database directory", "path", filepath.Dir(cfg.DBPath), "error", err)
+		os.Exit(1)
+	}
+
+	db, err := database.NewConnection(cfg.DBPath)
 	if err != nil {
 		slog.Error("Database connection failed", "error", err)
 		os.Exit(1)
