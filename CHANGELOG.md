@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.0.0] - 2026-05-30
 
 ### Changed
 - **BREAKING: migrated from PostgreSQL to embedded SQLite** (`modernc.org/sqlite`). The external database dependency is gone — the app now uses a single file-based database configured via `DB_PATH`, replacing the `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME` variables. There is no automatic import from an existing PostgreSQL instance; deployments with data to preserve must migrate it manually. Feeds re-populate on the next fetch cycle, so a fresh start is generally sufficient.
