@@ -28,8 +28,8 @@ type Feed struct {
 	// Configuration fields
 	FeedType   string          // Feed type: "", "podcast", "youtube"
 	IsEnabled  bool            // Whether the feed is enabled
-	Settings   json.RawMessage // JSONB feed settings
-	Filters    json.RawMessage // JSONB feed filters
+	Settings   json.RawMessage // Feed settings as JSON (TEXT column)
+	Filters    json.RawMessage // Feed filters as JSON (TEXT column)
 	ConfigHash *string         // SHA-256 hash of config file for change detection
 
 	// iTunes podcast extension fields
@@ -80,4 +80,61 @@ type Item struct {
 	FeedID    string
 	CreatedAt time.Time
 	types.Item
+}
+
+// jsonStringSlice implements sql.Scanner for reading JSON arrays from TEXT columns.
+type jsonStringSlice struct {
+	dest *[]string
+}
+
+func JSONStringSlice(dest *[]string) *jsonStringSlice {
+	return &jsonStringSlice{dest: dest}
+}
+
+func (j *jsonStringSlice) Scan(src interface{}) error {
+	if src == nil {
+		*j.dest = []string{}
+		return nil
+	}
+
+	var data []byte
+	switch v := src.(type) {
+	case string:
+		data = []byte(v)
+	case []byte:
+		data = v
+	default:
+		return fmt.Errorf("jsonStringSlice: unsupported type %T", src)
+	}
+
+	if len(data) == 0 {
+		*j.dest = []string{}
+		return nil
+	}
+
+	return json.Unmarshal(data, j.dest)
+}
+
+func encodeStringSlice(s []string) string {
+	if s == nil {
+		return "[]"
+	}
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
+// sqliteTimeFmt is the canonical timestamp format matching SQLite's datetime() output.
+const sqliteTimeFmt = "2006-01-02 15:04:05"
+
+// sqliteTime formats a time.Time for SQLite TEXT storage, matching datetime('now') format.
+func sqliteTime(t time.Time) string {
+	return t.UTC().Format(sqliteTimeFmt)
+}
+
+// sqliteTimePtr formats a *time.Time, returning nil for nil input.
+func sqliteTimePtr(t *time.Time) interface{} {
+	if t == nil {
+		return nil
+	}
+	return sqliteTime(*t)
 }

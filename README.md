@@ -43,27 +43,12 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
        image: ghcr.io/lysyi3m/rss-comb:latest
        ports:
          - "8080:8080"
-       environment:
-         - DB_HOST=db
-         - DB_USER=rss_user
-         - DB_PASSWORD=rss_password
-         - DB_NAME=rss_comb
        volumes:
          - ./feeds:/app/feeds:ro
-       depends_on:
-         - db
-
-     db:
-       image: postgres:15-alpine
-       environment:
-         - POSTGRES_DB=rss_comb
-         - POSTGRES_USER=rss_user
-         - POSTGRES_PASSWORD=rss_password
-       volumes:
-         - postgres_data:/var/lib/postgresql/data
-
+         - rss_data:/app/data
+   
    volumes:
-     postgres_data:
+     rss_data:
    EOF
 
    # Start services
@@ -78,18 +63,14 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 
 1. **Prerequisites**:
    - Go 1.24+
-   - PostgreSQL 15+
-   - Docker & Docker Compose
+   - Docker & Docker Compose (for yt-dlp only)
 
 2. **Clone and setup**:
    ```bash
    git clone https://github.com/lysyi3m/rss-comb.git
    cd rss-comb
 
-   # Start development database
-   make dev-db-up
-
-   # Run application with development database (auto-starts DB with correct credentials)
+   # Run application (SQLite database created automatically)
    make dev-run
    ```
 
@@ -99,11 +80,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_HOST` | localhost | Database host |
-| `DB_PORT` | 5432 | Database port |
-| `DB_USER` | rss_user | Database username |
-| `DB_PASSWORD` | *required* | Database password |
-| `DB_NAME` | rss_comb | Database name |
+| `DB_PATH` | ./data/rss-comb.db | SQLite database file path |
 | `FEEDS_DIR` | ./feeds | Directory containing feed configuration files |
 | `PORT` | 8080 | HTTP server port |
 | `BASE_URL` | *empty* | Base URL for RSS self-referencing links |
@@ -202,19 +179,14 @@ curl -X POST -H "X-API-Key: your-api-key" http://localhost:8080/api/feeds/tech-n
 ### Available Commands
 
 ```bash
-# Development database management
-make dev-db-up      # Start PostgreSQL development database
-make dev-db-down    # Stop development database
-make dev-db-logs    # View development database logs
-
 # Development
 make dev-build      # Build the application
-make dev-run        # Run with development database (auto-starts DB with correct credentials)
+make dev-run        # Run with development SQLite database
 make dev-test       # Run all tests
 
-# Cleanup (important to prevent conflicts)
+# Cleanup
 make dev-stop       # Stop development processes
-make dev-clean      # Complete development cleanup: processes + containers + caches
+make dev-clean      # Complete cleanup: processes + dev database + caches
 ```
 
 ### Testing
