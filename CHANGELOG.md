@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.1] - 2026-06-16
+
+### Fixed
+- **`YT_DLP_UPDATE` now actually updates yt-dlp.** yt-dlp is installed as the self-contained zipapp instead of via pip; a pip-installed yt-dlp refuses `yt-dlp -U` ("use pip to update"), so the version was frozen at image-build time and went stale (YouTube then returns HTTP 403). The zipapp self-updates in place on startup. It lives in a world-writable directory so `-U` works even when the container runs under an overridden non-root `user:`.
+- **yt-dlp cache no longer fails with a permission error.** Set `XDG_CACHE_HOME=/tmp/.cache` so yt-dlp (running as a non-root user with no writable HOME) can cache its JS challenge solver, instead of failing to write `/.cache`.
+
 ## [3.0.0] - 2026-05-30
 
 ### Changed

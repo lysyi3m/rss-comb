@@ -45,20 +45,30 @@ LABEL org.opencontainers.image.title="RSS Comb" \
 # Install runtime dependencies
 # ca-certificates: Required for HTTPS connections to external RSS feeds
 # tzdata: Required for timezone support (TZ environment variable)
-# python3 + py3-pip: Required by yt-dlp
+# python3: runtime for the yt-dlp zipapp (pure-Python, musl-compatible)
 # ffmpeg: Required by yt-dlp for audio extraction/conversion
 # deno: Required by yt-dlp as JavaScript runtime for YouTube extraction
 # Note: wget and nc are available via busybox (built into Alpine base image)
 RUN apk add --no-cache \
     ca-certificates \
     tzdata \
-    python3 py3-pip \
+    python3 \
     ffmpeg \
     && apk add --no-cache \
         --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main \
         --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
-        deno \
-    && pip3 install --break-system-packages yt-dlp
+        deno
+
+# Install yt-dlp as the zipapp rather than via pip, so YT_DLP_UPDATE can
+# self-update at runtime: a pip-installed yt-dlp refuses `-U` ("use pip"), while
+# the zipapp replaces itself in place. It lives in a world-writable directory so
+# `-U` works regardless of which uid the container runs as (the deployment may
+# override `user:` for bind-mount ownership). The zipapp is pure-Python, so it
+# runs on Alpine/musl via the system python3 and needs no arch-specific asset.
+RUN mkdir -p /opt/yt-dlp \
+    && wget -qO /opt/yt-dlp/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+    && chmod 755 /opt/yt-dlp/yt-dlp \
+    && chmod 777 /opt/yt-dlp
 
 # Create non-root user (combine RUN commands for fewer layers)
 RUN addgroup -g 1001 -S appgroup && \
@@ -85,6 +95,8 @@ ENV GIN_MODE=release \
     FEEDS_DIR=/app/feeds \
     MEDIA_DIR=/app/media \
     DB_PATH=/app/data/rss-comb.db \
+    YT_DLP_CMD=/opt/yt-dlp/yt-dlp \
+    XDG_CACHE_HOME=/tmp/.cache \
     TZ=UTC
 
 # Accept PORT as build argument with default
