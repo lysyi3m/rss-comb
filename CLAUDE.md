@@ -288,7 +288,8 @@ Only the non-obvious parts are worth stating:
 ## Environment Guide
 
 ### Development Environment
-- **yt-dlp differs from production**: `make dev-run` uses the `jauderho/yt-dlp` image from `docker-compose.yml`, which tracks yt-dlp *stable*. As of Aug 2026 stable cannot download from YouTube (403 — YouTube requires a PO Token on the `android_vr` client). Production installs the nightly zipapp instead. To test media downloads locally, override with a nightly binary: `YT_DLP_CMD=/path/to/yt-dlp make dev-run`
+- **yt-dlp matches production**: `make dev-run` routes `YT_DLP_CMD` at the `yt-dlp` service in `docker-compose.yml`, which runs the **production image itself** (`ghcr.io/lysyi3m/rss-comb:latest`) with `/opt/yt-dlp/yt-dlp` as its entrypoint. That gives dev the same nightly zipapp plus the ffmpeg and deno runtimes yt-dlp needs. Do not swap in a public yt-dlp image: those track the *stable* channel, which as of Aug 2026 cannot download from YouTube at all (403 — PO Token required on the `android_vr` client)
+- The dev yt-dlp version is whatever the pulled app image baked in. Refresh with `docker compose pull yt-dlp`. Unlike production it does **not** self-update, since `YT_DLP_UPDATE` only runs in the long-lived server process, not in these one-shot `docker compose run` invocations
 - **Application**: Running locally via `make dev-run`
 - **Database**: SQLite file at `./data/rss-comb-dev.db` (created automatically)
 - **Feed configs**: Local `feeds/*.yml` files

@@ -15,6 +15,7 @@ dev-run:
 	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
 	DB_PATH=./data/rss-comb-dev.db \
 	MEDIA_DIR=./media \
+	DEV_UID=$$(id -u) DEV_GID=$$(id -g) \
 	YT_DLP_CMD="docker compose -p rss-comb-dev run --rm yt-dlp" \
 	go run -ldflags "-X github.com/lysyi3m/rss-comb/app/cfg.Version=$$VERSION" app/main.go
 
@@ -24,7 +25,9 @@ dev-stop:
 	@-pkill -f "go run.*main.go" 2>/dev/null
 	@-pkill -f "/home/.*/.cache/go-build.*/main" 2>/dev/null
 	@-pkill -f "bin/rss-comb" 2>/dev/null
-	@-docker ps -q --filter "ancestor=jauderho/yt-dlp:2026.03.17" | xargs -r docker stop 2>/dev/null
+	@# Scope teardown to the dev compose project. Do NOT filter by `ancestor=` on the
+	@# app image: dev yt-dlp now runs the production image, so an ancestor filter also
+	@# matches a running production container and would stop it.
 	@-docker compose -p rss-comb-dev down --remove-orphans 2>/dev/null
 	@echo "Development RSS Comb processes stopped"
 

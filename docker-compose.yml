@@ -1,14 +1,27 @@
 # Local development helper only. `make dev-run` points YT_DLP_CMD at this service.
 #
-# Caveat: this image tracks yt-dlp *stable*, and as of Aug 2026 stable cannot
-# download from YouTube (it 403s — YouTube now requires a PO Token on the
-# android_vr client; the fix landed in nightly's visionos client). The production
-# image installs the nightly zipapp instead, so dev and prod differ here.
-# To actually exercise media downloads locally, override with a nightly binary:
-#   YT_DLP_CMD=/path/to/nightly/yt-dlp make dev-run
+# This reuses the production image rather than a third-party yt-dlp image, so dev
+# downloads behave exactly like production: same nightly yt-dlp zipapp, same ffmpeg
+# and deno runtimes it depends on. Public yt-dlp images track the *stable* channel,
+# which as of Aug 2026 cannot download from YouTube at all (403 — YouTube requires a
+# PO Token on the android_vr client; the fix shipped in nightly's visionos client).
+#
+# Two levels of versioning here, deliberately different from how deployments pin:
+#   - the image ref floats on `:latest`, so dev follows released images without edits
+#   - the yt-dlp inside it is frozen at image build time; one-shot `compose run`
+#     invocations never reach the YT_DLP_UPDATE path, which only runs in the
+#     long-lived server process
+# So `docker compose pull yt-dlp` is what advances yt-dlp here. Floating is the right
+# default for a dev helper — pin to a digest only if you need a reproducible local run.
 services:
   yt-dlp:
-    image: jauderho/yt-dlp:2026.07.04
+    image: ghcr.io/lysyi3m/rss-comb:latest
+    entrypoint: ["/opt/yt-dlp/yt-dlp"]
+    # The app invokes yt-dlp with a relative -o template and expects the file to land
+    # in MEDIA_DIR, so the container cwd must be the mounted media directory.
+    working_dir: /media
+    # Run as the host user so downloaded files stay owned by you; the image's own
+    # appuser (uid 1001) would write files you cannot delete without sudo.
+    user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
     volumes:
-      - ./media:/downloads
-    entrypoint: ["yt-dlp"]
+      - ./media:/media
