@@ -1,6 +1,14 @@
+# Local development helper only. `make dev-run` points YT_DLP_CMD at this service.
+#
+# Caveat: this image tracks yt-dlp *stable*, and as of Aug 2026 stable cannot
+# download from YouTube (it 403s — YouTube now requires a PO Token on the
+# android_vr client; the fix landed in nightly's visionos client). The production
+# image installs the nightly zipapp instead, so dev and prod differ here.
+# To actually exercise media downloads locally, override with a nightly binary:
+#   YT_DLP_CMD=/path/to/nightly/yt-dlp make dev-run
 services:
   yt-dlp:
-    image: jauderho/yt-dlp:2026.03.17
+    image: jauderho/yt-dlp:2026.07.04
     volumes:
       - ./media:/downloads
     entrypoint: ["yt-dlp"]

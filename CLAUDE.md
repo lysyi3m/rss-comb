@@ -220,13 +220,18 @@ rss-comb/
 ## Detailed Architecture
 
 ### Database Schema Details
-- **feeds table**: id, name, feed_url, title, source_title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, feed_type, is_enabled, settings (JSON TEXT), filters (JSON TEXT), config_hash, itunes_author, itunes_image, itunes_explicit, itunes_owner_name, itunes_owner_email, created_at, updated_at
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image, content_extraction_status, media_status, media_path, media_size, created_at
-- **jobs table**: id, job_type, feed_id, item_id (nullable), status, retries, max_retries, error_message, run_after (nullable; defers a retry, used when a live stream VOD is not ready), created_at, updated_at
+
+**Source of truth: `app/database/migrations/001_initial_schema.up.sql`.** Read it for the
+column list — it is short, and a copy here goes stale silently (this section previously
+documented an `is_duplicate` column that does not exist).
+
+Only the non-obvious parts are worth stating:
+- **Three tables**: `feeds` (config + fetch state), `feed_items` (normalized items), `jobs` (queue)
 - **Key relationships**: feeds.id → feed_items.feed_id, feeds.id → jobs.feed_id, feed_items.id → jobs.item_id (TEXT primary keys)
-- **Indexes**: feed_id, published_at, content_hash, is_enabled, jobs pending/dedup indexes, media_path for cross-feed dedup
-- **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
-- **iTunes Podcast Support**: All iTunes fields are nullable and automatically extracted from podcast RSS feeds via gofeed library's built-in iTunes extension support
+- **Constraints**: Unique (feed_id, guid) — this is the deduplication mechanism; there is no `is_duplicate` flag
+- **`jobs.run_after`**: nullable; defers a retry rather than consuming one. Used when a live stream VOD is not finished processing
+- **`settings` / `filters`**: JSON stored in TEXT columns, not normalized — read via `GetSettings()` / `GetFilters()` on the `Feed` struct
+- **iTunes fields**: all nullable, auto-extracted from podcast RSS via gofeed's iTunes extension. The `basic` feed type ignores them entirely
 
 ### Feed Processing Layer (`app/feed/`)
 - `feed_type.go`: `FeedType` interface with `Parse()` and `Build()` methods; `ForType()` factory function
@@ -281,6 +286,7 @@ rss-comb/
 ## Environment Guide
 
 ### Development Environment
+- **yt-dlp differs from production**: `make dev-run` uses the `jauderho/yt-dlp` image from `docker-compose.yml`, which tracks yt-dlp *stable*. As of Aug 2026 stable cannot download from YouTube (403 — YouTube requires a PO Token on the `android_vr` client). Production installs the nightly zipapp instead. To test media downloads locally, override with a nightly binary: `YT_DLP_CMD=/path/to/yt-dlp make dev-run`
 - **Application**: Running locally via `make dev-run`
 - **Database**: SQLite file at `./data/rss-comb-dev.db` (created automatically)
 - **Feed configs**: Local `feeds/*.yml` files
