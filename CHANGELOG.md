@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.2] - 2026-08-18
+
+### Fixed
+- **YouTube downloads failed with HTTP 403 because yt-dlp could never update itself.** v3.0.1 made `/opt/yt-dlp` world-writable but left the zipapp inside it root-owned `755`. yt-dlp's updater checks the file for write access, not just its directory, so every startup update failed with `Unable to write to /opt/yt-dlp/yt-dlp` whenever the deployment overrode `user:` (as it must, to keep bind-mounted `data/` and `media/` host-owned). The zipapp is now world-writable too.
+- **yt-dlp now tracks the nightly channel instead of stable.** YouTube breaks extraction faster than the stable release cadence: in Aug 2026 it began requiring a PO Token on the `android_vr` client, 403'ing every download, and the fix (a new `visionos` client) shipped in nightly while stable stayed broken for weeks. The image now installs the nightly zipapp, and `YT_DLP_UPDATE` runs `--update-to nightly`, which also migrates an existing stable binary onto the channel.
+
+### Changed
+- A failed startup update now logs at `ERROR` instead of `WARN`. The old `WARN` hid the frozen-version breakage above for days.
+- `yt-dlp validated` now logs the resolved yt-dlp version, so a stale version is visible in the startup log.
+
 ## [3.0.1] - 2026-06-16
 
 ### Fixed

@@ -22,7 +22,10 @@ func Update(ytdlpCmd string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	args := append(parts[1:], "-U")
+	// --update-to nightly rather than -U: stable lags too far behind YouTube's
+	// extraction changes (see the Dockerfile). Also migrates a stable-channel
+	// binary onto nightly; no-op once there.
+	args := append(parts[1:], "--update-to", "nightly")
 	cmd := exec.CommandContext(ctx, parts[0], args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -32,10 +35,12 @@ func Update(ytdlpCmd string) error {
 	return nil
 }
 
-func Validate(ytdlpCmd string) error {
+// Validate returns the yt-dlp version, so a stale version stays visible in the
+// startup log even when the update failed.
+func Validate(ytdlpCmd string) (string, error) {
 	parts := strings.Fields(ytdlpCmd)
 	if len(parts) == 0 {
-		return fmt.Errorf("YT_DLP_CMD is empty")
+		return "", fmt.Errorf("YT_DLP_CMD is empty")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -45,10 +50,10 @@ func Validate(ytdlpCmd string) error {
 	cmd := exec.CommandContext(ctx, parts[0], args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("yt-dlp validation failed (cmd: %s): %w\nOutput: %s", ytdlpCmd, err, string(output))
+		return "", fmt.Errorf("yt-dlp validation failed (cmd: %s): %w\nOutput: %s", ytdlpCmd, err, string(output))
 	}
 
-	return nil
+	return strings.TrimSpace(string(output)), nil
 }
 
 // MediaFileID extracts YouTube video ID from GUID, falls back to SHA-256 hash.

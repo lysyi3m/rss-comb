@@ -61,13 +61,21 @@ RUN apk add --no-cache \
 
 # Install yt-dlp as the zipapp rather than via pip, so YT_DLP_UPDATE can
 # self-update at runtime: a pip-installed yt-dlp refuses `-U` ("use pip"), while
-# the zipapp replaces itself in place. It lives in a world-writable directory so
-# `-U` works regardless of which uid the container runs as (the deployment may
-# override `user:` for bind-mount ownership). The zipapp is pure-Python, so it
-# runs on Alpine/musl via the system python3 and needs no arch-specific asset.
+# the zipapp replaces itself in place. The zipapp is pure-Python, so it runs on
+# Alpine/musl via the system python3 and needs no arch-specific asset.
+#
+# The nightly channel, not stable: YouTube breaks extraction faster than the
+# stable release cadence. In Aug 2026 YouTube began requiring a PO Token on the
+# android_vr client, which 403'd every download; the fix (a new visionos client)
+# was in nightly while stable was still broken weeks later.
+#
+# Both the directory and the file are world-writable so the self-update works
+# regardless of which uid the container runs as — the deployment may override
+# `user:` to keep bind-mounted data/ and media/ host-owned, and yt-dlp's updater
+# checks the file itself for write access, not just its directory.
 RUN mkdir -p /opt/yt-dlp \
-    && wget -qO /opt/yt-dlp/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-    && chmod 755 /opt/yt-dlp/yt-dlp \
+    && wget -qO /opt/yt-dlp/yt-dlp https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp \
+    && chmod 777 /opt/yt-dlp/yt-dlp \
     && chmod 777 /opt/yt-dlp
 
 # Create non-root user (combine RUN commands for fewer layers)
