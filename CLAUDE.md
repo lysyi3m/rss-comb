@@ -119,9 +119,12 @@ rss-comb/
 │   ├── database/            # Database connections, repositories, and embedded migrations
 │   ├── feed/                # Feed types, parsing, building, filtering, config management
 │   ├── jobs/                # Worker pool, scheduler, and job handlers
-│   └── media/               # yt-dlp integration and media file management
+│   ├── media/               # yt-dlp integration and media file management
+│   └── types/               # Shared data types (Settings, Filter, Metadata, Item) used across packages
 ├── feeds/                    # Feed configuration files (*.yml)
-├── docker-compose.yml       # Development database service
+├── docker-compose.yml       # yt-dlp helper service for local development
+├── docker-compose.example.yml # Reference deployment compose file
+├── docs/                    # Supplementary docs (REGEX_PATTERNS.md)
 ├── .github/workflows/       # CI/CD automation
 └── go.mod                   # Go module definition
 ```
@@ -168,6 +171,9 @@ rss-comb/
    - Worker pool with configurable concurrency via `WORKER_COUNT`
    - Scheduler creates `fetch_feed` jobs for due feeds on each tick
    - Job types: `fetch_feed` (feed processing), `extract_content` (article extraction), `download_media` (yt-dlp audio download)
+   - Two distinct mechanisms, easily confused:
+     - **Retries** (`FailJob`) — consumed only by genuine failures. Increments `retries`, applies exponential backoff + jitter, deletes the job once `max_retries` is hit. `download_media` allows 30
+     - **Deferrals** (`DelayJob`) — used when yt-dlp reports the video is live or its VOD is still processing. Sets `run_after` and does **not** increment `retries`, so a long live stream can defer indefinitely without burning the retry budget
    - Automatic retry with configurable max retries per job type
    - Stale job recovery for crashed workers
 
@@ -216,13 +222,18 @@ rss-comb/
 ## Detailed Architecture
 
 ### Database Schema Details
-- **feeds table**: id, name, feed_url, title, source_title, link, description, image_url, language, last_fetched_at, next_fetch_at, feed_published_at, feed_updated_at, feed_type, is_enabled, settings (JSON TEXT), filters (JSON TEXT), config_hash, itunes_author, itunes_image, itunes_explicit, itunes_owner_name, itunes_owner_email, created_at, updated_at
-- **feed_items table**: id, feed_id, guid, link, title, description, content, published_at, updated_at, authors, categories, is_filtered, content_hash, enclosure_url, enclosure_length, enclosure_type, itunes_duration, itunes_episode, itunes_season, itunes_episode_type, itunes_image, content_extraction_status, media_status, media_path, media_size, created_at
-- **jobs table**: id, job_type, feed_id, item_id (nullable), status, retries, max_retries, error_message, created_at, updated_at
+
+**Source of truth: `app/database/migrations/001_initial_schema.up.sql`.** Read it for the
+column list — it is short, and a copy here goes stale silently (this section previously
+documented an `is_duplicate` column that does not exist).
+
+Only the non-obvious parts are worth stating:
+- **Three tables**: `feeds` (config + fetch state), `feed_items` (normalized items), `jobs` (queue)
 - **Key relationships**: feeds.id → feed_items.feed_id, feeds.id → jobs.feed_id, feed_items.id → jobs.item_id (TEXT primary keys)
-- **Indexes**: feed_id, published_at, content_hash, is_enabled, jobs pending/dedup indexes, media_path for cross-feed dedup
-- **Constraints**: Unique (feed_id, guid) for item deduplication within feeds
-- **iTunes Podcast Support**: All iTunes fields are nullable and automatically extracted from podcast RSS feeds via gofeed library's built-in iTunes extension support
+- **Constraints**: Unique (feed_id, guid) — this is the deduplication mechanism; there is no `is_duplicate` flag
+- **`jobs.run_after`**: nullable; defers a retry rather than consuming one. Used when a live stream VOD is not finished processing
+- **`settings` / `filters`**: JSON stored in TEXT columns, not normalized — read via `GetSettings()` / `GetFilters()` on the `Feed` struct
+- **iTunes fields**: all nullable, auto-extracted from podcast RSS via gofeed's iTunes extension. The `basic` feed type ignores them entirely
 
 ### Feed Processing Layer (`app/feed/`)
 - `feed_type.go`: `FeedType` interface with `Parse()` and `Build()` methods; `ForType()` factory function
@@ -256,7 +267,7 @@ rss-comb/
 - `handlers.go`: Job handler factories — `FetchFeedHandler`, `ExtractContentHandler`, `DownloadMediaHandler`
 - `process.go`: Feed processing logic — fetch, parse via `FeedType`, deduplicate, filter, create downstream jobs
 - `fetch.go`: HTTP fetch utility used by feed processing and content extraction
-- **Job types**: `fetch_feed` (max_retries=0, scheduler retries), `extract_content` (max_retries=3), `download_media` (max_retries=3)
+- **Job types**: `fetch_feed` (max_retries=0, scheduler retries), `extract_content` (max_retries=3), `download_media` (max_retries=30, failures only — `run_after` deferrals are unbounded and do not consume retries)
 - **Concurrency**: Serialized via `MaxOpenConns(1)` — safe concurrent access without row locking
 - **Cleanup**: Completed and exhausted jobs are deleted; failure state captured on items
 
@@ -277,6 +288,7 @@ rss-comb/
 ## Environment Guide
 
 ### Development Environment
+- **yt-dlp differs from production**: `make dev-run` uses the `jauderho/yt-dlp` image from `docker-compose.yml`, which tracks yt-dlp *stable*. As of Aug 2026 stable cannot download from YouTube (403 — YouTube requires a PO Token on the `android_vr` client). Production installs the nightly zipapp instead. To test media downloads locally, override with a nightly binary: `YT_DLP_CMD=/path/to/yt-dlp make dev-run`
 - **Application**: Running locally via `make dev-run`
 - **Database**: SQLite file at `./data/rss-comb-dev.db` (created automatically)
 - **Feed configs**: Local `feeds/*.yml` files
@@ -455,7 +467,9 @@ All configuration options support both environment variables and command-line fl
 - `WORKER_COUNT` (default: 5) - Number of concurrent workers for processing jobs (feed fetching, content extraction, media downloads)
 - `API_ACCESS_KEY` (optional) - API access key for authentication
 - `MEDIA_DIR` (default: ./media) - Directory for downloaded media files
-- `YT_DLP_CMD` (default: "yt-dlp") - yt-dlp command; supports multi-word values for Docker (e.g., `docker compose run --rm yt-dlp`)
+- `YT_DLP_CMD` (default: "yt-dlp") - yt-dlp command; supports multi-word values for Docker (e.g., `docker compose run --rm yt-dlp`). The Docker image overrides this to `/opt/yt-dlp/yt-dlp`
+- `YT_DLP_ARGS` (optional) - extra arguments appended to every yt-dlp download (e.g. `--cookies /app/cookies.txt`)
+- `YT_DLP_UPDATE` (default: false) - run `yt-dlp --update-to nightly` on startup; only takes effect when media feeds are configured
 - `USER_AGENT` (default: "RSS Comb/1.0") - User agent string for HTTP requests
 - `TZ` (default: "UTC") - Timezone for display timestamps in API responses and RSS feeds (e.g., UTC, America/New_York, Europe/London). Database operations always use UTC for consistency.
 
@@ -465,18 +479,21 @@ Use `./app/main.go --help` or `go run app/main.go --help` to see all available c
 
 ### Unit Tests
 ```bash
-# Run all tests
-go test -v ./app/...
+# Run all tests (preferred — matches CI)
+make dev-test
 
-# Run tests with coverage
-go test -v -coverprofile=coverage.out ./app/...
+# Coverage report
+go test -coverprofile=coverage.out ./app/...
 go tool cover -html=coverage.out
 
-# Run tests for specific package
-go test -v ./app/api
-go test -v ./app/cfg
-go test -v ./app/database
+# Only two packages carry tests today:
+go test ./app/database   # migrations, repositories
+go test ./app/feed       # parsing, filtering, config loading
 ```
+
+The raw `go test` invocations above are a deliberate exception to the "always use
+Makefile targets" rule in Development Guidelines: there is no `make` target for
+coverage or for a single package. Use `make dev-test` for the full run.
 
 ### Integration Testing
 - Test database migrations and schema
@@ -488,8 +505,9 @@ go test -v ./app/database
 1. Enable the example feed in `feeds/example.yml` (set `enabled: true`)
 2. Start services with `make dev-run`
 3. Monitor logs for feed processing
-4. Test API endpoint: `curl -H "X-API-Key: your-key" "http://localhost:${PORT:-8080}/api/feeds/example"`
-5. Reset example feed to disabled when done testing
+4. Check the RSS output: `curl "http://localhost:${PORT:-8080}/feeds/example"`
+5. Reload config after editing the YAML: `curl -X POST -H "X-API-Key: your-key" "http://localhost:${PORT:-8080}/api/feeds/example/reload"` (reload is the only `/api/` route; there is no `GET /api/feeds/:name`)
+6. Reset example feed to disabled when done testing
 
 ## Deployment
 
@@ -561,7 +579,7 @@ go test -v ./app/database
 ### Missing Items
 - Review filter configuration for over-filtering
 - Deduplication is always enabled and automatic
-- Examine `is_filtered` and `is_duplicate` flags in database
+- Examine the `is_filtered` flag in database (deduplication happens on `(feed_id, guid)` and content hash; there is no `is_duplicate` column)
 - Verify `max_items` setting (limits RSS output, not database storage)
 
 ### Feed URL Changes
