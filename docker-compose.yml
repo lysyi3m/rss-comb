@@ -6,7 +6,13 @@
 # which as of Aug 2026 cannot download from YouTube at all (403 — YouTube requires a
 # PO Token on the android_vr client; the fix shipped in nightly's visionos client).
 #
-# Refresh the pinned yt-dlp by pulling a newer app image: `docker compose pull yt-dlp`.
+# Two levels of versioning here, deliberately different from how deployments pin:
+#   - the image ref floats on `:latest`, so dev follows released images without edits
+#   - the yt-dlp inside it is frozen at image build time; one-shot `compose run`
+#     invocations never reach the YT_DLP_UPDATE path, which only runs in the
+#     long-lived server process
+# So `docker compose pull yt-dlp` is what advances yt-dlp here. Floating is the right
+# default for a dev helper — pin to a digest only if you need a reproducible local run.
 services:
   yt-dlp:
     image: ghcr.io/lysyi3m/rss-comb:latest
