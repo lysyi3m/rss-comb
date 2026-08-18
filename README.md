@@ -90,7 +90,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 | `MEDIA_DIR` | ./media | Directory for downloaded media files |
 | `YT_DLP_CMD` | yt-dlp | yt-dlp command (supports multi-word for Docker) |
 | `YT_DLP_ARGS` | *empty* | Extra arguments for yt-dlp |
-| `YT_DLP_UPDATE` | false | Update yt-dlp to the latest nightly on startup |
+| `YT_DLP_UPDATE` | false | Update yt-dlp to the latest nightly on startup (only when media feeds are configured) |
 | `USER_AGENT` | "RSS Comb/1.0" | User agent for HTTP requests |
 | `TZ` | UTC | Timezone for timestamps |
 
