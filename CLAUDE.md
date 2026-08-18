@@ -171,7 +171,9 @@ rss-comb/
    - Worker pool with configurable concurrency via `WORKER_COUNT`
    - Scheduler creates `fetch_feed` jobs for due feeds on each tick
    - Job types: `fetch_feed` (feed processing), `extract_content` (article extraction), `download_media` (yt-dlp audio download)
-   - Media downloads retry up to 30 times: YouTube live-stream VODs need time to finish processing, and a job reschedules itself via `run_after` until the video is ready
+   - Two distinct mechanisms, easily confused:
+     - **Retries** (`FailJob`) — consumed only by genuine failures. Increments `retries`, applies exponential backoff + jitter, deletes the job once `max_retries` is hit. `download_media` allows 30
+     - **Deferrals** (`DelayJob`) — used when yt-dlp reports the video is live or its VOD is still processing. Sets `run_after` and does **not** increment `retries`, so a long live stream can defer indefinitely without burning the retry budget
    - Automatic retry with configurable max retries per job type
    - Stale job recovery for crashed workers
 
@@ -265,7 +267,7 @@ Only the non-obvious parts are worth stating:
 - `handlers.go`: Job handler factories — `FetchFeedHandler`, `ExtractContentHandler`, `DownloadMediaHandler`
 - `process.go`: Feed processing logic — fetch, parse via `FeedType`, deduplicate, filter, create downstream jobs
 - `fetch.go`: HTTP fetch utility used by feed processing and content extraction
-- **Job types**: `fetch_feed` (max_retries=0, scheduler retries), `extract_content` (max_retries=3), `download_media` (max_retries=30)
+- **Job types**: `fetch_feed` (max_retries=0, scheduler retries), `extract_content` (max_retries=3), `download_media` (max_retries=30, failures only — `run_after` deferrals are unbounded and do not consume retries)
 - **Concurrency**: Serialized via `MaxOpenConns(1)` — safe concurrent access without row locking
 - **Cleanup**: Completed and exhausted jobs are deleted; failure state captured on items
 
@@ -488,6 +490,10 @@ go tool cover -html=coverage.out
 go test ./app/database   # migrations, repositories
 go test ./app/feed       # parsing, filtering, config loading
 ```
+
+The raw `go test` invocations above are a deliberate exception to the "always use
+Makefile targets" rule in Development Guidelines: there is no `make` target for
+coverage or for a single package. Use `make dev-test` for the full run.
 
 ### Integration Testing
 - Test database migrations and schema
