@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-08-18
+
+### Security
+- **Bumped dependencies carrying known vulnerabilities.** `golang.org/x/text` 0.32.0 → 0.39.0 fixes an infinite loop on invalid input (GO-2026-5970) that was reachable from feed parsing and filtering — both process untrusted remote content. Also bumped `golang.org/x/crypto` 0.46.0 → 0.53.0, `golang.org/x/net` 0.48.0 → 0.56.0, and `github.com/quic-go/quic-go` 0.58.0 → 0.59.1; those advisories are in packages this project does not call (SSH, HTTP/3). `govulncheck` now reports no reachable vulnerabilities.
+
+### Changed
+- Minimum Go version is now 1.25. This is unavoidable rather than opportunistic: `golang.org/x/text` 0.39.0, the only version carrying the reachable fix above, declares `go 1.25.0` itself — as do `x/net` 0.56.0 and `x/crypto` 0.52.0+. Build image (`golang:1.25-alpine3.22`) and CI toolchain bumped to match.
+
 ## [3.0.2] - 2026-08-18
 
 ### Fixed
