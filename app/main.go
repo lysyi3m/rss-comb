@@ -72,14 +72,15 @@ func main() {
 		if cfg.YTDLPUpdate {
 			slog.Info("Updating yt-dlp...")
 			if err := media.Update(cfg.YTDLPCmd); err != nil {
-				slog.Warn("yt-dlp update failed, continuing with current version", "error", err)
+				slog.Error("yt-dlp update failed, continuing with current version — downloads may fail until yt-dlp is updated", "error", err)
 			}
 		}
-		if err := media.Validate(cfg.YTDLPCmd); err != nil {
+		version, err := media.Validate(cfg.YTDLPCmd)
+		if err != nil {
 			slog.Error("yt-dlp validation failed — media feeds are configured but yt-dlp is not available", "error", err)
 			os.Exit(1)
 		}
-		slog.Info("yt-dlp validated", "command", cfg.YTDLPCmd)
+		slog.Info("yt-dlp validated", "command", cfg.YTDLPCmd, "version", version)
 	}
 
 	httpClient := &http.Client{
