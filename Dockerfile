@@ -1,6 +1,6 @@
 # Build stage
 # Pin to specific golang version with Alpine 3.22
-FROM golang:1.24-alpine3.22 AS builder
+FROM golang:1.25-alpine3.22 AS builder
 
 # Install build dependencies (using latest available versions)
 RUN apk add --no-cache \

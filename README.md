@@ -2,7 +2,7 @@
 
 [![CI/CD](https://github.com/lysyi3m/rss-comb/actions/workflows/ci.yml/badge.svg)](https://github.com/lysyi3m/rss-comb/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Flysyi3m%2Frss--comb-blue)](https://github.com/lysyi3m/rss-comb/pkgs/container/rss-comb)
-[![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 RSS Comb is a high-performance Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, flexible filtering, content extraction, and full iTunes podcast support through YAML-based configuration files.
@@ -62,7 +62,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 ### Development Setup
 
 1. **Prerequisites**:
-   - Go 1.24+
+   - Go 1.25+
    - Docker & Docker Compose (for yt-dlp only)
 
 2. **Clone and setup**:
