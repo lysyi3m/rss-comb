@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-10-25
+
+### Security
+- **Rebuilt with Go 1.27 and bumped vulnerable dependencies.** The 3.1.0 image was built with Go 1.25.11, which no longer receives security fixes; `govulncheck` flags 27 known vulnerabilities in that binary, mostly in `net/http` (HTTP/2 crashes and CPU exhaustion, request smuggling), `crypto/tls` and `crypto/x509` (the compromised eMudhra intermediates). The builder is now `golang:1.27-alpine3.24` and CI uses Go 1.27. Also bumped `golang.org/x/net` 0.56.0 → 0.60.0, `golang.org/x/text` 0.39.0 → 0.42.0 and `golang.org/x/crypto` 0.53.0 → 0.57.0. `govulncheck` now reports no reachable vulnerabilities (the 3.1.0 sources had 5 reachable in `x/net` HTTP/2, not counting the Go 1.25.11 standard library).
+- Runtime base `alpine:3.22.0` → `alpine:3.22.7`, which picks up the 3.22 security updates (OpenSSL 3.5.9, current `ca-certificates`).
+
+### Changed
+- Minimum Go version is now 1.26: `golang.org/x/net` 0.60.0, `x/crypto` 0.57.0 and `x/text` 0.42.0 declare `go 1.26.0`. `.mise.toml` pins Go 1.27.3 (it still pinned 1.24.4, below the 1.25 minimum).
+
 ## [3.1.0] - 2026-08-18
 
 ### Security

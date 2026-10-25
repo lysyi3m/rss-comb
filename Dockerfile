@@ -1,6 +1,7 @@
 # Build stage
-# Pin to specific golang version with Alpine 3.22
-FROM golang:1.25-alpine3.22 AS builder
+# Go 1.27 builder. The binary is static (CGO_ENABLED=0), so the builder Alpine
+# need not match the runtime base.
+FROM golang:1.27-alpine3.24 AS builder
 
 # Install build dependencies (using latest available versions)
 RUN apk add --no-cache \
@@ -31,7 +32,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     app/main.go
 
 # Final stage - pin Alpine version for reproducible builds
-FROM alpine:3.22.0
+FROM alpine:3.22.7
 
 # Add OpenContainers annotations
 LABEL org.opencontainers.image.title="RSS Comb" \
