@@ -4,8 +4,8 @@ on:
   push:
     tags:
       - 'v*'
-  # Pull requests run the tests and build the image without pushing it, so a
-  # toolchain or go.sum change is validated before a release tag exists.
+  # Pull requests run the tests only; the image is built and pushed for release
+  # tags alone.
   pull_request:
 
 env:
@@ -43,6 +43,7 @@ jobs:
 
   build-and-push:
     needs: test
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
 
     permissions:
@@ -54,7 +55,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Log in to Container Registry
-        if: startsWith(github.ref, 'refs/tags/')
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -86,7 +86,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ startsWith(github.ref, 'refs/tags/') }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
