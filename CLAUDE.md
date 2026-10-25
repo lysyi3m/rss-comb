@@ -66,7 +66,7 @@ If these assumptions change significantly, revisit architectural decisions.
 ## Development Environment
 
 ### Prerequisites
-- Go 1.25+
+- Go 1.26+
 - Docker & Docker Compose (for yt-dlp only)
 
 ### Common Commands
