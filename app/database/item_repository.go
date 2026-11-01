@@ -41,6 +41,8 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 	return r.scanItemRows(rows)
 }
 
+// UpsertItem stores source fields. On conflict it keeps processing state and its
+// results, so an edited source item does not lose its extracted content or media.
 func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, error) {
 	authors := item.Authors
 	if authors == nil {
@@ -69,7 +71,7 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, e
 		ON CONFLICT (feed_id, guid) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
-			content = EXCLUDED.content,
+			content = CASE WHEN feed_items.content_extraction_status = 'ready' THEN feed_items.content ELSE EXCLUDED.content END,
 			updated_at = EXCLUDED.updated_at,
 			authors = EXCLUDED.authors,
 			categories = EXCLUDED.categories,
@@ -78,15 +80,15 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, e
 			enclosure_url = EXCLUDED.enclosure_url,
 			enclosure_length = EXCLUDED.enclosure_length,
 			enclosure_type = EXCLUDED.enclosure_type,
-			itunes_duration = EXCLUDED.itunes_duration,
+			itunes_duration = CASE WHEN feed_items.media_status IS NOT NULL THEN feed_items.itunes_duration ELSE EXCLUDED.itunes_duration END,
 			itunes_episode = EXCLUDED.itunes_episode,
 			itunes_season = EXCLUDED.itunes_season,
 			itunes_episode_type = EXCLUDED.itunes_episode_type,
 			itunes_image = EXCLUDED.itunes_image,
-			content_extraction_status = EXCLUDED.content_extraction_status,
-			media_status = EXCLUDED.media_status,
-			media_path = EXCLUDED.media_path,
-			media_size = EXCLUDED.media_size
+			content_extraction_status = COALESCE(feed_items.content_extraction_status, EXCLUDED.content_extraction_status),
+			media_status = COALESCE(feed_items.media_status, EXCLUDED.media_status),
+			media_path = CASE WHEN feed_items.media_status IS NOT NULL THEN feed_items.media_path ELSE EXCLUDED.media_path END,
+			media_size = CASE WHEN feed_items.media_status IS NOT NULL THEN feed_items.media_size ELSE EXCLUDED.media_size END
 		RETURNING id
 	`, feedName, item.GUID, item.Link, item.Title, item.Description, item.Content,
 		sqliteTime(item.PublishedAt), sqliteTimePtr(item.UpdatedAt), encodeStringSlice(authors),

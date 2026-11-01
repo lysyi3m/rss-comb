@@ -3,6 +3,7 @@ package api
 import (
 	"cmp"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lysyi3m/rss-comb/app/cfg"
 )
+
+const mediaWriteTimeout = 1 * time.Hour
 
 func NewServer(handler *Handler, cfg *cfg.Cfg) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
@@ -55,7 +58,7 @@ func NewServer(handler *Handler, cfg *cfg.Cfg) *gin.Engine {
 func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 	r.GET("/feeds/:name", handler.GetFeed)
 	r.GET("/health", handler.GetHealth)
-	r.Static("/media", cfg.MediaDir)
+	r.Group("/media", extendWriteDeadline).Static("/", cfg.MediaDir)
 
 	if cfg.APIAccessKey != "" {
 		api := r.Group("/api")
@@ -88,6 +91,15 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 		})
 	})
 
+}
+
+// extendWriteDeadline replaces the server-wide WriteTimeout for media files, which
+// can take far longer to transfer to a slow client than an API response.
+func extendWriteDeadline(c *gin.Context) {
+	if err := http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(mediaWriteTimeout)); err != nil {
+		slog.Warn("Failed to extend media write deadline", "error", err)
+	}
+	c.Next()
 }
 
 func authMiddleware(apiAccessKey string) gin.HandlerFunc {

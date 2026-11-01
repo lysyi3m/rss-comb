@@ -3,7 +3,6 @@ package feed
 import (
 	"bytes"
 	"fmt"
-	"html"
 	"strconv"
 
 	"github.com/lysyi3m/rss-comb/app/cfg"
@@ -84,9 +83,9 @@ func (podcastType) Build(feed database.Feed, items []database.Item, cfg *cfg.Cfg
 
 		if item.EnclosureURL != "" && item.EnclosureType != "" {
 			buf.WriteString(fmt.Sprintf("      <enclosure url=\"%s\" length=\"%d\" type=\"%s\" />\n",
-				html.EscapeString(item.EnclosureURL),
+				escapeAttr(item.EnclosureURL),
 				item.EnclosureLength,
-				html.EscapeString(item.EnclosureType)))
+				escapeAttr(item.EnclosureType)))
 		}
 
 		writeITunesItemElements(&buf, item)

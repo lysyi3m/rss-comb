@@ -186,7 +186,7 @@ func writeChannelHeader(buf *bytes.Buffer, feed database.Feed, items []database.
 		selfLink = fmt.Sprintf("http://localhost:%s/feeds/%s", cfg.Port, feed.Name)
 	}
 	buf.WriteString(fmt.Sprintf("    <atom:link href=\"%s\" rel=\"self\" type=\"application/rss+xml\" />\n",
-		html.EscapeString(selfLink)))
+		escapeAttr(selfLink)))
 
 	if feed.FeedPublishedAt != nil {
 		writeElement(buf, "pubDate", feed.FeedPublishedAt.In(cfg.Location).Format(time.RFC1123Z), 4)
@@ -233,7 +233,7 @@ func writeBaseItem(buf *bytes.Buffer, item database.Item, cfg *cfg.Cfg) {
 
 	if item.Content != "" && item.Content != item.Description {
 		buf.WriteString("      <content:encoded><![CDATA[")
-		buf.WriteString(item.Content)
+		buf.WriteString(cdataSafe(item.Content))
 		buf.WriteString("]]></content:encoded>\n")
 	}
 
@@ -257,7 +257,7 @@ func writeITunesFeedElements(buf *bytes.Buffer, feed database.Feed) {
 
 	if feed.ITunesImage != "" {
 		buf.WriteString(fmt.Sprintf("    <itunes:image href=\"%s\" />\n",
-			html.EscapeString(feed.ITunesImage)))
+			escapeAttr(feed.ITunesImage)))
 	}
 
 	if feed.ITunesExplicit != "" {
@@ -295,8 +295,28 @@ func writeITunesItemElements(buf *bytes.Buffer, item database.Item) {
 
 	if item.ITunesImage != "" {
 		buf.WriteString(fmt.Sprintf("      <itunes:image href=\"%s\" />\n",
-			html.EscapeString(item.ITunesImage)))
+			escapeAttr(item.ITunesImage)))
 	}
+}
+
+// cdataSafe makes s valid inside one CDATA section: it replaces characters XML
+// forbids, as xml.EscapeText does, and splits any embedded terminator.
+func cdataSafe(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r == 0x09 || r == 0x0A || r == 0x0D ||
+			(r >= 0x20 && r <= 0xD7FF) || (r >= 0xE000 && r <= 0xFFFD) || (r >= 0x10000 && r <= 0x10FFFF) {
+			return r
+		}
+		return '�'
+	}, s)
+	return strings.ReplaceAll(s, "]]>", "]]]]><![CDATA[>")
+}
+
+// escapeAttr escapes s for an XML attribute value, including forbidden characters.
+func escapeAttr(s string) string {
+	var b strings.Builder
+	xml.EscapeText(&b, []byte(s))
+	return b.String()
 }
 
 func writeElement(buf *bytes.Buffer, tag, content string, indent int) {

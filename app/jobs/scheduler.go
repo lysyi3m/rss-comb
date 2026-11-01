@@ -6,7 +6,12 @@ import (
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/media"
 )
+
+// staleJobTimeout must exceed the longest handler run. Jobs have no heartbeat,
+// so a shorter limit hands a running download to a second worker.
+const staleJobTimeout = media.DownloadTimeout + 15*time.Minute
 
 type Scheduler struct {
 	interval time.Duration
@@ -57,7 +62,7 @@ func (s *Scheduler) tick() {
 		}
 	}
 
-	resetCount, err := s.jobRepo.ResetStaleJobs(10 * time.Minute)
+	resetCount, err := s.jobRepo.ResetStaleJobs(staleJobTimeout)
 	if err != nil {
 		slog.Error("Scheduler failed to reset stale jobs", "error", err)
 		return
