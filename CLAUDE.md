@@ -487,9 +487,13 @@ make dev-test
 go test -coverprofile=coverage.out ./app/...
 go tool cover -html=coverage.out
 
-# Only two packages carry tests today:
+# Single packages:
 go test ./app/database   # migrations, repositories
 go test ./app/feed       # parsing, filtering, config loading
+go test ./app/jobs       # worker, scheduler, handlers (yt-dlp is a fake script)
+go test ./app/media      # yt-dlp subprocess handling
+go test ./app/api        # media serving
+go test ./app/cfg        # config validation
 ```
 
 The raw `go test` invocations above are a deliberate exception to the "always use
