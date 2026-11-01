@@ -19,6 +19,7 @@ func rssItem(guid, title string) string {
 type feedFixture struct {
 	t        *testing.T
 	srv      *httptest.Server
+	db       *database.DB
 	feedRepo *database.FeedRepository
 	itemRepo *database.ItemRepository
 	jobRepo  *database.JobRepository
@@ -38,6 +39,7 @@ func newFeedFixture(t *testing.T, feedType string, settings types.Settings) *fee
 
 	f := &feedFixture{
 		t:        t,
+		db:       db,
 		feedRepo: database.NewFeedRepository(db),
 		itemRepo: database.NewItemRepository(db),
 		jobRepo:  database.NewJobRepository(db),
