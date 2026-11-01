@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-11-01
+
+### Security
+- `golang.org/x/net` 0.60.0 → 0.62.0 for GO-2026-6860 and GO-2026-6866, both reachable from article extraction.
+- A YouTube GUID can no longer form a path: a video ID with unsafe characters falls back to a hash.
+- Feed and article responses over 64 MiB are rejected.
+
+### Added
+- `POST /api/feeds/<name>/requeue-media` retries a YouTube feed's failed downloads, for recovery after a long yt-dlp outage.
+
+### Fixed
+- **Feeds could become invalid XML.** `]]>`, control characters or invalid UTF-8 in one article broke the whole document.
+- **New items could be missed.** A known first entry made the whole feed skip processing, so a pinned or oldest-first entry hid new items below it. Every item is now checked.
+- **Long downloads ran twice.** The 10-minute stale limit handed a running download to a second worker; it is now 45 minutes, and startup releases jobs the previous process left claimed.
+- **Slow media transfers were cut off** by the 30-second server write timeout. `/media` now allows 1 hour.
+- **Partial files could be published.** Downloads now run in `.incoming/<id>` under the media directory and are renamed into place when complete.
+- **Items could stay hidden with no job.** An item and its jobs are written in one transaction, and an exhausted job marks its item `failed` in one transaction.
+- **A title edit lost finished work.** Extracted content and downloaded media now survive source edits.
+- **Media cleanup left broken enclosures.** It no longer deletes files of pending items or runs during downloads, and it resets the rows of files it evicts. Evicted items download again if they become eligible.
+- Two feeds with the same video no longer download it at once.
+- Removing all filters now unfilters items, and unfiltered YouTube items now download.
+- Relative links and images in extracted articles now resolve against the article's final URL.
+- `YT_DLP_ARGS` now also applies to yt-dlp metadata calls, which can no longer download.
+- Cancelling a yt-dlp run now kills its whole process group, including ffmpeg.
+- Shutdown no longer uses up a job's retries, and overdue streams no longer recheck in a tight loop.
+- Fixed a data race on the regex cache during reload.
+
+### Changed
+- A failed fetch now waits for the feed's next `refresh_interval` instead of retrying every scheduler tick.
+- `fetch_feed` jobs are claimed before other jobs.
+- Removing a feed's `.yml` disables the feed at the next startup, unless `feeds/` holds no `.yml` file. It keeps serving existing items, and restoring the file enables it again.
+- Queued jobs of a disabled feed now wait, rechecking hourly.
+- `WORKER_COUNT` or `SCHEDULER_INTERVAL` below 1 now stops startup.
+- Bumped direct dependencies: `gin` 1.12.0, `gofeed` 1.5.0, `golang-migrate` 4.20.1, `modernc.org/sqlite` 1.61.1, and `go-readability`.
+- CI now runs `govulncheck` and builds the Docker image on pull requests.
+- Removed the `PORT` Docker build argument, which had no effect. Set `PORT` at runtime.
+
+### Upgrade notes
+- The first fetch after upgrading processes items the old shortcut skipped, and queues downloads for items in a feed's `max_items` window that have no media. Expect a burst of downloads on YouTube feeds.
+- The first restart disables any feed in the database with no matching `.yml`. The log lists them.
+- Partial files from earlier versions that already have the final `.mp3` name are reused as complete.
+- `gofeed` 1.5 detects the feed type from the first 4096 bytes, and resolves relative RSS links against `xml:base`. A feed with a longer preamble fails to parse, and items with no GUID in an `xml:base` feed can appear again as new.
+
 ## [3.1.1] - 2026-10-25
 
 ### Security
