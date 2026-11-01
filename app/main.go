@@ -76,6 +76,9 @@ func main() {
 	}
 
 	if hasMediaFeeds {
+		if cfg.BaseUrl == "" {
+			slog.Warn("BASE_URL is not set: media links point at localhost, which podcast clients on other machines cannot reach")
+		}
 		if cfg.YTDLPUpdate {
 			slog.Info("Updating yt-dlp...")
 			if err := media.Update(cfg.YTDLPCmd); err != nil {

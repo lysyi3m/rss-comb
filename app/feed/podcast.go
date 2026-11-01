@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/lysyi3m/rss-comb/app/cfg"
 	"github.com/lysyi3m/rss-comb/app/database"
@@ -42,10 +43,28 @@ func (podcastType) Parse(data []byte) (*Metadata, []types.Item, error) {
 	return metadata, items, nil
 }
 
+// parseITunesDuration accepts seconds, MM:SS and HH:MM:SS, the forms iTunes allows.
+func parseITunesDuration(value string) (int, bool) {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) > 3 {
+		return 0, false
+	}
+
+	total := 0
+	for _, part := range parts {
+		n, err := strconv.Atoi(part)
+		if err != nil || n < 0 {
+			return 0, false
+		}
+		total = total*60 + n
+	}
+	return total, true
+}
+
 func normalizePodcastItem(normalized *types.Item, item *gofeed.Item) {
 	if item.ITunesExt != nil {
 		if item.ITunesExt.Duration != "" {
-			if duration, err := strconv.Atoi(item.ITunesExt.Duration); err == nil {
+			if duration, ok := parseITunesDuration(item.ITunesExt.Duration); ok {
 				normalized.ITunesDuration = duration
 			}
 		}

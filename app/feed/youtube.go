@@ -88,7 +88,7 @@ func (youtubeType) Build(feed database.Feed, items []database.Item, cfg *cfg.Cfg
 		writeBaseItem(&buf, item, cfg)
 
 		if item.MediaPath != "" && item.MediaSize > 0 {
-			mediaURL := fmt.Sprintf("%s/media/%s", cfg.BaseUrl, item.MediaPath)
+			mediaURL := fmt.Sprintf("%s/media/%s", publicBaseURL(cfg), item.MediaPath)
 			buf.WriteString(fmt.Sprintf("      <enclosure url=\"%s\" length=\"%d\" type=\"%s\" />\n",
 				escapeAttr(mediaURL),
 				item.MediaSize,

@@ -153,7 +153,7 @@ filters:
 ### Public Endpoints
 
 - **`GET /feeds/<name>`** - Get RSS 2.0 feed output for the specified feed
-- **`GET /health`** - Liveness check with the feed count
+- **`GET /health`** - Health check with the feed count; 503 if the database is unavailable
 - **`GET /media/<filename>`** - Serve downloaded media files (YouTube audio)
 
 ### Authenticated Endpoints

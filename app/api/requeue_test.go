@@ -13,6 +13,33 @@ import (
 	"github.com/lysyi3m/rss-comb/app/types"
 )
 
+func TestHealthReportsDatabaseFailure(t *testing.T) {
+	db, err := database.NewConnection(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, _, err := database.RunMigrations(db); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgValue := &cfg.Cfg{Location: time.UTC, MediaDir: t.TempDir()}
+	server := NewServer(NewHandler(cfgValue, database.NewFeedRepository(db), nil, nil), cfgValue)
+	status := func() int {
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+		return rec.Code
+	}
+
+	if got := status(); got != http.StatusOK {
+		t.Errorf("status = %d, want 200", got)
+	}
+	db.Close()
+	if got := status(); got != http.StatusServiceUnavailable {
+		t.Errorf("status with a closed database = %d, want 503", got)
+	}
+}
+
 func TestRequeueMediaEndpoint(t *testing.T) {
 	db, err := database.NewConnection(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {

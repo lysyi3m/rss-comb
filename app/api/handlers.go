@@ -87,10 +87,15 @@ func (h *Handler) GetHealth(c *gin.Context) {
 		"timestamp": time.Now().In(h.cfg.Location).Format(time.RFC3339),
 	}
 
-	if feedCount, err := h.feedRepo.GetFeedCount(); err == nil {
-		health["feeds"] = feedCount
+	feedCount, err := h.feedRepo.GetFeedCount()
+	if err != nil {
+		slog.Error("Health check failed", "error", err)
+		health["error"] = "database unavailable"
+		c.JSON(http.StatusServiceUnavailable, health)
+		return
 	}
 
+	health["feeds"] = feedCount
 	c.JSON(http.StatusOK, health)
 }
 
