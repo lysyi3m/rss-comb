@@ -25,6 +25,10 @@ func Load() (*Cfg, error) {
 		return nil, fmt.Errorf("failed to parse configuration: %w", err)
 	}
 
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+
 	loc, err := loadTimezone(cfg.Timezone)
 	if err != nil {
 		fmt.Printf("Warning: Invalid timezone '%s', using UTC: %v\n", cfg.Timezone, err)
@@ -35,6 +39,16 @@ func Load() (*Cfg, error) {
 	cfg.Location = loc
 
 	return cfg, nil
+}
+
+func (c *Cfg) validate() error {
+	if c.WorkerCount < 1 {
+		return fmt.Errorf("WORKER_COUNT must be at least 1, got %d", c.WorkerCount)
+	}
+	if c.SchedulerInterval < 1 {
+		return fmt.Errorf("SCHEDULER_INTERVAL must be at least 1, got %d", c.SchedulerInterval)
+	}
+	return nil
 }
 
 func loadTimezone(timezone string) (*time.Location, error) {

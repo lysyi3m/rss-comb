@@ -5,16 +5,39 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
 // DownloadTimeout bounds a single yt-dlp download.
 const DownloadTimeout = 30 * time.Minute
+
+// subprocessWaitDelay bounds the wait after a kill, for a descendant that left the
+// process group but still holds the output pipes.
+const subprocessWaitDelay = 5 * time.Second
+
+// newCommand runs the command in its own process group and cancels the whole group.
+// Otherwise a child such as ffmpeg outlives yt-dlp and keeps writing the output
+// file while the job retries.
+func newCommand(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		if errors.Is(err, syscall.ESRCH) {
+			return os.ErrProcessDone
+		}
+		return err
+	}
+	cmd.WaitDelay = subprocessWaitDelay
+	return cmd
+}
 
 func Update(ytdlpCmd string) error {
 	parts := strings.Fields(ytdlpCmd)
@@ -29,7 +52,7 @@ func Update(ytdlpCmd string) error {
 	// extraction changes (see the Dockerfile). Also migrates a stable-channel
 	// binary onto nightly; no-op once there.
 	args := append(parts[1:], "--update-to", "nightly")
-	cmd := exec.CommandContext(ctx, parts[0], args...)
+	cmd := newCommand(ctx, parts[0], args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("yt-dlp update failed: %w\nOutput: %s", err, string(output))
@@ -50,7 +73,7 @@ func Validate(ytdlpCmd string) (string, error) {
 	defer cancel()
 
 	args := append(parts[1:], "--version")
-	cmd := exec.CommandContext(ctx, parts[0], args...)
+	cmd := newCommand(ctx, parts[0], args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("yt-dlp validation failed (cmd: %s): %w\nOutput: %s", ytdlpCmd, err, string(output))
@@ -76,7 +99,7 @@ type VideoInfo struct {
 }
 
 // GetVideoInfo returns video metadata (live status, duration, release time, upload timestamp) from yt-dlp.
-func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) {
+func GetVideoInfo(ctx context.Context, ytdlpCmd, ytdlpArgs, url string) (VideoInfo, error) {
 	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
@@ -85,8 +108,11 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 		return VideoInfo{}, fmt.Errorf("YT_DLP_CMD is empty")
 	}
 
-	args := append(parts[1:], "--dump-json", "--no-playlist", "--ignore-no-formats-error", url)
-	cmd := exec.CommandContext(checkCtx, parts[0], args...)
+	// The fixed flags come last so that download options in YT_DLP_ARGS, such as
+	// --no-simulate, cannot turn this metadata call into a download.
+	args := append(parts[1:], strings.Fields(ytdlpArgs)...)
+	args = append(args, "--simulate", "--dump-json", "--no-playlist", "--ignore-no-formats-error", url)
+	cmd := newCommand(checkCtx, parts[0], args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -96,14 +122,24 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 		return VideoInfo{}, fmt.Errorf("yt-dlp metadata check failed: %w\nOutput: %s", err, stderr.String())
 	}
 
-	var metadata struct {
+	type videoMetadata struct {
+		ID               string  `json:"id"`
 		LiveStatus       string  `json:"live_status"`
 		Duration         float64 `json:"duration"`
-		ReleaseTimestamp  *int64  `json:"release_timestamp"`
+		ReleaseTimestamp *int64  `json:"release_timestamp"`
 		Timestamp        *int64  `json:"timestamp"`
 	}
-	if err := json.Unmarshal(stdout.Bytes(), &metadata); err != nil {
-		return VideoInfo{}, fmt.Errorf("failed to parse yt-dlp metadata: %w", err)
+	// YT_DLP_ARGS can add other stdout lines, such as --print output, so look for
+	// the line that is a video record.
+	var metadata videoMetadata
+	for _, line := range bytes.Split(stdout.Bytes(), []byte("\n")) {
+		var candidate videoMetadata
+		if json.Unmarshal(line, &candidate) == nil && candidate.ID != "" {
+			metadata = candidate
+		}
+	}
+	if metadata.ID == "" {
+		return VideoInfo{}, fmt.Errorf("no video metadata in yt-dlp output")
 	}
 
 	info := VideoInfo{
@@ -145,7 +181,7 @@ func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID st
 
 	args = append(args, url)
 
-	cmd := exec.CommandContext(downloadCtx, parts[0], args...)
+	cmd := newCommand(downloadCtx, parts[0], args...)
 	cmd.Dir = mediaDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -169,7 +205,7 @@ func GetAudioDuration(mediaDir, filename string) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "ffprobe",
+	cmd := newCommand(ctx, "ffprobe",
 		"-i", fullPath,
 		"-show_entries", "format=duration",
 		"-v", "quiet",

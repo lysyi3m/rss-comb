@@ -95,6 +95,75 @@ func (f *feedFixture) item(guid string) database.Item {
 	return database.Item{}
 }
 
+func (f *feedFixture) isDue() bool {
+	f.t.Helper()
+	due, err := f.feedRepo.GetDueFeeds()
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return len(due) == 1
+}
+
+func TestProcessFeedFailureAdvancesNextFetch(t *testing.T) {
+	f := newFeedFixture(t, "", types.Settings{})
+	f.srv.Close() // every fetch now fails
+
+	if err := processFeed(context.Background(), "f", f.feedRepo, f.itemRepo, f.jobRepo, f.srv.Client(), "test"); err == nil {
+		t.Fatal("expected a fetch error")
+	}
+	if f.isDue() {
+		t.Error("failed feed is still due")
+	}
+}
+
+func TestProcessFeedShutdownDuringFetchKeepsFeedDue(t *testing.T) {
+	f := newFeedFixture(t, "", types.Settings{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cancel()
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+
+	settings := types.Settings{RefreshInterval: 1800, MaxItems: 10, Timeout: 5}
+	if err := f.feedRepo.UpsertFeedConfig("f", srv.URL, "", "", true, settings, []types.Filter{}, "h2"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := processFeed(ctx, "f", f.feedRepo, f.itemRepo, f.jobRepo, srv.Client(), "test"); err == nil {
+		t.Fatal("expected a cancellation error")
+	}
+	if !f.isDue() {
+		t.Error("feed interrupted by shutdown is no longer due")
+	}
+}
+
+func TestProcessFeedFailureAfterReloadKeepsFeedDue(t *testing.T) {
+	f := newFeedFixture(t, "", types.Settings{})
+	settings := types.Settings{RefreshInterval: 1800, MaxItems: 10, Timeout: 5}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := f.feedRepo.UpsertFeedConfig("f", "https://example.com/fixed", "", "", true, settings, []types.Filter{}, "h2"); err != nil {
+			t.Error(err)
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	if err := f.feedRepo.UpsertFeedConfig("f", srv.URL, "", "", true, settings, []types.Filter{}, "h1"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := processFeed(context.Background(), "f", f.feedRepo, f.itemRepo, f.jobRepo, srv.Client(), "test"); err == nil {
+		t.Fatal("expected a fetch error")
+	}
+	if !f.isDue() {
+		t.Error("reloaded feed was delayed by a failure under the old config")
+	}
+}
+
 func TestProcessFeedFindsNewItemBelowKnownFirstItem(t *testing.T) {
 	f := newFeedFixture(t, "", types.Settings{})
 

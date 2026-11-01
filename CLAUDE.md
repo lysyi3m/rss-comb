@@ -267,7 +267,7 @@ Only the non-obvious parts are worth stating:
 - `handlers.go`: Job handler factories — `FetchFeedHandler`, `ExtractContentHandler`, `DownloadMediaHandler`
 - `process.go`: Feed processing logic — fetch, parse via `FeedType`, deduplicate, filter, create downstream jobs
 - `fetch.go`: HTTP fetch utility used by feed processing and content extraction
-- **Job types**: `fetch_feed` (max_retries=0, scheduler retries), `extract_content` (max_retries=3), `download_media` (max_retries=30, failures only — `run_after` deferrals are unbounded and do not consume retries)
+- **Job types**: `fetch_feed` (max_retries=0; a failed fetch waits for the feed's next `refresh_interval`), `extract_content` (max_retries=3), `download_media` (max_retries=30, failures only — `run_after` deferrals are unbounded and do not consume retries)
 - **Concurrency**: Serialized via `MaxOpenConns(1)` — safe concurrent access without row locking
 - **Cleanup**: Completed and exhausted jobs are deleted; failure state captured on items
 
@@ -469,7 +469,7 @@ All configuration options support both environment variables and command-line fl
 - `API_ACCESS_KEY` (optional) - API access key for authentication
 - `MEDIA_DIR` (default: ./media) - Directory for downloaded media files
 - `YT_DLP_CMD` (default: "yt-dlp") - yt-dlp command; supports multi-word values for Docker (e.g., `docker compose run --rm yt-dlp`). The Docker image overrides this to `/opt/yt-dlp/yt-dlp`
-- `YT_DLP_ARGS` (optional) - extra arguments appended to every yt-dlp download (e.g. `--cookies /app/cookies.txt`)
+- `YT_DLP_ARGS` (optional) - extra arguments appended to every yt-dlp download and metadata call (e.g. `--cookies /app/cookies.txt`)
 - `YT_DLP_UPDATE` (default: false) - run `yt-dlp --update-to nightly` on startup; only takes effect when media feeds are configured
 - `USER_AGENT` (default: "RSS Comb/1.0") - User agent string for HTTP requests
 - `TZ` (default: "UTC") - Timezone for display timestamps in API responses and RSS feeds (e.g., UTC, America/New_York, Europe/London). Database operations always use UTC for consistency.

@@ -16,14 +16,10 @@ var regexCache sync.Map // map[string]*regexp.Regexp
 
 // ClearRegexCache should be called when feed configurations are reloaded.
 func ClearRegexCache() {
-	regexCache = sync.Map{}
+	regexCache.Clear()
 }
 
 func Filter(items []types.Item, filters []types.Filter) []types.Item {
-	if len(filters) == 0 {
-		return items
-	}
-
 	filtered := make([]types.Item, 0, len(items))
 	for _, item := range items {
 		item.IsFiltered = applyFilters(item, filters)

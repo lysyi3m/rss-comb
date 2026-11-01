@@ -52,12 +52,18 @@ func processFeed(
 	}
 
 	metadata, items, err := fetchAndParseFeed(ctx, dbFeed.FeedURL, dbFeed.FeedType, settings, httpClient, userAgent)
+	nextFetch := time.Now().UTC().Add(time.Duration(settings.RefreshInterval) * time.Second)
 	if err != nil {
+		// A failing feed waits for its next interval instead of retrying every
+		// scheduler tick. Shutdown is not a feed failure, so it keeps the feed due.
+		if ctx.Err() == nil {
+			if updateErr := feedRepo.UpdateNextFetch(feedName, dbFeed.ConfigHash, nextFetch); updateErr != nil {
+				slog.Error("Failed to update next fetch time", "feed", feedName, "error", updateErr)
+			}
+		}
 		return err
 	}
 
-	now := time.Now().UTC()
-	nextFetch := now.Add(time.Duration(settings.RefreshInterval) * time.Second)
 	if err := feedRepo.UpdateFeedMetadata(feedName, metadata, nextFetch); err != nil {
 		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
@@ -179,7 +185,7 @@ func fetchAndParseFeed(
 	httpClient *http.Client,
 	userAgent string,
 ) (*feed.Metadata, []types.Item, error) {
-	data, err := fetchURL(ctx, feedURL, settings.Timeout, httpClient, userAgent, false)
+	data, _, err := fetchURL(ctx, feedURL, settings.Timeout, httpClient, userAgent, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch feed: %w", err)
 	}

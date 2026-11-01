@@ -71,6 +71,16 @@ func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Met
 	return nil
 }
 
+// UpdateNextFetch applies only if the config is still configHash, so a fetch that
+// fails after a reload does not delay the feed by the old config's interval.
+func (r *FeedRepository) UpdateNextFetch(feedName string, configHash *string, nextFetchAt time.Time) error {
+	_, err := r.db.Exec(`UPDATE feeds SET next_fetch_at = ?3 WHERE name = ?1 AND config_hash IS ?2`, feedName, configHash, sqliteTime(nextFetchAt))
+	if err != nil {
+		return fmt.Errorf("failed to update next fetch time: %w", err)
+	}
+	return nil
+}
+
 func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title string, feedType string, isEnabled bool, settings interface{}, filters interface{}, configHash string) error {
 	var existingHash *string
 	err := r.db.QueryRow("SELECT config_hash FROM feeds WHERE name = ?1", feedName).Scan(&existingHash)
