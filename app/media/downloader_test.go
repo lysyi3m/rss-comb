@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+func TestMediaFileIDCannotCarryAPath(t *testing.T) {
+	if got := MediaFileID("yt:video:Wrgx6STA_-o"); got != "Wrgx6STA_-o" {
+		t.Errorf("video ID = %q", got)
+	}
+	for _, guid := range []string{"yt:video:../..", "yt:video:a/b", "yt:video:..", "yt:video:", "yt:video:a b", "https://example.com/a"} {
+		if got := MediaFileID(guid); !safeFileID.MatchString(got) {
+			t.Errorf("MediaFileID(%q) = %q, not a safe name", guid, got)
+		}
+	}
+}
+
 func writeScript(t *testing.T, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "yt-dlp.sh")

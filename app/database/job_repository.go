@@ -3,12 +3,18 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/rand/v2"
 	"time"
 )
 
 const maxBackoffSeconds = 900 // 15 minutes
+
+const (
+	ExtractionJobMaxRetries = 3
+	MediaJobMaxRetries      = 30
+)
 
 type Job struct {
 	ID           string
@@ -35,7 +41,11 @@ func NewJobRepository(db *DB) *JobRepository {
 // CreateJob inserts a new job if no duplicate (same feed+type+item) is pending or processing.
 // Returns true if the job was created, false if a duplicate exists.
 func (r *JobRepository) CreateJob(jobType, feedID string, itemID *string, maxRetries int) (bool, error) {
-	result, err := r.db.Exec(`
+	return createJob(r.db, jobType, feedID, itemID, maxRetries)
+}
+
+func createJob(q querier, jobType, feedID string, itemID *string, maxRetries int) (bool, error) {
+	result, err := q.Exec(`
 		INSERT INTO jobs (job_type, feed_id, item_id, max_retries)
 		SELECT ?1, ?2, ?3, ?4
 		WHERE NOT EXISTS (
@@ -56,7 +66,8 @@ func (r *JobRepository) CreateJob(jobType, feedID string, itemID *string, maxRet
 	return rows > 0, nil
 }
 
-// ClaimJob atomically claims the oldest pending job.
+// ClaimJob atomically claims the oldest pending job, feed fetches first, so a backlog
+// of downloads does not delay every feed.
 // Serialization is handled by MaxOpenConns(1). Returns nil if no jobs are available.
 func (r *JobRepository) ClaimJob() (*Job, error) {
 	var job Job
@@ -66,7 +77,7 @@ func (r *JobRepository) ClaimJob() (*Job, error) {
 			SELECT id FROM jobs
 			WHERE status = 'pending'
 			  AND (run_after IS NULL OR run_after <= datetime('now'))
-			ORDER BY created_at LIMIT 1
+			ORDER BY job_type = 'fetch_feed' DESC, created_at LIMIT 1
 		)
 		RETURNING id, job_type, feed_id, item_id, status, retries, max_retries, error_message, run_after, created_at, updated_at
 	`).Scan(
@@ -95,45 +106,78 @@ func (r *JobRepository) CompleteJob(jobID string) error {
 }
 
 // FailJob increments retries and schedules the next attempt with exponential backoff + jitter.
-// If max retries reached, deletes the job. Otherwise sets status back to pending.
+// If max retries reached, it deletes the job and marks the job's item as failed, in one
+// transaction: on an error the job stays claimed, and stale recovery retries it.
 func (r *JobRepository) FailJob(jobID string, errMsg string) error {
-	_, err := r.db.Exec(`
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var retries, maxRetries int
+	var jobType string
+	var itemID *string
+	err = tx.QueryRow(`
 		UPDATE jobs SET
 			retries = retries + 1,
 			error_message = ?2,
 			updated_at = datetime('now')
 		WHERE id = ?1
-	`, jobID, errMsg)
+		RETURNING retries, max_retries, job_type, item_id
+	`, jobID, errMsg).Scan(&retries, &maxRetries, &jobType, &itemID)
+	if err == sql.ErrNoRows {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to update job retries: %w", err)
 	}
 
-	_, err = r.db.Exec(`
-		DELETE FROM jobs WHERE id = ?1 AND retries >= max_retries
-	`, jobID)
-	if err != nil {
-		return fmt.Errorf("failed to cleanup exhausted job: %w", err)
+	if retries >= maxRetries {
+		if _, err := tx.Exec(`DELETE FROM jobs WHERE id = ?1`, jobID); err != nil {
+			return fmt.Errorf("failed to delete exhausted job: %w", err)
+		}
+		if err := markItemFailed(tx, jobType, itemID); err != nil {
+			return err
+		}
+		if itemID != nil {
+			slog.Warn("Job permanently failed", "job_type", jobType, "item_id", *itemID, "retries", retries, "error", errMsg)
+		}
+	} else {
+		_, err = tx.Exec(`
+			UPDATE jobs SET status = 'pending', run_after = ?2, updated_at = datetime('now')
+			WHERE id = ?1
+		`, jobID, sqliteTime(time.Now().Add(retryBackoff(retries))))
+		if err != nil {
+			return fmt.Errorf("failed to reset job to pending: %w", err)
+		}
 	}
 
-	var retries int
-	err = r.db.QueryRow(`SELECT retries FROM jobs WHERE id = ?1`, jobID).Scan(&retries)
-	if err == sql.ErrNoRows {
-		return nil // job was deleted (retries exhausted)
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit job failure: %w", err)
 	}
-	if err != nil {
-		return fmt.Errorf("failed to read job retries: %w", err)
-	}
+	return nil
+}
 
-	backoff := retryBackoff(retries)
-
-	_, err = r.db.Exec(`
-		UPDATE jobs SET status = 'pending', run_after = ?2, updated_at = datetime('now')
-		WHERE id = ?1 AND status = 'processing'
-	`, jobID, sqliteTime(time.Now().Add(backoff)))
-	if err != nil {
-		return fmt.Errorf("failed to reset job to pending: %w", err)
+// markItemFailed ends an item's pending work. A failed extraction shows the item with
+// its source content; failed media stays hidden until RequeueMedia.
+func markItemFailed(q querier, jobType string, itemID *string) error {
+	if itemID == nil {
+		return nil
 	}
 
+	var query string
+	switch jobType {
+	case "extract_content":
+		query = `UPDATE feed_items SET content_extraction_status = 'failed' WHERE id = ?1 AND content_extraction_status = 'pending'`
+	case "download_media":
+		query = `UPDATE feed_items SET media_status = 'failed', media_path = '', media_size = 0 WHERE id = ?1 AND media_status = 'pending'`
+	default:
+		return nil
+	}
+	if _, err := q.Exec(query, *itemID); err != nil {
+		return fmt.Errorf("failed to mark item failed: %w", err)
+	}
 	return nil
 }
 
@@ -153,6 +197,25 @@ func (r *JobRepository) DelayJob(jobID string, runAfter time.Time) error {
 		return fmt.Errorf("failed to delay job: %w", err)
 	}
 	return nil
+}
+
+// ReleaseClaimedJobs returns every claimed job to pending. Call it only before workers
+// start: in this single-instance app, those claims were abandoned by the previous process.
+func (r *JobRepository) ReleaseClaimedJobs() (int, error) {
+	result, err := r.db.Exec(`
+		UPDATE jobs SET status = 'pending', updated_at = datetime('now')
+		WHERE status = 'processing'
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to release claimed jobs: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return int(rows), nil
 }
 
 // ResetStaleJobs resets jobs stuck in 'processing' state beyond the timeout back to 'pending'.

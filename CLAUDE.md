@@ -172,10 +172,12 @@ rss-comb/
    - Scheduler creates `fetch_feed` jobs for due feeds on each tick
    - Job types: `fetch_feed` (feed processing), `extract_content` (article extraction), `download_media` (yt-dlp audio download)
    - Two distinct mechanisms, easily confused:
-     - **Retries** (`FailJob`) — consumed only by genuine failures. Increments `retries`, applies exponential backoff + jitter, deletes the job once `max_retries` is hit. `download_media` allows 30
-     - **Deferrals** (`DelayJob`) — used when yt-dlp reports the video is live or its VOD is still processing. Sets `run_after` and does **not** increment `retries`, so a long live stream can defer indefinitely without burning the retry budget
+     - **Retries** (`FailJob`) — consumed only by genuine failures. Increments `retries`, applies exponential backoff + jitter. Once `max_retries` is hit, it deletes the job and marks its item `failed` in one transaction. `download_media` allows 30. Failed media stays hidden until `POST /api/feeds/<name>/requeue-media`
+     - **Deferrals** (`DelayJob`) — used when yt-dlp reports the video is live or its VOD is still processing, when another job is working on the same video, and when shutdown interrupts a job. Sets `run_after` and does **not** increment `retries`, so a long live stream can defer indefinitely without burning the retry budget
    - Automatic retry with configurable max retries per job type
-   - Stale job recovery for crashed workers
+   - Items and their jobs are written in one transaction (`StoreItem`); `fetch_feed` jobs are claimed before others
+   - Stale job recovery for crashed workers; startup also releases every job the previous process left claimed
+   - Each YouTube fetch queues downloads for eligible items in the `max_items` window that have no media (`RequeueMedia`). Media cleanup resets evicted rows to no status, so they download again if they become eligible
 
 7. **Media System** (`app/media/`)
    - Audio extraction from YouTube videos via configurable yt-dlp command (`YT_DLP_CMD`)
@@ -511,7 +513,7 @@ coverage or for a single package. Use `make dev-test` for the full run.
 2. Start services with `make dev-run`
 3. Monitor logs for feed processing
 4. Check the RSS output: `curl "http://localhost:${PORT:-8080}/feeds/example"`
-5. Reload config after editing the YAML: `curl -X POST -H "X-API-Key: your-key" "http://localhost:${PORT:-8080}/api/feeds/example/reload"` (reload is the only `/api/` route; there is no `GET /api/feeds/:name`)
+5. Reload config after editing the YAML: `curl -X POST -H "X-API-Key: your-key" "http://localhost:${PORT:-8080}/api/feeds/example/reload"` (there is no `GET /api/feeds/:name`)
 6. Reset example feed to disabled when done testing
 
 ## Deployment
@@ -619,4 +621,9 @@ coverage or for a single package. Use `make dev-test` for the full run.
 #### `POST /api/feeds/<name>/reload`
 - Reloads the configuration file for the specified feed and re-applies filters to all items
 - Processes synchronously and returns when complete (typically fast)
+- Requires X-API-Key header or Authorization: Bearer token
+
+#### `POST /api/feeds/<name>/requeue-media`
+- Queues downloads again for a YouTube feed's failed items in its `max_items` window, for recovery after a long yt-dlp outage
+- Returns the number of jobs created; 400 for a feed without downloaded media
 - Requires X-API-Key header or Authorization: Bearer token

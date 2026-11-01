@@ -544,3 +544,273 @@ func TestUpdateFeedMetadataRoundTrip(t *testing.T) {
 		t.Error("last_fetched_at should be set by UpdateFeedMetadata")
 	}
 }
+
+func TestClaimJobPrefersFeedFetches(t *testing.T) {
+	db := newTestDB(t)
+	feedID := seedFeed(t, db, "feed1")
+	repo := NewJobRepository(db)
+
+	if _, err := repo.CreateJob("download_media", feedID, nil, 3); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE jobs SET created_at = datetime('now', '-1 hour')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CreateJob("fetch_feed", feedID, nil, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	job, err := repo.ClaimJob()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if job == nil || job.JobType != "fetch_feed" {
+		t.Errorf("claimed %+v, want fetch_feed", job)
+	}
+}
+
+func TestStoreItemIsAtomic(t *testing.T) {
+	db := newTestDB(t)
+	feedID := seedFeed(t, db, "feed1")
+	repo := NewItemRepository(db)
+
+	if _, err := db.Exec(`CREATE TRIGGER no_jobs BEFORE INSERT ON jobs BEGIN SELECT RAISE(ABORT, 'no jobs'); END`); err != nil {
+		t.Fatal(err)
+	}
+	pending := "pending"
+	_, err := repo.StoreItem("feed1", feedID, types.Item{GUID: "a", ContentHash: "a", PublishedAt: time.Unix(0, 0), MediaStatus: &pending})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+
+	items, err := repo.GetAllItems("feed1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 0 {
+		t.Errorf("stored %d items without their job, want 0", len(items))
+	}
+}
+
+func TestFailJobExhaustionMarksItemFailed(t *testing.T) {
+	tests := []struct {
+		jobType string
+		status  func(*types.Item) *string
+	}{
+		{"download_media", func(i *types.Item) *string { return i.MediaStatus }},
+		{"extract_content", func(i *types.Item) *string { return i.ContentExtractionStatus }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.jobType, func(t *testing.T) {
+			db := newTestDB(t)
+			feedID := seedFeed(t, db, "feed1")
+			items := NewItemRepository(db)
+			jobs := NewJobRepository(db)
+
+			pending := "pending"
+			id, err := items.UpsertItem("feed1", types.Item{GUID: "a", ContentHash: "a", PublishedAt: time.Unix(0, 0), MediaStatus: &pending, ContentExtractionStatus: &pending})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := jobs.CreateJob(tt.jobType, feedID, &id, 1); err != nil {
+				t.Fatal(err)
+			}
+			job, err := jobs.ClaimJob()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if err := jobs.FailJob(job.ID, "boom"); err != nil {
+				t.Fatal(err)
+			}
+
+			item, err := items.GetItemByID(id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := tt.status(&item.Item); got == nil || *got != "failed" {
+				t.Errorf("status = %v, want failed", got)
+			}
+			if again, err := jobs.ClaimJob(); err != nil || again != nil {
+				t.Errorf("claim = %+v, %v, want the job deleted", again, err)
+			}
+		})
+	}
+}
+
+func TestFailJobKeepsJobWhenItemUpdateFails(t *testing.T) {
+	db := newTestDB(t)
+	feedID := seedFeed(t, db, "feed1")
+	items := NewItemRepository(db)
+	jobs := NewJobRepository(db)
+
+	pending := "pending"
+	id, err := items.UpsertItem("feed1", types.Item{GUID: "a", ContentHash: "a", PublishedAt: time.Unix(0, 0), MediaStatus: &pending})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jobs.CreateJob("download_media", feedID, &id, 1); err != nil {
+		t.Fatal(err)
+	}
+	job, err := jobs.ClaimJob()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TRIGGER no_updates BEFORE UPDATE ON feed_items BEGIN SELECT RAISE(ABORT, 'no updates'); END`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := jobs.FailJob(job.ID, "boom"); err == nil {
+		t.Fatal("expected an error")
+	}
+
+	var status string
+	var retries int
+	if err := db.QueryRow(`SELECT status, retries FROM jobs WHERE id = ?1`, job.ID).Scan(&status, &retries); err != nil {
+		t.Fatalf("job was lost: %v", err)
+	}
+	if status != "processing" || retries != 0 {
+		t.Errorf("job = %s/%d, want processing/0 for stale recovery", status, retries)
+	}
+}
+
+func TestRequeueMedia(t *testing.T) {
+	db := newTestDB(t)
+	feedID := seedFeed(t, db, "feed1")
+	items := NewItemRepository(db)
+	jobs := NewJobRepository(db)
+
+	add := func(guid string, age time.Duration, status *string, filtered bool) string {
+		t.Helper()
+		id, err := items.UpsertItem("feed1", types.Item{
+			GUID: guid, ContentHash: guid, MediaStatus: status, IsFiltered: filtered,
+			PublishedAt: time.Now().Add(-age),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	str := func(s string) *string { return &s }
+
+	noStatus := add("no-status", 1*time.Hour, nil, false)
+	failed := add("failed", 2*time.Hour, str("failed"), false)
+	orphan := add("orphan", 3*time.Hour, str("pending"), false)
+	queued := add("queued", 4*time.Hour, str("pending"), false)
+	add("ready", 5*time.Hour, str("ready"), false)
+	add("skipped", 6*time.Hour, str("skipped"), false)
+	add("filtered", 7*time.Hour, nil, true)
+	add("too-old", 8*time.Hour, nil, false)
+	if _, err := jobs.CreateJob("download_media", feedID, &queued, MediaJobMaxRetries); err != nil {
+		t.Fatal(err)
+	}
+
+	queuedItemIDs := func() map[string]bool {
+		t.Helper()
+		rows, err := db.Query(`SELECT item_id FROM jobs`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		ids := map[string]bool{}
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			ids[id] = true
+		}
+		return ids
+	}
+
+	// The window of 5 covers no-status through ready.
+	created, err := items.RequeueMedia(feedID, 5, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := queuedItemIDs()
+	if created != 2 || !ids[noStatus] || !ids[orphan] || ids[failed] || len(ids) != 3 {
+		t.Errorf("created %d, jobs %v, want no-status and orphan added to queued", created, ids)
+	}
+
+	created, err = items.RequeueMedia(feedID, 5, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := items.GetItemByID(failed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created != 1 || !queuedItemIDs()[failed] || item.MediaStatus == nil || *item.MediaStatus != "pending" {
+		t.Errorf("created %d, status %v, want the failed item pending with a job", created, item.MediaStatus)
+	}
+}
+
+func TestReleaseClaimedJobsIncludesClaimsFromThisSecond(t *testing.T) {
+	db := newTestDB(t)
+	feedID := seedFeed(t, db, "feed1")
+	repo := NewJobRepository(db)
+
+	if _, err := repo.CreateJob("fetch_feed", feedID, nil, 0); err != nil {
+		t.Fatal(err)
+	}
+	job, err := repo.ClaimJob()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	released, err := repo.ReleaseClaimedJobs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if released != 1 {
+		t.Errorf("released %d, want 1", released)
+	}
+	again, err := repo.ClaimJob()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again == nil || again.ID != job.ID {
+		t.Errorf("claimed %+v, want the released job", again)
+	}
+}
+
+func TestReconcileMediaKeepsPathsAndClearsEverythingElse(t *testing.T) {
+	db := newTestDB(t)
+	seedFeed(t, db, "feed1")
+	items := NewItemRepository(db)
+
+	ready := "ready"
+	kept, err := items.UpsertItem("feed1", types.Item{GUID: "kept", ContentHash: "kept", PublishedAt: time.Now(), MediaStatus: &ready, MediaPath: "kept.mp3", MediaSize: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	filtered, err := items.UpsertItem("feed1", types.Item{GUID: "filtered", ContentHash: "filtered", PublishedAt: time.Now(), MediaStatus: &ready, MediaPath: "filtered.mp3", MediaSize: 1, IsFiltered: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	paths, err := items.ReconcileMedia()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 1 || paths[0] != "kept.mp3" {
+		t.Errorf("paths = %v, want kept.mp3 only", paths)
+	}
+
+	item, err := items.GetItemByID(kept)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.MediaStatus == nil || *item.MediaStatus != "ready" {
+		t.Errorf("kept item status = %v, want ready", item.MediaStatus)
+	}
+	item, err = items.GetItemByID(filtered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.MediaStatus != nil || item.MediaPath != "" || item.MediaSize != 0 {
+		t.Errorf("filtered item = %v/%q/%d, want cleared", item.MediaStatus, item.MediaPath, item.MediaSize)
+	}
+}

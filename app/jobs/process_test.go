@@ -166,6 +166,18 @@ func TestProcessFeedFailureAfterReloadKeepsFeedDue(t *testing.T) {
 	}
 }
 
+func TestProcessFeedEmptyFeedStillRecoversMedia(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	f.process(rssItem("a", "A"))
+	f.drainJobs() // the job is lost, as after a crash; the item stays pending
+
+	f.process("")
+
+	if n := f.drainJobs(); n != 1 {
+		t.Errorf("created %d jobs, want 1", n)
+	}
+}
+
 func TestProcessFeedFindsNewItemBelowKnownFirstItem(t *testing.T) {
 	f := newFeedFixture(t, "", types.Settings{})
 
@@ -184,6 +196,9 @@ func TestProcessFeedEditedTitleKeepsReadyMedia(t *testing.T) {
 		t.Fatalf("created %d jobs, want 2", got)
 	}
 
+	if err := f.itemRepo.UpdateMediaStatus(f.item("first").ID, "ready", "first.mp3", 1, 1); err != nil {
+		t.Fatal(err)
+	}
 	lower := f.item("lower")
 	if err := f.itemRepo.UpdateMediaStatus(lower.ID, "ready", "lower.mp3", 123, 456); err != nil {
 		t.Fatal(err)

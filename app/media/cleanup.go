@@ -45,5 +45,25 @@ func CleanupMedia(mediaDir string, keepPaths []string) (int, error) {
 		deleted++
 	}
 
+	cleanupIncoming(filepath.Join(mediaDir, incomingDir), keepSet)
+
 	return deleted, nil
+}
+
+// cleanupIncoming removes download directories a crash left behind for items that no
+// longer need them. keepSet holds the file of every item still downloading.
+func cleanupIncoming(dir string, keepSet map[string]struct{}) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if _, keep := keepSet[entry.Name()+".mp3"]; keep {
+			continue
+		}
+		fullPath := filepath.Join(dir, entry.Name())
+		if err := os.RemoveAll(fullPath); err != nil {
+			slog.Warn("Failed to delete abandoned download", "path", fullPath, "error", err)
+		}
+	}
 }

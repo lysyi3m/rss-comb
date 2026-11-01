@@ -20,7 +20,7 @@ import (
 const videoGUID = "yt:video:abc"
 
 // fakeYTDLP is a yt-dlp stand-in: metadata calls print metadataJSON, and downloads
-// run downloadScript in the media directory and leave a marker.
+// leave a marker and run downloadScript, with the -o path in $out.
 func fakeYTDLP(t *testing.T, metadataJSON, downloadScript string) (cmd string, called func() bool) {
 	t.Helper()
 	dir := t.TempDir()
@@ -29,7 +29,15 @@ func fakeYTDLP(t *testing.T, metadataJSON, downloadScript string) (cmd string, c
 	body := fmt.Sprintf(`#!/bin/sh
 case "$*" in
   *--dump-json*) echo '%s' ;;
-  *) touch %s; %s ;;
+  *)
+    touch %s
+    prev=""
+    for arg in "$@"; do
+      [ "$prev" = "-o" ] && out=$(printf %%s "$arg" | sed 's/%%(ext)s/mp3/')
+      prev=$arg
+    done
+    mkdir -p "$(dirname "$out")"
+    %s ;;
 esac
 `, metadataJSON, marker, downloadScript)
 	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
@@ -81,7 +89,7 @@ func TestDownloadMediaSuccess(t *testing.T) {
 	job := f.claimVideo()
 	mediaDir := t.TempDir()
 	fakeFFprobe(t, "95.5")
-	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"not_live","duration":100,"timestamp":1700000000}`, `printf audio > abc.mp3`)
+	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"not_live","duration":100,"timestamp":1700000000}`, `printf audio > "$out"`)
 
 	handler := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", mediaDir)
 	if err := handler(context.Background(), job); err != nil {
@@ -130,7 +138,7 @@ func TestDownloadMediaRejectsTruncatedFile(t *testing.T) {
 	job := f.claimVideo()
 	mediaDir := t.TempDir()
 	fakeFFprobe(t, "100")
-	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"was_live","duration":1000}`, `printf audio > abc.mp3`)
+	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"was_live","duration":1000}`, `printf audio > "$out"`)
 
 	err := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", mediaDir)(context.Background(), job)
 
@@ -150,7 +158,7 @@ func TestDownloadMediaFiltersShortFileAfterDownload(t *testing.T) {
 	job := f.claimVideo()
 	mediaDir := t.TempDir()
 	fakeFFprobe(t, "100")
-	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`, `printf audio > abc.mp3`)
+	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`, `printf audio > "$out"`)
 
 	if err := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", mediaDir)(context.Background(), job); err != nil {
 		t.Fatal(err)
@@ -183,34 +191,130 @@ func TestDownloadMediaFiltersShortVideoBeforeDownload(t *testing.T) {
 	}
 }
 
-func TestDownloadMediaFailure(t *testing.T) {
-	tests := []struct {
-		name       string
-		retries    int
-		wantErr    bool
-		wantStatus string
-	}{
-		{"attempts remain", 0, true, "pending"},
-		{"second to last attempt", 28, true, "pending"},
-		{"last attempt", 29, false, "failed"},
+func TestDownloadMediaFailureReturnsError(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	job := f.claimVideo()
+	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`, `exit 1`)
+
+	if err := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", t.TempDir())(context.Background(), job); err == nil {
+		t.Error("expected an error")
+	}
+	if got := statusOf(f.item(videoGUID).MediaStatus); got != "pending" {
+		t.Errorf("media_status = %q, want pending until retries run out", got)
+	}
+}
+
+// runQueuedJob runs the queued job through a real worker and handler, from retries
+// seeded so that this failure is the last one.
+func (f *feedFixture) runQueuedJob(jobType string, handler HandlerFunc, retries int) {
+	f.t.Helper()
+	if _, err := f.db.Exec(`UPDATE jobs SET retries = ?1`, retries); err != nil {
+		f.t.Fatal(err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := newFeedFixture(t, "youtube", types.Settings{})
-			job := f.claimVideo()
-			job.Retries = tt.retries
-			cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`, `exit 1`)
+	ctx, cancel := context.WithCancel(context.Background())
+	pool := NewWorkerPool(f.jobRepo, 1)
+	pool.RegisterHandler(jobType, handler)
+	pool.Start(ctx)
+	defer func() {
+		cancel()
+		pool.Wait()
+	}()
 
-			err := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", t.TempDir())(context.Background(), job)
+	f.waitForJob(func(row *jobRow) bool { return row == nil })
+}
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("err = %v, wantErr %v", err, tt.wantErr)
-			}
-			if got := statusOf(f.item(videoGUID).MediaStatus); got != tt.wantStatus {
-				t.Errorf("media_status = %q, want %q", got, tt.wantStatus)
-			}
-		})
+func TestDownloadMediaDoesNotPublishPartialFile(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	job := f.claimVideo()
+	mediaDir := t.TempDir()
+	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`, `printf partial > "$out"; exit 1`)
+
+	if err := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", mediaDir)(context.Background(), job); err == nil {
+		t.Fatal("expected an error")
+	}
+
+	entries, err := os.ReadDir(mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() == "abc.mp3" {
+			t.Error("partial file published under the final name")
+		}
+	}
+	if _, err := os.Stat(filepath.Join(mediaDir, ".incoming", "abc")); err == nil {
+		t.Error("download directory was left behind")
+	}
+}
+
+func TestExhaustedDownloadMarksItemFailed(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	f.process(rssItem(videoGUID, "Video"))
+	cmd, _ := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`, `exit 1`)
+
+	f.runQueuedJob("download_media", DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", t.TempDir()), database.MediaJobMaxRetries-1)
+
+	if got := statusOf(f.item(videoGUID).MediaStatus); got != "failed" {
+		t.Errorf("media_status = %q, want failed", got)
+	}
+}
+
+func TestDownloadMediaDefersWhenSameVideoIsInProgress(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	job := f.claimVideo()
+
+	release := filepath.Join(t.TempDir(), "release")
+	cmd, downloading := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`,
+		`while [ ! -e `+release+` ]; do sleep 0.02; done; printf audio > "$out"`)
+	handler := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", t.TempDir())
+
+	done := make(chan error, 1)
+	go func() { done <- handler(context.Background(), job) }()
+
+	for deadline := time.Now().Add(10 * time.Second); !downloading(); time.Sleep(5 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("first download did not start")
+		}
+	}
+
+	var reschedule *RescheduleError
+	if err := handler(context.Background(), job); !errors.As(err, &reschedule) {
+		t.Errorf("err = %v, want RescheduleError", err)
+	}
+
+	if err := os.WriteFile(release, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; err != nil {
+		t.Errorf("first download: %v", err)
+	}
+}
+
+func TestDownloadMediaRedownloadsWhenReadyFileIsMissing(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	job := f.claimVideo()
+
+	settings := types.Settings{RefreshInterval: 1800, MaxItems: 10, Timeout: 5}
+	if err := f.feedRepo.UpsertFeedConfig("g", "https://example.com/g", "", "youtube", true, settings, []types.Filter{}, "g"); err != nil {
+		t.Fatal(err)
+	}
+	otherID, err := f.itemRepo.UpsertItem("g", types.Item{GUID: videoGUID, ContentHash: "x", PublishedAt: time.Unix(0, 0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.itemRepo.UpdateMediaStatus(otherID, "ready", "abc.mp3", 7, 60); err != nil {
+		t.Fatal(err)
+	}
+
+	fakeFFprobe(t, "60")
+	cmd, downloaded := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`, `printf audio > "$out"`)
+	if err := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", t.TempDir())(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+
+	if !downloaded() {
+		t.Error("reused a ready row whose file is missing")
 	}
 }
 
@@ -218,7 +322,7 @@ func TestDownloadMediaProceedsWhenMetadataFails(t *testing.T) {
 	f := newFeedFixture(t, "youtube", types.Settings{})
 	job := f.claimVideo()
 	fakeFFprobe(t, "") // a failed probe does not block the item either
-	cmd, downloaded := fakeYTDLP(t, `not json`, `printf audio > abc.mp3`)
+	cmd, downloaded := fakeYTDLP(t, `not json`, `printf audio > "$out"`)
 
 	if err := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", t.TempDir())(context.Background(), job); err != nil {
 		t.Fatal(err)
@@ -289,6 +393,13 @@ func TestDownloadMediaReusesReadyRowFromAnotherFeed(t *testing.T) {
 	}
 }
 
+func TestVideoRescheduleDelaysOverdueStream(t *testing.T) {
+	got := videoReschedule(media.VideoInfo{LiveStatus: "is_upcoming", ReleaseTimestamp: time.Now().Add(-time.Hour).Unix()})
+	if got == nil || !got.RunAfter.After(time.Now()) {
+		t.Errorf("reschedule = %+v, want a future time", got)
+	}
+}
+
 func TestVideoRescheduleLetsOtherStatusesDownload(t *testing.T) {
 	for _, status := range []string{"", "not_live", "was_live"} {
 		if got := videoReschedule(media.VideoInfo{LiveStatus: status}); got != nil {
@@ -346,31 +457,25 @@ func TestExtractContentFailure(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	tests := []struct {
-		name       string
-		retries    int
-		wantErr    bool
-		wantStatus string
-	}{
-		{"attempts remain", 0, true, "pending"},
-		{"last attempt", 2, false, "failed"},
+	f := newFeedFixture(t, "", types.Settings{ExtractContent: true})
+	job := f.claimArticle(srv.URL)
+	if err := f.jobRepo.DelayJob(job.ID, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	handler := ExtractContentHandler(f.feedRepo, f.itemRepo, srv.Client(), "test")
+
+	if err := handler(context.Background(), job); err == nil {
+		t.Error("expected an error")
+	}
+	if got := statusOf(f.item("a").ContentExtractionStatus); got != "pending" {
+		t.Errorf("status = %q, want pending until retries run out", got)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := newFeedFixture(t, "", types.Settings{ExtractContent: true})
-			job := f.claimArticle(srv.URL)
-			job.Retries = tt.retries
+	f.runQueuedJob("extract_content", handler, database.ExtractionJobMaxRetries-1)
 
-			err := ExtractContentHandler(f.feedRepo, f.itemRepo, srv.Client(), "test")(context.Background(), job)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("err = %v, wantErr %v", err, tt.wantErr)
-			}
-			if got := statusOf(f.item("a").ContentExtractionStatus); got != tt.wantStatus {
-				t.Errorf("status = %q, want %q", got, tt.wantStatus)
-			}
-		})
+	got := f.item("a")
+	if statusOf(got.ContentExtractionStatus) != "failed" {
+		t.Errorf("status = %q, want failed", statusOf(got.ContentExtractionStatus))
 	}
 }
 
@@ -399,5 +504,115 @@ func TestFetchFeedCleansOrphanedMediaOnly(t *testing.T) {
 		if got := err == nil; got != want {
 			t.Errorf("%s exists = %v, want %v", name, got, want)
 		}
+	}
+}
+
+func TestFetchFeedEvictsMediaAndRestoresItWhenEligibleAgain(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	job := f.claimVideo()
+	if err := f.itemRepo.UpdateMediaStatus(*job.ItemID, "ready", "abc.mp3", 5, 60); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.jobRepo.CompleteJob(job.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	mediaDir := t.TempDir()
+	path := filepath.Join(mediaDir, "abc.mp3")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	handler := FetchFeedHandler(f.feedRepo, f.itemRepo, f.jobRepo, f.srv.Client(), "test", mediaDir)
+	fetchJob := &database.Job{FeedID: f.feedID()}
+
+	filters := []types.Filter{{Field: "title", Excludes: []string{"video"}}}
+	settings := types.Settings{RefreshInterval: 1800, MaxItems: 10, Timeout: 5}
+	if err := f.feedRepo.UpsertFeedConfig("f", f.srv.URL, "", "youtube", true, settings, filters, "h2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.itemRepo.UpdateItemFilterStatus(*job.ItemID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler(context.Background(), fetchJob); err != nil {
+		t.Fatal(err)
+	}
+
+	got := f.item(videoGUID)
+	if got.MediaStatus != nil || got.MediaPath != "" {
+		t.Errorf("media = %q/%q, want the row cleared", statusOf(got.MediaStatus), got.MediaPath)
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Error("evicted file was kept")
+	}
+
+	if err := f.itemRepo.UpdateItemFilterStatus(*job.ItemID, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler(context.Background(), fetchJob); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := statusOf(f.item(videoGUID).MediaStatus); got != "pending" {
+		t.Errorf("media_status = %q, want pending", got)
+	}
+	if n := f.drainJobs(); n != 1 {
+		t.Errorf("created %d jobs, want 1", n)
+	}
+}
+
+func TestCleanupKeepsFilesOfPendingItem(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	f.process(rssItem(videoGUID, "Video"))
+
+	mediaDir := t.TempDir()
+	path := filepath.Join(mediaDir, "abc.mp3")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	active := filepath.Join(mediaDir, ".incoming", "abc")
+	abandoned := filepath.Join(mediaDir, ".incoming", "gone")
+	for _, dir := range []string{active, abandoned} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := cleanupMedia(f.itemRepo, mediaDir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Error("cleanup deleted the file of a pending item")
+	}
+	if _, err := os.Stat(active); err != nil {
+		t.Error("cleanup deleted the download directory of a pending item")
+	}
+	if _, err := os.Stat(abandoned); err == nil {
+		t.Error("cleanup kept an abandoned download directory")
+	}
+}
+
+func TestCleanupSkipsTurnWhileDownloadRuns(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	mediaDir := t.TempDir()
+	orphan := filepath.Join(mediaDir, "orphan.mp3")
+	if err := os.WriteFile(orphan, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mediaFiles.RLock()
+	err := cleanupMedia(f.itemRepo, mediaDir)
+	mediaFiles.RUnlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(orphan); err != nil {
+		t.Error("cleanup ran during a download")
+	}
+
+	if err := cleanupMedia(f.itemRepo, mediaDir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(orphan); err == nil {
+		t.Error("cleanup did not catch up")
 	}
 }

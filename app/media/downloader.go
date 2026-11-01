@@ -10,10 +10,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
 )
+
+// incomingDir, inside the media directory, holds downloads in progress.
+const incomingDir = ".incoming"
 
 // DownloadTimeout bounds a single yt-dlp download.
 const DownloadTimeout = 30 * time.Minute
@@ -82,9 +86,13 @@ func Validate(ytdlpCmd string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// safeFileID matches a YouTube video ID. The GUID comes from a remote feed and the
+// result names files and directories, so it must not be able to carry a path.
+var safeFileID = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
 // MediaFileID extracts YouTube video ID from GUID, falls back to SHA-256 hash.
 func MediaFileID(guid string) string {
-	if after, ok := strings.CutPrefix(guid, "yt:video:"); ok {
+	if after, ok := strings.CutPrefix(guid, "yt:video:"); ok && safeFileID.MatchString(after) {
 		return after
 	}
 	hash := sha256.Sum256([]byte(guid))
@@ -165,7 +173,17 @@ func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID st
 		return "", 0, fmt.Errorf("YT_DLP_CMD is empty")
 	}
 
-	outputTemplate := fileID + ".%(ext)s"
+	// Work in a private directory and publish by rename, so an interrupted download
+	// or conversion never leaves a partial file under the final name.
+	workDir := filepath.Join(incomingDir, fileID)
+	fullWorkDir := filepath.Join(mediaDir, workDir)
+	if err := os.RemoveAll(fullWorkDir); err != nil {
+		return "", 0, fmt.Errorf("failed to clear download directory: %w", err)
+	}
+	defer os.RemoveAll(fullWorkDir)
+
+	// The template is relative to mediaDir, which is also the dev container's cwd.
+	outputTemplate := filepath.Join(workDir, fileID+".%(ext)s")
 	args := append(parts[1:],
 		"--format", "bestaudio[protocol!=m3u8_native][protocol!=m3u8]",
 		"--extract-audio", "--audio-format", "mp3", "--audio-quality", "64k",
@@ -190,6 +208,9 @@ func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID st
 
 	mediaPath := fileID + ".mp3"
 	fullPath := filepath.Join(mediaDir, mediaPath)
+	if err := os.Rename(filepath.Join(fullWorkDir, mediaPath), fullPath); err != nil {
+		return "", 0, fmt.Errorf("failed to publish downloaded file: %w", err)
+	}
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		return "", 0, fmt.Errorf("downloaded file not found at %s: %w", fullPath, err)

@@ -94,6 +94,43 @@ func (h *Handler) GetHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, health)
 }
 
+// APIRequeueMedia retries a YouTube feed's failed downloads, for recovery after a
+// long yt-dlp outage used up their retries.
+func (h *Handler) APIRequeueMedia(c *gin.Context) {
+	name := c.Param("name")
+
+	dbFeed, err := h.feedRepo.GetFeed(name)
+	if err != nil {
+		slog.Error("Database error", "operation", "get_feed", "feed", name, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read feed"})
+		return
+	}
+	if dbFeed == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Feed not found"})
+		return
+	}
+	if dbFeed.FeedType != "youtube" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Feed has no downloaded media"})
+		return
+	}
+
+	settings, err := dbFeed.GetSettings()
+	if err != nil {
+		slog.Error("Failed to get feed settings", "feed", name, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read feed settings"})
+		return
+	}
+
+	requeued, err := h.itemRepo.RequeueMedia(dbFeed.ID, settings.MaxItems, true)
+	if err != nil {
+		slog.Error("Failed to requeue media", "feed", name, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to requeue media"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "requeued": requeued})
+}
+
 func (h *Handler) APIReloadFeed(c *gin.Context) {
 	name := c.Param("name")
 	if name == "" {

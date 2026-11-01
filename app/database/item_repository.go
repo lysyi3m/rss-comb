@@ -44,6 +44,114 @@ func (r *ItemRepository) GetAllItems(feedName string) ([]Item, error) {
 // UpsertItem stores source fields. On conflict it keeps processing state and its
 // results, so an edited source item does not lose its extracted content or media.
 func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, error) {
+	return upsertItem(r.db, feedName, item)
+}
+
+type StoredItem struct {
+	ID            string
+	ExtractionJob bool
+	MediaJob      bool
+}
+
+// StoreItem upserts an item and creates the jobs for its pending work in one
+// transaction, so a crash cannot leave a hidden item with no job. The stored status
+// decides: an edited item may already be processed. Filtered items get no job.
+func (r *ItemRepository) StoreItem(feedName, feedID string, item types.Item) (StoredItem, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return StoredItem{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	id, err := upsertItem(tx, feedName, item)
+	if err != nil {
+		return StoredItem{}, err
+	}
+	stored := StoredItem{ID: id}
+
+	var extractionStatus, mediaStatus sql.NullString
+	err = tx.QueryRow(`SELECT content_extraction_status, media_status FROM feed_items WHERE id = ?1`, id).Scan(&extractionStatus, &mediaStatus)
+	if err != nil {
+		return StoredItem{}, fmt.Errorf("failed to read stored item: %w", err)
+	}
+
+	if !item.IsFiltered && extractionStatus.String == "pending" {
+		if stored.ExtractionJob, err = createJob(tx, "extract_content", feedID, &id, ExtractionJobMaxRetries); err != nil {
+			return StoredItem{}, err
+		}
+	}
+	if !item.IsFiltered && mediaStatus.String == "pending" {
+		if stored.MediaJob, err = createJob(tx, "download_media", feedID, &id, MediaJobMaxRetries); err != nil {
+			return StoredItem{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return StoredItem{}, fmt.Errorf("failed to commit item: %w", err)
+	}
+	return stored, nil
+}
+
+// RequeueMedia queues downloads for the feed's newest maxItems eligible items that
+// have no media and no job: items with no status, such as after a filter change or
+// eviction, and pending items that lost their job. includeFailed also retries items
+// whose retries ran out. It returns the number of jobs created.
+func (r *ItemRepository) RequeueMedia(feedID string, maxItems int, includeFailed bool) (int, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query(`
+		SELECT w.id FROM (
+			SELECT id, media_status FROM feed_items
+			WHERE feed_id = ?1 AND is_filtered = 0 AND COALESCE(media_status, '') != 'skipped'
+			ORDER BY published_at DESC LIMIT ?2
+		) w
+		WHERE w.media_status IS NULL
+		   OR (?3 AND w.media_status = 'failed')
+		   OR (w.media_status = 'pending' AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.item_id = w.id))
+	`, feedID, maxItems, includeFailed)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find items to requeue: %w", err)
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("failed to scan item to requeue: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, fmt.Errorf("error iterating items to requeue: %w", err)
+	}
+	rows.Close()
+
+	created := 0
+	for _, id := range ids {
+		if _, err := tx.Exec(`UPDATE feed_items SET media_status = 'pending' WHERE id = ?1`, id); err != nil {
+			return 0, fmt.Errorf("failed to requeue item: %w", err)
+		}
+		ok, err := createJob(tx, "download_media", feedID, &id, MediaJobMaxRetries)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			created++
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit requeue: %w", err)
+	}
+	return created, nil
+}
+
+func upsertItem(q querier, feedName string, item types.Item) (string, error) {
 	authors := item.Authors
 	if authors == nil {
 		authors = []string{}
@@ -55,7 +163,7 @@ func (r *ItemRepository) UpsertItem(feedName string, item types.Item) (string, e
 	}
 
 	var itemID string
-	err := r.db.QueryRow(`
+	err := q.QueryRow(`
 		INSERT INTO feed_items (
 			feed_id, guid, link, title, description, content,
 			published_at, updated_at, authors,
@@ -272,21 +380,79 @@ func (r *ItemRepository) GetReadyMediaByPath(mediaPath string) (*MediaInfo, erro
 	return &info, nil
 }
 
-func (r *ItemRepository) GetAllActiveMediaPaths() ([]string, error) {
-	rows, err := r.db.Query(`
-		SELECT DISTINCT sub.media_path FROM (
-			SELECT fi.media_path,
-			       ROW_NUMBER() OVER (PARTITION BY fi.feed_id ORDER BY fi.published_at DESC) AS rn,
-			       COALESCE(CAST(json_extract(f.settings, '$.max_items') AS INTEGER), 50) AS max_items
-			FROM feed_items fi
-			JOIN feeds f ON fi.feed_id = f.id
-			WHERE f.is_enabled = 1
-			  AND fi.media_status = 'ready'
-			  AND fi.media_path IS NOT NULL
-			  AND fi.is_filtered = 0
-		) sub
-		WHERE sub.rn <= sub.max_items
+// activeMediaQuery selects the ready items whose files media cleanup keeps.
+const activeMediaQuery = `
+	SELECT sub.id, sub.media_path FROM (
+		SELECT fi.id, fi.media_path,
+		       ROW_NUMBER() OVER (PARTITION BY fi.feed_id ORDER BY fi.published_at DESC) AS rn,
+		       COALESCE(CAST(json_extract(f.settings, '$.max_items') AS INTEGER), 50) AS max_items
+		FROM feed_items fi
+		JOIN feeds f ON fi.feed_id = f.id
+		WHERE f.is_enabled = 1
+		  AND fi.media_status = 'ready'
+		  AND fi.media_path IS NOT NULL
+		  AND fi.is_filtered = 0
+	) sub
+	WHERE sub.rn <= sub.max_items`
+
+// ReconcileMedia returns the media paths cleanup must keep and resets every other ready
+// item, so no row points at a file cleanup deletes. One transaction keeps the two in
+// step: an item that turns ready afterwards only adds a file. RequeueMedia downloads
+// reset items again if they become eligible.
+func (r *ItemRepository) ReconcileMedia() ([]string, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	paths, err := activeMediaPaths(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(`
+		UPDATE feed_items SET media_status = NULL, media_path = '', media_size = 0
+		WHERE media_status = 'ready' AND id NOT IN (SELECT id FROM (` + activeMediaQuery + `))
 	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to clear evicted media: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit media reconciliation: %w", err)
+	}
+	return paths, nil
+}
+
+// GetPendingMediaGUIDs returns the GUIDs of items whose media may be downloading.
+func (r *ItemRepository) GetPendingMediaGUIDs() ([]string, error) {
+	rows, err := r.db.Query(`SELECT guid FROM feed_items WHERE media_status = 'pending'`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pending media: %w", err)
+	}
+	defer rows.Close()
+
+	var guids []string
+	for rows.Next() {
+		var guid string
+		if err := rows.Scan(&guid); err != nil {
+			return nil, fmt.Errorf("failed to scan pending media: %w", err)
+		}
+		guids = append(guids, guid)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pending media: %w", err)
+	}
+	return guids, nil
+}
+
+func (r *ItemRepository) GetAllActiveMediaPaths() ([]string, error) {
+	return activeMediaPaths(r.db)
+}
+
+func activeMediaPaths(q rowsQuerier) ([]string, error) {
+	rows, err := q.Query(`SELECT DISTINCT media_path FROM (` + activeMediaQuery + `)`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active media paths: %w", err)
 	}
