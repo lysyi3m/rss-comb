@@ -170,6 +170,14 @@ func formatAuthor(name, email string) string {
 }
 
 
+// publicBaseURL is the absolute base of links in generated feeds.
+func publicBaseURL(cfg *cfg.Cfg) string {
+	if cfg.BaseUrl != "" {
+		return strings.TrimRight(cfg.BaseUrl, "/")
+	}
+	return "http://localhost:" + cfg.Port
+}
+
 func writeChannelHeader(buf *bytes.Buffer, feed database.Feed, items []database.Item, cfg *cfg.Cfg) {
 	writeElement(buf, "title", feed.DisplayTitle(), 4)
 	writeElement(buf, "link", feed.Link, 4)
@@ -179,12 +187,7 @@ func writeChannelHeader(buf *bytes.Buffer, feed database.Feed, items []database.
 	}
 	writeElement(buf, "description", description, 4)
 
-	var selfLink string
-	if cfg.BaseUrl != "" {
-		selfLink = fmt.Sprintf("%s/feeds/%s", cfg.BaseUrl, feed.Name)
-	} else {
-		selfLink = fmt.Sprintf("http://localhost:%s/feeds/%s", cfg.Port, feed.Name)
-	}
+	selfLink := fmt.Sprintf("%s/feeds/%s", publicBaseURL(cfg), feed.Name)
 	buf.WriteString(fmt.Sprintf("    <atom:link href=\"%s\" rel=\"self\" type=\"application/rss+xml\" />\n",
 		escapeAttr(selfLink)))
 

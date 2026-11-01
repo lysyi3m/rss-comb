@@ -77,6 +77,31 @@ func TestPodcastParse_ITunesMetadata(t *testing.T) {
 	}
 }
 
+func TestParseITunesDuration(t *testing.T) {
+	tests := []struct {
+		value  string
+		want   int
+		wantOK bool
+	}{
+		{"3723", 3723, true},
+		{"02:03", 123, true},
+		{"01:02:03", 3723, true},
+		{" 1:02:03 ", 3723, true},
+		{"", 0, false},
+		{"abc", 0, false},
+		{"1:2:3:4", 0, false},
+		{"1:-2", 0, false},
+		{"12:", 0, false},
+	}
+
+	for _, tt := range tests {
+		got, ok := parseITunesDuration(tt.value)
+		if got != tt.want || ok != tt.wantOK {
+			t.Errorf("parseITunesDuration(%q) = %d, %v, want %d, %v", tt.value, got, ok, tt.want, tt.wantOK)
+		}
+	}
+}
+
 func TestPodcastParse_InvalidFeed(t *testing.T) {
 	pt := podcastType{}
 	_, _, err := pt.Parse([]byte("invalid xml"))

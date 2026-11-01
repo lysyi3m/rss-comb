@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -21,24 +22,22 @@ type rowsQuerier interface {
 	Query(query string, args ...any) (*sql.Rows, error)
 }
 
+// connectionPragmas are in the DSN, not run once after opening: most are per
+// connection, and database/sql can replace a connection it finds bad.
+const connectionPragmas = "_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
+
 func NewConnection(dbPath string) (*DB, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	separator := "?"
+	if strings.Contains(dbPath, "?") {
+		separator = "&"
+	}
+
+	db, err := sql.Open("sqlite", dbPath+separator+connectionPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	db.SetMaxOpenConns(1)
-
-	for _, pragma := range []string{
-		"PRAGMA journal_mode=WAL",
-		"PRAGMA busy_timeout=5000",
-		"PRAGMA foreign_keys=ON",
-	} {
-		if _, err := db.Exec(pragma); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("failed to set %s: %w", pragma, err)
-		}
-	}
 
 	if err := db.Ping(); err != nil {
 		db.Close()

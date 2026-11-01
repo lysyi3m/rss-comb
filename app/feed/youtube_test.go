@@ -1,6 +1,41 @@
 package feed
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/lysyi3m/rss-comb/app/cfg"
+	"github.com/lysyi3m/rss-comb/app/database"
+	"github.com/lysyi3m/rss-comb/app/types"
+)
+
+func TestYouTubeBuild_EnclosureURLIsAbsolute(t *testing.T) {
+	ready := "ready"
+	item := database.Item{Item: types.Item{GUID: "g", PublishedAt: time.Unix(0, 0), MediaStatus: &ready, MediaPath: "a.mp3", MediaSize: 1}}
+
+	tests := []struct {
+		name string
+		cfg  cfg.Cfg
+		want string
+	}{
+		{"base URL", cfg.Cfg{BaseUrl: "https://feeds.example.com", Location: time.UTC}, "https://feeds.example.com/media/a.mp3"},
+		{"trailing slash", cfg.Cfg{BaseUrl: "https://feeds.example.com/", Location: time.UTC}, "https://feeds.example.com/media/a.mp3"},
+		{"no base URL", cfg.Cfg{Port: "8080", Location: time.UTC}, "http://localhost:8080/media/a.mp3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := youtubeType{}.Build(database.Feed{Name: "f"}, []database.Item{item}, &tt.cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, `<enclosure url="`+tt.want+`"`) {
+				t.Errorf("enclosure URL is not %s:\n%s", tt.want, out)
+			}
+		})
+	}
+}
 
 func TestYouTubeParse_AtomFeed(t *testing.T) {
 	youtubeAtom := `<?xml version="1.0" encoding="UTF-8"?>

@@ -330,7 +330,7 @@ Only the non-obvious parts are worth stating:
 # Stop ALL RSS Comb processes (including stray development builds)
 make dev-stop
 
-# Complete development cleanup: processes + dev database + build caches
+# Complete development cleanup: processes + dev database + built binary
 make dev-clean
 ```
 
@@ -462,7 +462,7 @@ All configuration options support both environment variables and command-line fl
 **Application Configuration:**
 - `FEEDS_DIR` (default: ./feeds) - Directory containing feed configuration files
 - `PORT` (default: 8080) - HTTP server port
-- `BASE_URL` (optional) - Public base URL for the service (e.g., https://feeds.example.com). When set, RSS feeds use this URL for self-referencing links instead of localhost:port. Ideal for production deployments behind proxies.
+- `BASE_URL` (optional) - Public base URL for the service (e.g., https://feeds.example.com). When set, RSS feeds use this URL for self-referencing links and media enclosures instead of localhost:port. Required in practice for YouTube feeds that other machines read; startup warns if it is missing.
 - `SCHEDULER_INTERVAL` (default: 30) - Scheduler interval in seconds for creating feed processing jobs
 - `WORKER_COUNT` (default: 5) - Number of concurrent workers for processing jobs (feed fetching, content extraction, media downloads)
 - `API_ACCESS_KEY` (optional) - API access key for authentication
@@ -531,7 +531,7 @@ coverage or for a single package. Use `make dev-test` for the full run.
 6. Run the container with your feed configurations (SQLite database is embedded)
 
 ### Monitoring
-- Health endpoint: `/health` (liveness only; see API Endpoints)
+- Health endpoint: `/health` (includes a database check; see API Endpoints)
 - Feed processing details in logs
 - Docker healthcheck can be disabled in docker-compose.yml with `healthcheck: { disable: true }`
 
@@ -604,8 +604,8 @@ coverage or for a single package. Use `make dev-test` for the full run.
 - Returns with headers: Content-Type, X-Feed-Items, X-Feed-Name, X-Last-Updated
 
 #### `GET /health`
-- Liveness check: returns 200 with a timestamp and, if the query succeeds, the feed count
-- A database failure only omits the feed count; the status stays 200
+- Returns 200 with a timestamp and the feed count
+- Returns 503 if the database query fails, which also marks the Docker healthcheck unhealthy
 
 #### `GET /media/<filename>`
 - Serves downloaded media files (MP3 audio from YouTube videos)
