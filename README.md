@@ -161,6 +161,7 @@ filters:
 Require `X-API-Key` header or `Authorization: Bearer <token>`:
 
 - **`POST /api/feeds/<name>/reload`** - Reload configuration and re-apply filters to all feed items
+- **`POST /api/feeds/<name>/requeue-media`** - Retry a YouTube feed's failed downloads, for example after a long yt-dlp outage
 
 ### Example API Usage
 

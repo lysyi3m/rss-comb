@@ -70,22 +70,34 @@ func (wp *WorkerPool) runWorker(ctx context.Context, id int) {
 		handler, ok := wp.handlers[job.JobType]
 		if !ok {
 			slog.Error("No handler registered for job type", "worker_id", id, "job_type", job.JobType, "job_id", job.ID)
-			_ = wp.jobRepo.FailJob(job.ID, "no handler registered for job type: "+job.JobType)
+			wp.logBookkeeping(job, wp.jobRepo.FailJob(job.ID, "no handler registered for job type: "+job.JobType))
 			continue
 		}
 
-		if err := handler(ctx, job); err != nil {
-			var rescheduleErr *RescheduleError
-			if errors.As(err, &rescheduleErr) {
-				slog.Info("Job rescheduled", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "run_after", rescheduleErr.RunAfter, "reason", rescheduleErr.Reason)
-				_ = wp.jobRepo.DelayJob(job.ID, rescheduleErr.RunAfter)
-			} else {
-				slog.Error("Job failed", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "error", err)
-				_ = wp.jobRepo.FailJob(job.ID, err.Error())
-			}
-		} else {
-			_ = wp.jobRepo.CompleteJob(job.ID)
+		err = handler(ctx, job)
+		var rescheduleErr *RescheduleError
+		switch {
+		case err == nil:
+			wp.logBookkeeping(job, wp.jobRepo.CompleteJob(job.ID))
+		case errors.As(err, &rescheduleErr):
+			slog.Info("Job rescheduled", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "run_after", rescheduleErr.RunAfter, "reason", rescheduleErr.Reason)
+			wp.logBookkeeping(job, wp.jobRepo.DelayJob(job.ID, rescheduleErr.RunAfter))
+		case ctx.Err() != nil:
+			// Shutdown interrupted the job. It did not fail, so it keeps its retries.
+			slog.Info("Job released for shutdown", "worker_id", id, "job_type", job.JobType, "job_id", job.ID)
+			wp.logBookkeeping(job, wp.jobRepo.DelayJob(job.ID, time.Now()))
+		default:
+			slog.Error("Job failed", "worker_id", id, "job_type", job.JobType, "job_id", job.ID, "error", err)
+			wp.logBookkeeping(job, wp.jobRepo.FailJob(job.ID, err.Error()))
 		}
+	}
+}
+
+// logBookkeeping logs a failed queue update. The job stays claimed, so stale
+// recovery runs it again.
+func (wp *WorkerPool) logBookkeeping(job *database.Job, err error) {
+	if err != nil {
+		slog.Error("Failed to update job", "job_type", job.JobType, "job_id", job.ID, "error", err)
 	}
 }
 

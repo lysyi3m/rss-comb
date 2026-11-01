@@ -65,6 +65,7 @@ func setupRoutes(r *gin.Engine, handler *Handler, cfg *cfg.Cfg) {
 		api.Use(authMiddleware(cfg.APIAccessKey))
 		{
 			api.POST("/feeds/:name/reload", handler.APIReloadFeed)
+			api.POST("/feeds/:name/requeue-media", handler.APIRequeueMedia)
 		}
 	}
 

@@ -102,6 +102,12 @@ func main() {
 
 	scheduler := jobs.NewScheduler(time.Duration(cfg.SchedulerInterval)*time.Second, feedRepo, jobRepo)
 
+	if released, err := jobRepo.ReleaseClaimedJobs(); err != nil {
+		slog.Error("Failed to release abandoned jobs", "error", err)
+	} else if released > 0 {
+		slog.Warn("Released abandoned jobs", "count", released)
+	}
+
 	jobCtx, jobCancel := context.WithCancel(context.Background())
 	var jobWg sync.WaitGroup
 	jobWg.Add(1)
@@ -142,6 +148,9 @@ func main() {
 	case err := <-serverErrChan:
 		slog.Error("Server error occurred", "error", err)
 	}
+
+	// Stop workers first: an open HTTP request must not let them claim new jobs.
+	jobCancel()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

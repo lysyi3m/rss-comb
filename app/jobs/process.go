@@ -68,10 +68,6 @@ func processFeed(
 		return fmt.Errorf("failed to update feed metadata: %w", err)
 	}
 
-	if len(items) == 0 {
-		return nil
-	}
-
 	duplicateCount := 0
 	filteredCount := 0
 	newCount := 0
@@ -116,39 +112,26 @@ func processFeed(
 			processedItem.MediaStatus = stringPtr("pending")
 		}
 
-		itemID, err := itemRepo.UpsertItem(feedName, processedItem)
+		stored, err := itemRepo.StoreItem(feedName, dbFeed.ID, processedItem)
 		if err != nil {
-			return fmt.Errorf("failed to upsert item: %w", err)
+			return fmt.Errorf("failed to store item: %w", err)
 		}
+		if stored.ExtractionJob {
+			extractionJobCount++
+		}
+		if stored.MediaJob {
+			mediaJobCount++
+		}
+	}
 
-		// The stored status decides: an edited item may already be processed.
-		stored, err := itemRepo.GetItemByID(itemID)
+	// Picks up items that became eligible through a filter, max_items or enabled
+	// change, since their hashes are already known and the loop above skips them.
+	if dbFeed.FeedType == "youtube" {
+		requeued, err := itemRepo.RequeueMedia(dbFeed.ID, settings.MaxItems, false)
 		if err != nil {
-			return fmt.Errorf("failed to read upserted item: %w", err)
+			return fmt.Errorf("failed to requeue media: %w", err)
 		}
-		if stored == nil {
-			return fmt.Errorf("upserted item not found: %s", itemID)
-		}
-
-		if processedItem.IsFiltered {
-			continue
-		}
-
-		if stored.ContentExtractionStatus != nil && *stored.ContentExtractionStatus == "pending" {
-			if _, err := jobRepo.CreateJob("extract_content", dbFeed.ID, &itemID, 3); err != nil {
-				slog.Error("Failed to create extract_content job", "feed", feedName, "item_id", itemID, "error", err)
-			} else {
-				extractionJobCount++
-			}
-		}
-
-		if stored.MediaStatus != nil && *stored.MediaStatus == "pending" {
-			if _, err := jobRepo.CreateJob("download_media", dbFeed.ID, &itemID, 30); err != nil {
-				slog.Error("Failed to create download_media job", "feed", feedName, "item_id", itemID, "error", err)
-			} else {
-				mediaJobCount++
-			}
-		}
+		mediaJobCount += requeued
 	}
 
 	logData := []interface{}{

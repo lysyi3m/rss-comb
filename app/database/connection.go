@@ -11,6 +11,16 @@ type DB struct {
 	*sql.DB
 }
 
+// querier is satisfied by *DB and *sql.Tx.
+type querier interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+type rowsQuerier interface {
+	Query(query string, args ...any) (*sql.Rows, error)
+}
+
 func NewConnection(dbPath string) (*DB, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {

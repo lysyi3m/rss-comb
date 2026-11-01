@@ -176,6 +176,9 @@ func TestPoolStopsWhenContextIsCancelled(t *testing.T) {
 	if _, err := f.jobRepo.CreateJob("test", f.feedID(), nil, 3); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := f.db.Exec(`UPDATE jobs SET retries = 2`); err != nil {
+		t.Fatal(err)
+	}
 
 	started := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -204,6 +207,11 @@ func TestPoolStopsWhenContextIsCancelled(t *testing.T) {
 	case <-done:
 	case <-time.After(10 * time.Second):
 		t.Fatal("pool did not stop")
+	}
+
+	got := f.jobState()
+	if got == nil || got.status != "pending" || got.retries != 2 {
+		t.Errorf("job = %+v, want released with its 2 retries", got)
 	}
 }
 

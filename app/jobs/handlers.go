@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/lysyi3m/rss-comb/app/database"
@@ -51,21 +52,49 @@ func FetchFeedHandler(
 		}
 
 		if dbFeed.FeedType == "youtube" {
-			keepPaths, err := itemRepo.GetAllActiveMediaPaths()
-			if err != nil {
-				slog.Error("Failed to get active media paths for cleanup", "error", err)
-				return nil
-			}
-			deleted, err := media.CleanupMedia(mediaDir, keepPaths)
-			if err != nil {
+			if err := cleanupMedia(itemRepo, mediaDir); err != nil {
 				slog.Error("Media cleanup failed", "error", err)
-			} else if deleted > 0 {
-				slog.Info("Media cleanup completed", "deleted", deleted)
 			}
 		}
 
 		return nil
 	}
+}
+
+// mediaFiles keeps cleanup away from running downloads. A download holds it shared from
+// its first file check until its row is ready; cleanup needs it exclusively, because
+// its keep list says nothing about jobs created after the list was read.
+var mediaFiles sync.RWMutex
+
+// cleanupMedia keeps the files of ready items in the window and of pending items. It
+// skips its turn while a download runs: it runs after every YouTube fetch, so a later
+// one catches up.
+func cleanupMedia(itemRepo *database.ItemRepository, mediaDir string) error {
+	if !mediaFiles.TryLock() {
+		return nil
+	}
+	defer mediaFiles.Unlock()
+
+	pending, err := itemRepo.GetPendingMediaGUIDs()
+	if err != nil {
+		return err
+	}
+	keepPaths, err := itemRepo.ReconcileMedia()
+	if err != nil {
+		return err
+	}
+	for _, guid := range pending {
+		keepPaths = append(keepPaths, media.MediaFileID(guid)+".mp3")
+	}
+
+	deleted, err := media.CleanupMedia(mediaDir, keepPaths)
+	if err != nil {
+		return err
+	}
+	if deleted > 0 {
+		slog.Info("Media cleanup completed", "deleted", deleted)
+	}
+	return nil
 }
 
 // ExtractContentHandler returns a HandlerFunc that fetches HTML content
@@ -103,17 +132,17 @@ func ExtractContentHandler(
 		}
 
 		if item.Link == "" {
-			return handleExtractionFailure(itemRepo, *job.ItemID, job, fmt.Errorf("item has no link"))
+			return fmt.Errorf("content extraction failed: item has no link")
 		}
 
 		data, pageURL, err := fetchURL(ctx, item.Link, settings.Timeout, httpClient, userAgent, true)
 		if err != nil {
-			return handleExtractionFailure(itemRepo, *job.ItemID, job, err)
+			return fmt.Errorf("content extraction failed: %w", err)
 		}
 
 		extractedContent, err := feed.Extract(data, pageURL)
 		if err != nil {
-			return handleExtractionFailure(itemRepo, *job.ItemID, job, err)
+			return fmt.Errorf("content extraction failed: %w", err)
 		}
 
 		if err := itemRepo.UpdateContentExtractionStatus(*job.ItemID, "ready", extractedContent); err != nil {
@@ -133,6 +162,10 @@ func DownloadMediaHandler(
 	ytdlpArgs string,
 	mediaDir string,
 ) HandlerFunc {
+	// File IDs being worked on. Two feeds can hold the same video, and both jobs
+	// would write the same output file.
+	var inProgress sync.Map
+
 	return func(ctx context.Context, job *database.Job) error {
 		if job.ItemID == nil {
 			return fmt.Errorf("download_media job has no item_id")
@@ -149,6 +182,17 @@ func DownloadMediaHandler(
 		fileID := media.MediaFileID(item.GUID)
 		mediaPath := fileID + ".mp3"
 
+		if _, busy := inProgress.LoadOrStore(fileID, struct{}{}); busy {
+			return &RescheduleError{
+				RunAfter: time.Now().Add(1 * time.Minute),
+				Reason:   "another job is working on the same video",
+			}
+		}
+		defer inProgress.Delete(fileID)
+
+		mediaFiles.RLock()
+		defer mediaFiles.RUnlock()
+
 		// Load min_duration setting for filtering short videos
 		dbFeed, err := feedRepo.GetFeedByID(job.FeedID)
 		if err != nil {
@@ -164,7 +208,11 @@ func DownloadMediaHandler(
 		minDuration := settings.MinDuration
 
 		// Layer 1: DB check — does any item already have this file ready?
-		if existing, _ := itemRepo.GetReadyMediaByPath(mediaPath); existing != nil {
+		existing, err := itemRepo.GetReadyMediaByPath(mediaPath)
+		if err != nil {
+			return fmt.Errorf("failed to look up ready media: %w", err)
+		}
+		if _, onDisk := media.FileExists(mediaDir, mediaPath); existing != nil && onDisk {
 			existingDuration := existing.ITunesDuration
 			// If duration wasn't recorded (e.g. downloaded before duration tracking),
 			// probe the file so min_duration can be enforced.
@@ -199,7 +247,7 @@ func DownloadMediaHandler(
 
 		// Layer 3: Check video info before downloading
 		if item.Link == "" {
-			return handleMediaFailure(itemRepo, *job.ItemID, job, fmt.Errorf("item has no link"))
+			return fmt.Errorf("media download failed: item has no link")
 		}
 
 		var duration int
@@ -223,7 +271,7 @@ func DownloadMediaHandler(
 		// Layer 4: Actually download
 		path, size, err := media.Download(ctx, ytdlpCmd, ytdlpArgs, mediaDir, item.Link, fileID)
 		if err != nil {
-			return handleMediaFailure(itemRepo, *job.ItemID, job, err)
+			return fmt.Errorf("media download failed: %w", err)
 		}
 
 		// Use ffprobe for authoritative duration (yt-dlp metadata can be null for live VODs)
@@ -232,8 +280,7 @@ func DownloadMediaHandler(
 			// than the actual file, YouTube hasn't finished processing the full recording.
 			if duration > 0 && probeDuration < duration*80/100 {
 				os.Remove(filepath.Join(mediaDir, path))
-				return handleMediaFailure(itemRepo, *job.ItemID, job,
-					fmt.Errorf("downloaded file is truncated: got %ds, expected ~%ds (VOD likely still processing)", probeDuration, duration))
+				return fmt.Errorf("media download failed: downloaded file is truncated: got %ds, expected ~%ds (VOD likely still processing)", probeDuration, duration)
 			}
 			duration = probeDuration
 		}
@@ -264,36 +311,6 @@ func DownloadMediaHandler(
 	}
 }
 
-// handleExtractionFailure checks if this is the last retry attempt.
-// On final failure, marks the item as 'failed' and returns nil (job completes).
-// Otherwise returns the error so the job will be retried.
-func handleExtractionFailure(itemRepo *database.ItemRepository, itemID string, job *database.Job, extractionErr error) error {
-	if job.Retries >= job.MaxRetries-1 {
-		slog.Warn("Content extraction permanently failed, item will use original content",
-			"item_id", itemID, "error", extractionErr, "retries", job.Retries+1)
-		if err := itemRepo.UpdateContentExtractionStatus(itemID, "failed", ""); err != nil {
-			slog.Error("Failed to mark item extraction as failed", "item_id", itemID, "error", err)
-		}
-		return nil
-	}
-	return fmt.Errorf("content extraction failed: %w", extractionErr)
-}
-
-// handleMediaFailure checks if this is the last retry attempt.
-// On final failure, marks the item as 'failed' and returns nil (item stays hidden forever).
-// Otherwise returns the error so the job will be retried.
-func handleMediaFailure(itemRepo *database.ItemRepository, itemID string, job *database.Job, mediaErr error) error {
-	if job.Retries >= job.MaxRetries-1 {
-		slog.Warn("Media download permanently failed, item will stay hidden",
-			"item_id", itemID, "error", mediaErr, "retries", job.Retries+1)
-		if err := itemRepo.UpdateMediaStatus(itemID, "failed", "", 0, 0); err != nil {
-			slog.Error("Failed to mark item media as failed", "item_id", itemID, "error", err)
-		}
-		return nil
-	}
-	return fmt.Errorf("media download failed: %w", mediaErr)
-}
-
 func filterShortVideo(itemRepo *database.ItemRepository, itemID string, duration, minDuration int) error {
 	slog.Info("Video below min_duration, filtering",
 		"item_id", itemID, "duration", duration, "min_duration", minDuration)
@@ -315,10 +332,12 @@ func filterShortVideo(itemRepo *database.ItemRepository, itemID string, duration
 func videoReschedule(info media.VideoInfo) *RescheduleError {
 	switch info.LiveStatus {
 	case "is_upcoming":
-		if info.ReleaseTimestamp > 0 {
+		// An overdue stream can still report is_upcoming. Its past release time would
+		// recheck it immediately, so it falls through to the delay below.
+		if release := time.Unix(info.ReleaseTimestamp, 0); info.ReleaseTimestamp > 0 && release.After(time.Now()) {
 			return &RescheduleError{
-				RunAfter: time.Unix(info.ReleaseTimestamp, 0),
-				Reason:   "video is upcoming, scheduled for " + time.Unix(info.ReleaseTimestamp, 0).Format(time.RFC3339),
+				RunAfter: release,
+				Reason:   "video is upcoming, scheduled for " + release.Format(time.RFC3339),
 			}
 		}
 		return &RescheduleError{
