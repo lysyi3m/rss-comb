@@ -106,12 +106,12 @@ func ExtractContentHandler(
 			return handleExtractionFailure(itemRepo, *job.ItemID, job, fmt.Errorf("item has no link"))
 		}
 
-		data, err := fetchURL(ctx, item.Link, settings.Timeout, httpClient, userAgent, true)
+		data, pageURL, err := fetchURL(ctx, item.Link, settings.Timeout, httpClient, userAgent, true)
 		if err != nil {
 			return handleExtractionFailure(itemRepo, *job.ItemID, job, err)
 		}
 
-		extractedContent, err := feed.Extract(data)
+		extractedContent, err := feed.Extract(data, pageURL)
 		if err != nil {
 			return handleExtractionFailure(itemRepo, *job.ItemID, job, err)
 		}
@@ -203,7 +203,7 @@ func DownloadMediaHandler(
 		}
 
 		var duration int
-		videoInfo, err := media.GetVideoInfo(ctx, ytdlpCmd, item.Link)
+		videoInfo, err := media.GetVideoInfo(ctx, ytdlpCmd, ytdlpArgs, item.Link)
 		if err != nil {
 			// Metadata failure is not fatal — proceed and rely on post-download
 			// ffprobe for the authoritative duration check.

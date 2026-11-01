@@ -2,6 +2,7 @@ package feed
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -13,9 +14,15 @@ var (
 	svgRegex = regexp.MustCompile(`<svg[^>]*>[\s\S]*?</svg>`)
 )
 
-func Extract(data []byte) (string, error) {
+// Extract returns the article in data. pageURL resolves its relative links and images.
+func Extract(data []byte, pageURL string) (string, error) {
 	if len(data) == 0 {
 		return "", fmt.Errorf("HTML data is empty")
+	}
+
+	base, err := url.Parse(pageURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid page URL: %w", err)
 	}
 
 	// Use custom parser with stricter settings to reduce noise
@@ -24,7 +31,7 @@ func Extract(data []byte) (string, error) {
 	parser.KeepClasses = false     // Strip CSS classes to reduce noise
 	parser.NTopCandidates = 3      // Reduced from 5 for stricter content selection
 
-	article, err := parser.Parse(strings.NewReader(string(data)), nil)
+	article, err := parser.Parse(strings.NewReader(string(data)), base)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract content: %w", err)
 	}
