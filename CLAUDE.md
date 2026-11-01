@@ -330,7 +330,7 @@ Only the non-obvious parts are worth stating:
 # Stop ALL RSS Comb processes (including stray development builds)
 make dev-stop
 
-# Complete development cleanup: processes + dev database + build caches
+# Complete development cleanup: processes + dev database + built binary
 make dev-clean
 ```
 

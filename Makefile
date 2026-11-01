@@ -35,6 +35,4 @@ dev-clean: dev-stop
 	@echo "Performing complete development cleanup..."
 	rm -f data/rss-comb-dev.db data/rss-comb-dev.db-wal data/rss-comb-dev.db-shm
 	rm -rf bin/
-	go clean -cache
-	go clean -modcache || true
 	@echo "Complete development cleanup finished"

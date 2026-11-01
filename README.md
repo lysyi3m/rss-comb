@@ -188,7 +188,7 @@ make dev-test       # Run all tests
 
 # Cleanup
 make dev-stop       # Stop development processes
-make dev-clean      # Complete cleanup: processes + dev database + caches
+make dev-clean      # Complete cleanup: processes + dev database + built binary
 ```
 
 ### Testing
