@@ -41,6 +41,30 @@ jobs:
       - name: Build
         run: go build -o bin/rss-comb app/main.go
 
+      - name: Check for known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  # Catches Dockerfile and Alpine package problems before release. One platform is
+  # enough here; the release build covers arm64.
+  docker-build:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
   build-and-push:
     needs: test
     if: startsWith(github.ref, 'refs/tags/')

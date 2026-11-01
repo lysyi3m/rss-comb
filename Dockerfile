@@ -108,8 +108,6 @@ ENV GIN_MODE=release \
     XDG_CACHE_HOME=/tmp/.cache \
     TZ=UTC
 
-# Accept PORT as build argument with default
-ARG PORT=8080
 EXPOSE $PORT
 
 # Optimized health check using busybox wget (available by default in Alpine)

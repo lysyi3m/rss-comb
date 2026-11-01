@@ -66,7 +66,7 @@ If these assumptions change significantly, revisit architectural decisions.
 ## Development Environment
 
 ### Prerequisites
-- Go 1.26+
+- Go 1.26+ (`.mise.toml`, CI and the Docker image use 1.27)
 - Docker & Docker Compose (for yt-dlp only)
 
 ### Common Commands
@@ -92,8 +92,7 @@ make dev-test
 # Build production image manually (if needed)
 docker build -f Dockerfile -t rss-comb:latest .
 
-# Build with custom PORT
-docker build -f Dockerfile -t rss-comb:latest . --build-arg PORT=9000
+# The port is set at runtime: docker run -e PORT=9000 ...
 
 # Note: Production images are automatically built via GitHub Actions on git tags
 ```
@@ -156,7 +155,7 @@ rss-comb/
    - **Podcast** (`podcast.go`): RSS/Atom with iTunes metadata preservation and enclosure passthrough
    - **YouTube** (`youtube.go`): YouTube Atom feed parsing with `media:group` extraction, RSS 2.0 generation with downloaded audio enclosures
    - **Shared helpers** (`helpers.go`): Common parsing/building utilities used by all types
-   - **Extraction** (`extraction.go`): `feed.Extract()` - Full-text content extraction using go-shiori/go-readability
+   - **Extraction** (`extraction.go`): `feed.Extract()` - Full-text content extraction using readeck/go-readability
    - **Filtering** (`filtering.go`): `feed.Filter()` - Content filtering with substring and regex pattern support
    - **Refiltering** (`refilter.go`): `feed.Refilter()` - Re-applies filters on config reload
 
@@ -246,7 +245,7 @@ Only the non-obvious parts are worth stating:
 - `config_loader.go`: Pure functions for loading and validating YAML configuration files
 - `config_sync.go`: `ConfigSync()` — syncs YAML config to database via `LoadConfig` + `UpsertFeedConfig`
 - `refilter.go`: `Refilter()` — re-applies filters to all items for a feed (used by reload endpoint)
-- `extraction.go`: `feed.Extract()` — HTML content extraction using go-shiori/go-readability library
+- `extraction.go`: `feed.Extract()` — HTML content extraction using readeck/go-readability library
 - `filtering.go`: `feed.Filter()` and `feed.ClearRegexCache()` — content filtering with substring and regex patterns; compiled regex cached in sync.Map
 - `types.go`: Feed data structures, configuration types, Metadata type alias
 - **Performance**: Regex patterns compiled once and cached
@@ -261,7 +260,7 @@ Only the non-obvious parts are worth stating:
 - `types.go`: Database model structs (Feed, Item) with `DisplayTitle()`, `GetSettings()`, `GetFilters()` methods; JSON array helpers (`JSONStringSlice`, `encodeStringSlice`) for SQLite TEXT columns
 - `job_repository.go`: Job queue operations (create, claim, complete, fail, reset stale)
 - `migrations.go`: Embedded migration management
-- `migrations/`: Consolidated SQLite schema in `001_initial_schema.sql` (feeds, feed_items, jobs tables with indexes)
+- `migrations/`: Consolidated SQLite schema in `001_initial_schema.up.sql` (feeds, feed_items, jobs tables with indexes)
 
 ### Job Queue System (`app/jobs/`)
 - `worker.go`: Worker pool with configurable concurrency, polls for pending jobs
@@ -353,7 +352,7 @@ settings:
   refresh_interval: 1800  # 30 minutes (recommended)
   max_items: 50           # Limits RSS output items (all items stored in database)
   timeout: 30             # seconds
-  extract_content: true   # Enable automatic content extraction (basic type only)
+  # extract_content: true  # Enable automatic content extraction (basic type only)
   min_duration: 300       # Skip videos shorter than 5 minutes (youtube type only, in seconds)
 
 filters:
@@ -438,24 +437,21 @@ The system has evolved from using explicit `id` fields in YAML files to automati
 RSS Comb includes automatic content extraction for feeds that don't provide full article content in their RSS feeds. This feature uses intelligent HTML parsing to extract clean, readable content from article web pages.
 
 **Key Features:**
-- **Inline Processing**: Runs during feed processing for new items
-- **Intelligent Extraction**: Uses Mozilla's Readability algorithm (go-shiori/go-readability library)
-- **Error Resilient**: Extraction failures don't affect item storage
+- **Queued Processing**: Runs as `extract_content` jobs after feed processing
+- **Intelligent Extraction**: Uses a Readability implementation (readeck/go-readability library)
+- **Error Resilient**: An item stays hidden while extraction is pending, and appears with its source content if extraction fails
 - **Performance Optimized**: Only processes visible (non-filtered) items
 - **Configurable**: Per-feed enable/disable with timeout controls
 
 **Configuration Options:**
 - `extract_content: true/false` - Enable/disable content extraction
-- `max_items: 50` - Limits items stored per feed
+- `max_items: 50` - Limits items served and extracted per fetch; all items stay in the database
 
 **How It Works:**
 1. Feed processing fetches and parses RSS/Atom feed
-2. For each new, non-filtered item:
-   - If `extract_content: true`, fetch article URL
-   - Extract clean content using Readability algorithm
-   - Store extracted content in item.Content field
-3. Failed extractions are logged but don't block item storage
-4. Original RSS content used as fallback if extraction fails
+2. Each new, non-filtered item within `max_items` is stored as `pending` with an `extract_content` job
+3. The job fetches the article URL, extracts clean content, and stores it in item.Content
+4. A failed job retries up to 3 times; then the item is marked `failed` and shows its source content
 
 ### Environment Variables
 All configuration options support both environment variables and command-line flags:
@@ -535,9 +531,8 @@ coverage or for a single package. Use `make dev-test` for the full run.
 6. Run the container with your feed configurations (SQLite database is embedded)
 
 ### Monitoring
-- Health endpoint: `/health`
-- Database connection monitoring
-- Feed processing metrics in logs
+- Health endpoint: `/health` (liveness only; see API Endpoints)
+- Feed processing details in logs
 - Docker healthcheck can be disabled in docker-compose.yml with `healthcheck: { disable: true }`
 
 ## Development Guidelines
@@ -609,8 +604,8 @@ coverage or for a single package. Use `make dev-test` for the full run.
 - Returns with headers: Content-Type, X-Feed-Items, X-Feed-Name, X-Last-Updated
 
 #### `GET /health`
-- Returns application health status and statistics
-- Includes feed counts and processing metrics
+- Liveness check: returns 200 with a timestamp and, if the query succeeds, the feed count
+- A database failure only omits the feed count; the status stays 200
 
 #### `GET /media/<filename>`
 - Serves downloaded media files (MP3 audio from YouTube videos)

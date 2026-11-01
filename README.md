@@ -12,7 +12,7 @@ RSS Comb is a high-performance Go server application that acts as a proxy betwee
 - **Feed Normalization**: Converts RSS 1.0, RSS 2.0, and Atom feeds to standardized RSS 2.0 format
 - **iTunes Podcast Support**: Full support for iTunes podcast RSS extensions (duration, episode, season, artwork, etc.) with conditional namespace generation
 - **Automatic Deduplication**: Automatically eliminates duplicate items based on content hashing
-- **Content Extraction**: Intelligent full-text content extraction using [go-shiori/go-readability](https://github.com/go-shiori/go-readability)
+- **Content Extraction**: Intelligent full-text content extraction using [readeck/go-readability](https://codeberg.org/readeck/go-readability)
 - **Flexible Filtering**: Powerful content filtering with both substring matching and regular expressions (regex)
 - **Background Processing**: Automated feed updates with configurable refresh intervals
 - **Type-Specific Processing**: FeedType interface with dedicated parsers/builders for basic RSS, podcasts, and YouTube feeds
@@ -153,7 +153,7 @@ filters:
 ### Public Endpoints
 
 - **`GET /feeds/<name>`** - Get RSS 2.0 feed output for the specified feed
-- **`GET /health`** - Application health check and statistics
+- **`GET /health`** - Liveness check with the feed count
 - **`GET /media/<filename>`** - Serve downloaded media files (YouTube audio)
 
 ### Authenticated Endpoints
@@ -169,7 +169,7 @@ Require `X-API-Key` header or `Authorization: Bearer <token>`:
 # Get RSS feed output
 curl http://localhost:8080/feeds/tech-news
 
-# Get health check and statistics
+# Check that the service is alive
 curl http://localhost:8080/health
 
 # Reload configuration and re-apply filters
