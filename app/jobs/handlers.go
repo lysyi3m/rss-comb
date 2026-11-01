@@ -131,6 +131,10 @@ func ExtractContentHandler(
 			return fmt.Errorf("failed to get feed settings: %w", err)
 		}
 
+		if !dbFeed.IsEnabled {
+			return disabledFeedDeferral()
+		}
+
 		if item.Link == "" {
 			return fmt.Errorf("content extraction failed: item has no link")
 		}
@@ -206,6 +210,10 @@ func DownloadMediaHandler(
 			return fmt.Errorf("failed to get feed settings: %w", err)
 		}
 		minDuration := settings.MinDuration
+
+		if !dbFeed.IsEnabled {
+			return disabledFeedDeferral()
+		}
 
 		// Layer 1: DB check — does any item already have this file ready?
 		existing, err := itemRepo.GetReadyMediaByPath(mediaPath)
@@ -308,6 +316,16 @@ func DownloadMediaHandler(
 
 		slog.Info("Media downloaded successfully", "item_id", *job.ItemID, "media_path", path, "size", size, "duration", duration)
 		return nil
+	}
+}
+
+// disabledFeedDeferral parks a job of a disabled feed without doing its work. The job
+// stays queued rather than being deleted, so its hidden item finishes if the feed is
+// enabled again.
+func disabledFeedDeferral() *RescheduleError {
+	return &RescheduleError{
+		RunAfter: time.Now().Add(1 * time.Hour),
+		Reason:   "feed is disabled",
 	}
 }
 
