@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// DownloadTimeout bounds a single yt-dlp download.
+const DownloadTimeout = 30 * time.Minute
+
 func Update(ytdlpCmd string) error {
 	parts := strings.Fields(ytdlpCmd)
 	if len(parts) == 0 {
@@ -118,7 +121,7 @@ func GetVideoInfo(ctx context.Context, ytdlpCmd, url string) (VideoInfo, error) 
 }
 
 func Download(ctx context.Context, ytdlpCmd, ytdlpArgs, mediaDir, url, fileID string) (string, int64, error) {
-	downloadCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	downloadCtx, cancel := context.WithTimeout(ctx, DownloadTimeout)
 	defer cancel()
 
 	parts := strings.Fields(ytdlpCmd)

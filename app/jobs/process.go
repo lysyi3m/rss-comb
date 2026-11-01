@@ -66,18 +66,6 @@ func processFeed(
 		return nil
 	}
 
-	// Check if newest item already exists — if so, no new items to process
-	isDuplicate, _, err := itemRepo.CheckDuplicate(feedName, items[0].ContentHash)
-	if err != nil {
-		return fmt.Errorf("failed to check newest item: %w", err)
-	}
-	if isDuplicate {
-		slog.Info("Feed unchanged, skipping item processing",
-			"feed", feedName,
-			"duration", time.Since(start))
-		return nil
-	}
-
 	duplicateCount := 0
 	filteredCount := 0
 	newCount := 0
@@ -127,7 +115,20 @@ func processFeed(
 			return fmt.Errorf("failed to upsert item: %w", err)
 		}
 
-		if processedItem.ContentExtractionStatus != nil && *processedItem.ContentExtractionStatus == "pending" {
+		// The stored status decides: an edited item may already be processed.
+		stored, err := itemRepo.GetItemByID(itemID)
+		if err != nil {
+			return fmt.Errorf("failed to read upserted item: %w", err)
+		}
+		if stored == nil {
+			return fmt.Errorf("upserted item not found: %s", itemID)
+		}
+
+		if processedItem.IsFiltered {
+			continue
+		}
+
+		if stored.ContentExtractionStatus != nil && *stored.ContentExtractionStatus == "pending" {
 			if _, err := jobRepo.CreateJob("extract_content", dbFeed.ID, &itemID, 3); err != nil {
 				slog.Error("Failed to create extract_content job", "feed", feedName, "item_id", itemID, "error", err)
 			} else {
@@ -135,7 +136,7 @@ func processFeed(
 			}
 		}
 
-		if processedItem.MediaStatus != nil && *processedItem.MediaStatus == "pending" {
+		if stored.MediaStatus != nil && *stored.MediaStatus == "pending" {
 			if _, err := jobRepo.CreateJob("download_media", dbFeed.ID, &itemID, 30); err != nil {
 				slog.Error("Failed to create download_media job", "feed", feedName, "item_id", itemID, "error", err)
 			} else {

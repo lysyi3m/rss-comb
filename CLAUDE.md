@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RSS Comb is a Go server application that acts as a proxy between existing RSS/Atom feeds and RSS reader applications. It provides feed normalization, automatic deduplication, content filtering, and full iTunes podcast support through YAML-based configuration files.
 
-The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Key architectural features include a FeedType interface with type-specific parsers and builders (basic, podcast, youtube), a SQLite-backed job queue for background processing, and intelligent newest-item duplicate detection to skip unchanged feeds.
+The application features a clean, modular architecture with clear separation of concerns, dependency injection, and comprehensive testing. Key architectural features include a FeedType interface with type-specific parsers and builders (basic, podcast, youtube), a SQLite-backed job queue for background processing, and per-item duplicate detection.
 
 ## Project Philosophy & Scope
 
@@ -247,7 +247,7 @@ Only the non-obvious parts are worth stating:
 - `extraction.go`: `feed.Extract()` — HTML content extraction using go-shiori/go-readability library
 - `filtering.go`: `feed.Filter()` and `feed.ClearRegexCache()` — content filtering with substring and regex patterns; compiled regex cached in sync.Map
 - `types.go`: Feed data structures, configuration types, Metadata type alias
-- **Performance**: Newest-item duplicate check skips processing when no new items; regex patterns compiled once and cached
+- **Performance**: Regex patterns compiled once and cached
 - **Architecture**: Database is single source of truth at runtime, YAML files loaded only at startup/reload
 - **Design**: `FeedType` interface with type-specific implementations; each type owns its Parse and Build logic
 - **iTunes Support**: Podcast and YouTube types extract and generate iTunes RSS extensions; basic type ignores iTunes data entirely
@@ -556,7 +556,7 @@ coverage or for a single package. Use `make dev-test` for the full run.
 - Monitor query performance with `EXPLAIN QUERY PLAN`
 
 ### Performance Considerations
-- **Newest-Item Duplicate Check**: After parsing, checks if the newest item already exists in the database; if so, skips all item processing (avoids false positives from metadata-only changes in feed XML)
+- **Per-Item Duplicate Check**: Every parsed item is checked by content hash. Feed order is not trusted, so one known item never skips the rest of the feed
 - Connection pooling for HTTP clients
 - Worker pool for concurrent job processing
 - Database queries optimized with proper indexing on content_hash (item level) and feed_id
