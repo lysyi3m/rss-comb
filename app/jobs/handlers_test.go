@@ -393,6 +393,56 @@ func TestDownloadMediaReusesReadyRowFromAnotherFeed(t *testing.T) {
 	}
 }
 
+func (f *feedFixture) disableFeed(feedType string, settings types.Settings) {
+	f.t.Helper()
+	settings.RefreshInterval, settings.MaxItems, settings.Timeout = 1800, 10, 5
+	if err := f.feedRepo.UpsertFeedConfig("f", f.srv.URL, "", feedType, false, settings, []types.Filter{}, "disabled"); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func TestDownloadMediaDefersWhileFeedIsDisabled(t *testing.T) {
+	f := newFeedFixture(t, "youtube", types.Settings{})
+	job := f.claimVideo()
+	f.disableFeed("youtube", types.Settings{})
+	cmd, downloaded := fakeYTDLP(t, `{"id":"abc","live_status":"not_live"}`, `exit 1`)
+
+	err := DownloadMediaHandler(f.feedRepo, f.itemRepo, cmd, "", t.TempDir())(context.Background(), job)
+
+	var reschedule *RescheduleError
+	if !errors.As(err, &reschedule) {
+		t.Fatalf("err = %v, want RescheduleError", err)
+	}
+	if downloaded() {
+		t.Error("downloaded for a disabled feed")
+	}
+	if got := statusOf(f.item(videoGUID).MediaStatus); got != "pending" {
+		t.Errorf("media_status = %q, want pending", got)
+	}
+}
+
+func TestExtractContentDefersWhileFeedIsDisabled(t *testing.T) {
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+	}))
+	defer srv.Close()
+
+	f := newFeedFixture(t, "", types.Settings{ExtractContent: true})
+	job := f.claimArticle(srv.URL)
+	f.disableFeed("", types.Settings{ExtractContent: true})
+
+	err := ExtractContentHandler(f.feedRepo, f.itemRepo, srv.Client(), "test")(context.Background(), job)
+
+	var reschedule *RescheduleError
+	if !errors.As(err, &reschedule) {
+		t.Fatalf("err = %v, want RescheduleError", err)
+	}
+	if requests != 0 {
+		t.Errorf("fetched the article %d times for a disabled feed", requests)
+	}
+}
+
 func TestVideoRescheduleDelaysOverdueStream(t *testing.T) {
 	got := videoReschedule(media.VideoInfo{LiveStatus: "is_upcoming", ReleaseTimestamp: time.Now().Add(-time.Hour).Unix()})
 	if got == nil || !got.RunAfter.After(time.Now()) {

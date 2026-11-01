@@ -63,6 +63,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	removed, err := feed.DisableRemovedFeeds(cfg.FeedsDir, feedRepo)
+	if err != nil {
+		slog.Error("Failed to disable removed feeds", "error", err)
+	} else if len(removed) > 0 {
+		slog.Warn("Disabled feeds whose config file is gone", "feeds", removed)
+	}
+
 	if err := os.MkdirAll(cfg.MediaDir, 0755); err != nil {
 		slog.Error("Failed to create media directory", "path", cfg.MediaDir, "error", err)
 		os.Exit(1)

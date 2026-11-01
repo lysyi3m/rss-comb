@@ -71,6 +71,38 @@ func (r *FeedRepository) UpdateFeedMetadata(feedName string, metadata *types.Met
 	return nil
 }
 
+// DisableFeedsExcept disables every enabled feed not named, and returns the ones it
+// disabled. It clears config_hash, so restoring an unchanged file enables the feed again.
+func (r *FeedRepository) DisableFeedsExcept(names []string) ([]string, error) {
+	namesJSON, err := json.Marshal(names)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal feed names: %w", err)
+	}
+
+	rows, err := r.db.Query(`
+		UPDATE feeds SET is_enabled = 0, config_hash = NULL, updated_at = datetime('now')
+		WHERE is_enabled = 1 AND name NOT IN (SELECT value FROM json_each(?1))
+		RETURNING name
+	`, string(namesJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to disable removed feeds: %w", err)
+	}
+	defer rows.Close()
+
+	var disabled []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("failed to scan disabled feed: %w", err)
+		}
+		disabled = append(disabled, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating disabled feeds: %w", err)
+	}
+	return disabled, nil
+}
+
 // UpdateNextFetch applies only if the config is still configHash, so a fetch that
 // fails after a reload does not delay the feed by the old config's interval.
 func (r *FeedRepository) UpdateNextFetch(feedName string, configHash *string, nextFetchAt time.Time) error {
@@ -120,7 +152,7 @@ func (r *FeedRepository) UpsertFeedConfig(feedName string, feedURL string, title
 			filters = EXCLUDED.filters,
 			config_hash = EXCLUDED.config_hash,
 			next_fetch_at = CASE
-				WHEN feeds.feed_url != EXCLUDED.feed_url OR feeds.config_hash != EXCLUDED.config_hash
+				WHEN feeds.feed_url != EXCLUDED.feed_url OR feeds.config_hash IS NOT EXCLUDED.config_hash
 				THEN NULL
 				ELSE feeds.next_fetch_at
 			END,

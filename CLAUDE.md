@@ -409,6 +409,7 @@ See `docs/REGEX_PATTERNS.md` for comprehensive examples and pattern reference.
 **Important Notes:**
 - The feed name is automatically derived from the filename (without `.yml` extension)
 - Feed names must be unique
+- Removing or renaming a file disables the old feed at the next startup, unless `feeds/` holds no `.yml` file at all. Its row and items stay, and `/feeds/<old-name>` keeps serving what remains. Restoring the file enables it again. Queued jobs of a disabled feed wait, rechecking hourly
 - Filenames should be URL-safe (alphanumeric, hyphens, underscores) since they become the feed name
 - Feed URLs can be updated in configuration files at any time - the system automatically detects and applies URL changes
 - Feeds with query parameters are fully supported since routing is based on feed names derived from filenames
