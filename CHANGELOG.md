@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.1] - 2026-11-01
+
+### Fixed
+- Podcast durations in `MM:SS` and `HH:MM:SS` form are no longer dropped.
+- YouTube enclosures are always absolute. Without `BASE_URL` they point at `localhost`, and startup warns.
+- `GET /health` returns 503 when the database query fails, which also marks the Docker healthcheck unhealthy. It used to return 200.
+- SQLite `foreign_keys` and `busy_timeout` now survive a reconnect.
+
+### Changed
+- `make dev-stop` only stops this project's binary, and `make dev-run` runs the built binary instead of `go run`.
+- `make dev-clean` no longer wipes the global Go build and module caches.
+
 ## [3.2.0] - 2026-11-01
 
 ### Security
